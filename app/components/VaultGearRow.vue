@@ -131,8 +131,8 @@ const meta = computed(() => {
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
            to tell them apart without opening the dialog -->
       <p class="gear__name t-clip" :title="displayName">
-        <!-- the brand once, in its own foreground: where the name already opens with it ("Apple
-             Watch"), those words of the name are the brand -->
+        <!-- the brand once, in its own foreground: where the name already opens with it
+             ("Apple Watch"), those words of the name are the brand -->
         <span v-if="brandOf(entry.brand, entry.name)" class="gear__brand">{{ brandOf(entry.brand, entry.name) }}</span>
         <span>{{ nameAfterBrand(entry.brand, entry.name) }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>

@@ -605,7 +605,8 @@ function renderPins() {
  * outside the itinerary wears this. Grey rather than a category colour, for the reason the
  * elevation chart gives its unassigned tail the same token: it is precisely the part of
  * the route that has no day to belong to yet. It has its own map token because the
- * basemap stays light in both themes and a dark-theme --foreground-tertiary would fade into it.
+ * basemap stays light in both themes and a dark-theme --foreground-tertiary would fade
+ * into it.
  */
 const GROUND = "var(--map-route-ground)";
 
@@ -1220,10 +1221,10 @@ onBeforeUnmount(() => {
   // the honest thing is to treat it as a PICTURE of ground, the way a photograph isn't
   // dark-moded either. (Never `filter: invert()`; terrain goes radioactive.)
   //
-  // Which inverts the token rule for everything drawn on top: `--foreground-primary` is near-white in
-  // dark mode and would vanish here, and the category hues lighten enough to wash out.
-  // `color-scheme: light` makes every `light-dark()` below this node resolve to its light
-  // branch — so the route keeps the exact colours the elevation chart uses, one
+  // Which inverts the token rule for everything drawn on top: `--foreground-primary` is
+  // near-white in dark mode and would vanish here, and the category hues lighten enough
+  // to wash out. `color-scheme: light` makes every `light-dark()` below this node resolve
+  // to its light branch — so the route keeps the exact colours the elevation chart uses, one
   // declaration, no parallel `--map-*` token set to keep in sync. This is the single
   // thing most likely to look right in development and break for every dark-mode user.
   color-scheme: light;
@@ -1302,8 +1303,8 @@ onBeforeUnmount(() => {
 .routemap__wpdel {
   align-self: flex-start;
   font-size: var(--text-chrome);
-  // the one destructive control on the map, so it says so — every other mark here is foreground
-  // or a category hue, and this is neither
+  // the one destructive control on the map, so it says so — every other mark here is
+  // foreground or a category hue, and this is neither
   color: var(--danger);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -1379,8 +1380,8 @@ onBeforeUnmount(() => {
   color: var(--foreground-tertiary);
 }
 /* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. Its
-   foregrounds are .foreground-quiet's (controls.scss), so it lifts under keyboard focus as well as
-   under the pointer. */
+   foregrounds are .foreground-quiet's (controls.scss), so it lifts under keyboard focus
+   as well as under the pointer. */
 
 // ARMED: one stretch of the route is the only thing worth aiming at, so the cursor says
 // so and everything else on the line stands down (see DIM). A deliberate mode rather than
@@ -1444,7 +1445,7 @@ onBeforeUnmount(() => {
   content: "";
   position: absolute;
   inset: 14%;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--map-pin-seat);
 }
 // the drop is rotated, so the mark inside it has to be turned back or every glyph sits at
@@ -1493,8 +1494,8 @@ onBeforeUnmount(() => {
    A white drop with a coloured glyph says "one of the things you will pass" — water, a
    landmark, a kind of place. These are not that. A camp is where the plan puts you and the
    ends are where the route begins and stops, and both are statements the ROUTE makes rather
-   than categories of thing. Solid foreground says so at a glance and needs no further hue, which
-   matters on a sheet already carrying magenta paths and green woodland.
+   than categories of thing. Solid foreground says so at a glance and needs no further
+   hue, which matters on a sheet already carrying magenta paths and green woodland.
    The seat inverts with it — a step OFF the drop rather than a fixed grey, so the head
    still reads as round instead of as a black blob with a point on it.
    A DAY BOUNDARY wears exactly this (renderBounds gives it these two classes plus
@@ -1511,17 +1512,17 @@ onBeforeUnmount(() => {
 }
 
 /* THE CHART'S CURSOR, ON THE GROUND.
-   The same mark the profile draws at the same moment — foreground with a background ring — because it
-   IS the same mark: one reading shown twice, once on the shape and once on the place. Made
-   of the light-theme values rather than tokens, like everything else drawn over this
-   basemap, which stays light in both themes.
+   The same mark the profile draws at the same moment — foreground with a background ring
+   — because it IS the same mark: one reading shown twice, once on the shape and once on
+   the place. Made of the light-theme values rather than tokens, like everything else
+   drawn over this basemap, which stays light in both themes.
    No transition. It follows a pointer, and easing a dot toward where the finger already is
    reads as lag rather than as polish. */
 .routemap__trace {
   /* Leaflet's divIcon ships a white ground and a grey border — cleared here as it is for
      the pins, or the dot renders inside a little card. */
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--map-pin-foreground);
   /* the ring separates it from the day colour it sits on; the shadow lifts it off the
      contours, the same two jobs the pins' own casing does */

@@ -116,7 +116,8 @@ async function send() {
   display: grid;
   gap: var(--space-3);
 }
-/* the title's primary foreground is .panel__title (atoms/controls.scss), as on the other panels */
+/* the title's primary foreground is .panel__title (atoms/controls.scss), as on the other
+   panels */
 /* .field is borderless in the row grid it was written for; in a dialog the shared
    .well tint (controls.scss) gives it ground to read as something you type into —
    a fill, not a hairline box, same as the import dialog's paste box beside it. */

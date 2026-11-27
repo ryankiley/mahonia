@@ -348,7 +348,8 @@ const rowPerson = computed(() =>
 }
 /* the sub-line — a full-width caption line under the row holding the common name and,
    trailing it, the owner's note. Two voices within: the common name is an upright quiet
-   LABEL (--foreground-secondary); the note keeps the quietest italic aside voice (--foreground-tertiary). */
+   LABEL (--foreground-secondary); the note keeps the quietest italic aside voice
+   (--foreground-tertiary). */
 .item__rosub {
   grid-column: 1 / -1;
   /* no tuck here — the row's own gap is what sets this caption's distance from the name

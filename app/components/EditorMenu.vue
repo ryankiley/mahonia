@@ -223,10 +223,10 @@ function act(event: MenuEvent | FootEvent) {
    wear too. The rule sits on the <li> rather than on the row, so it spans the same
    width the travelling plate does (both measure from the popover's padding box)
    instead of the row's own inset. */
-/* THE ONE COLOURED ROW IN THE CHROME. It was --foreground-tertiary with the trash glyph doing the
-   distinguishing, on the monochrome rule in tokens.scss; it now spends --danger, and
-   the token's comment has been widened to say so rather than left asserting a rule
-   this breaks.
+/* THE ONE COLOURED ROW IN THE CHROME. It was --foreground-tertiary with the trash glyph
+   doing the distinguishing, on the monochrome rule in tokens.scss; it now spends
+   --danger, and the token's comment has been widened to say so rather than left asserting
+   a rule this breaks.
    The colour is here to be read BEFORE you touch it — a row that only turns red once
    you're on it has already let you arrive. That is the design system's argument for
    .ds-menu__item--danger, and this is its port.

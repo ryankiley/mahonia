@@ -579,9 +579,10 @@ onClickOutside(trailEl, closeTrail);
           >
             <!-- sm, tracking the card's own 14px type; md is for marks beside 16px text (the
                  link row) and reads oversized in here. The line drops a step below sm's
-                 1.25px as well: among these words a fuller outline carries more foreground than
-                 they do and stops reading as their equal. 1px is what the old tuning drew
-                 (1.75 on the 24 grid at 14px); lighter still went spindly. -->
+                 1.25px as well: among these words a fuller outline carries more
+                 foreground than they do and stops reading as their equal. 1px is what the
+                 old tuning drew (1.75 on the 24 grid at 14px); lighter still went
+                 spindly. -->
             <SvgIcon :icon="IconSquareBehindSquare1" size="sm" :stroke-width="1" aria-hidden="true" />
           </button>
           <!-- no Remove here: removal lives one level in, behind Edit (the fields row
@@ -896,7 +897,7 @@ onClickOutside(trailEl, closeTrail);
      threshold that triggers iOS Safari's focus-zoom, so .field's literal-1rem
      workaround (controls.scss) doesn't apply here. */
   font-size: var(--text-page-title);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: var(--leading-control);
   letter-spacing: var(--track-tight);
   /* textarea defaults that have to go for it to read as a title rather than a control:
@@ -920,9 +921,10 @@ onClickOutside(trailEl, closeTrail);
     max-width: 100%;
   }
 }
-/* much lighter than .field's --foreground-tertiary default: at 32px bold, --foreground-tertiary reads as a real
-   title someone typed rather than as an empty field. See --foreground-quaternary in tokens.scss
-   for why going under the AA floor is sound here specifically. */
+/* much lighter than .field's --foreground-tertiary default: at 32px bold,
+   --foreground-tertiary reads as a real title someone typed rather than as an empty
+   field. See --foreground-quaternary in tokens.scss for why going under the AA floor is
+   sound here specifically. */
 .head__title::placeholder {
   color: var(--foreground-quaternary);
 }
@@ -1046,8 +1048,8 @@ onClickOutside(trailEl, closeTrail);
   opacity: 1;
   visibility: visible;
 }
-/* muted, not primary foreground — the URL is what you're confirming, not what you act on, so the
-   ACTION beside it takes the emphasis. (Darkening it was a guess; it wants to be the
+/* muted, not primary foreground — the URL is what you're confirming, not what you act on,
+   so the ACTION beside it takes the emphasis. (Darkening it was a guess; it wants to be the
    other way round.) */
 /* block, not the browser's default inline: an inline <img> sits on the text baseline and
    reserves descender space under it, which was making the card 34px rather than the 32
@@ -1074,8 +1076,8 @@ onClickOutside(trailEl, closeTrail);
   max-width: 32ch;
   /* the one thing here that navigates, so it deepens under the pointer and on focus —
      quiet at rest, because the card is a place you land on the way to Edit as often as
-     to the trail itself. The foregrounds are .foreground-quiet's (atoms/controls.scss), worn in the
-     markup. */
+     to the trail itself. The foregrounds are .foreground-quiet's (atoms/controls.scss),
+     worn in the markup. */
 }
 /* the actions are the emphasis in this card: primary foreground, at .btn--quiet's regular
    weight. The explicit font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
@@ -1094,11 +1096,12 @@ onClickOutside(trailEl, closeTrail);
    the affordance is a line of text in the page's own flow, not a control on a surface, so
    colour alone carries the hover — and with no box, its glyph sits flush at the same x as
    the resolved link's mark with nothing to compensate for. */
-/* the foregrounds are .btn--quiet's own (controls.scss) — rest at --foreground-tertiary, lift to --foreground-primary under
-   the pointer or keyboard focus; the icon inherits currentColor, so it lifts with the
-   text. Restating the resting colour here used to TIE the atom's hover on specificity
-   (scoping adds a [data-v-] attribute) and win on order, so the button never answered
-   the pointer; the scoped block now says only what is this button's. */
+/* the foregrounds are .btn--quiet's own (controls.scss) — rest at --foreground-tertiary,
+   lift to --foreground-primary under the pointer or keyboard focus; the icon inherits
+   currentColor, so it lifts with the text. Restating the resting colour here used to TIE
+   the atom's hover on specificity (scoping adds a [data-v-] attribute) and win on order,
+   so the button never answered the pointer; the scoped block now says only what is this
+   button's. */
 .head__add {
   gap: var(--space-1);
   /* BOTH properties in one declaration, including the opacity the media query below
@@ -1126,8 +1129,8 @@ onClickOutside(trailEl, closeTrail);
    That was defensible when there was ONE of them and the row was
    otherwise empty; with trail and dates side by side, the row is a real part of the
    header, and a header that appears only when pointed at is a header you don't know
-   you have. They rest at --foreground-tertiary and darken on hover instead, so the block is still
-   quiet without being blank. (This also retires the touch/keyboard carve-outs the
+   you have. They rest at --foreground-tertiary and darken on hover instead, so the block
+   is still quiet without being blank. (This also retires the touch/keyboard carve-outs the
    reveal needed: nothing to reveal, nothing to except.) */
 /* The edit panel — a floating form anchored under the link, so the link stays visible
    above it while you change where it points. */
@@ -1179,7 +1182,7 @@ onClickOutside(trailEl, closeTrail);
   margin-block-end: var(--space-2);
   color: var(--foreground-tertiary);
   font-size: var(--text-micro);
-  font-weight: 600; /* the type system's one strong weight — no 500 (typography.scss) */
+  font-weight: var(--font-weight-semibold); /* the type system's one strong weight — no 500 (typography.scss) */
   line-height: var(--leading-control); /* 14.4px — a tight box, so the label reads as attached to its field */
 }
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel
@@ -1187,10 +1190,11 @@ onClickOutside(trailEl, closeTrail);
    boundary. Each label sits above its own field, so a placeholder never has to stand in
    for one.
    The fill is the .well atom (atoms/controls.scss), worn in the markup: its ground (an
-   amount of foreground, so it shows on this card in both themes, where the --background-secondary this used
-   sat at 1.10:1 on it), its foreground, its placeholder, and its focus — the ground deepens a
-   step and nothing is drawn round it, the one focus every contained field on a floating
-   surface takes. Only the geometry below is this panel's. */
+   amount of foreground, so it shows on this card in both themes, where the
+   --background-secondary this used sat at 1.10:1 on it), its foreground, its placeholder,
+   and its focus — the ground deepens a step and nothing is drawn round it, the one focus
+   every contained field on a floating surface takes. Only the geometry below is this
+   panel's. */
 .head__panelinput {
   width: 100%;
   /* 2em — a field twice the height of its own type, which is the proportion a compact
@@ -1285,8 +1289,8 @@ onClickOutside(trailEl, closeTrail);
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
 }
-/* the yes stands at primary foreground, so it has nowhere to lift to; the no rests a step back and
-   lifts to meet it — .foreground-quiet (atoms/controls.scss), in the markup */
+/* the yes stands at primary foreground, so it has nowhere to lift to; the no rests a step
+   back and lifts to meet it — .foreground-quiet (atoms/controls.scss), in the markup */
 .head__gpxyes {
   margin-left: var(--space-1);
   color: var(--foreground-primary);

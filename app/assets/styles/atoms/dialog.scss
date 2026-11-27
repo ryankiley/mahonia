@@ -72,7 +72,7 @@
    open with one, so it lives here beside .dlg__lede rather than as two scoped copies */
 .dlg__item {
   font-size: var(--text-title);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
 }
 // trailing-aligned buttons closing every dialog body — part of the shared shell,

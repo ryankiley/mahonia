@@ -87,10 +87,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* the foregrounds are .foreground-quiet's (atoms/controls.scss), which NestChevron wears: the
-     lesser foreground at rest, primary foreground under the pointer AND on keyboard focus. This rule
-     carried its own copy with the pointer half only, so the one control a read view
-     has gave a keyboard nothing but the ring. */
+  /* the foregrounds are .foreground-quiet's (atoms/controls.scss), which NestChevron
+     wears: the lesser foreground at rest, primary foreground under the pointer AND on
+     keyboard focus. This rule carried its own copy with the pointer half only, so the one
+     control a read view has gave a keyboard nothing but the ring. */
 }
 /* the row's chevron is the folder's size; -1px so it hugs the name at the same
    distance the folder chevron does (8px from the text, both) */
@@ -127,7 +127,7 @@
   /* a clipped line hangs nothing: the text forms (the read views, My Gear's headings)
      would cut a trailing ")" as the field does (reset.scss) */
   hanging-punctuation: none;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   font-size: var(--text-title);
   letter-spacing: var(--track-tight);
   /* …and as a FIELD (the editor's and My Gear's headers, below) it sizes to the typed

@@ -254,9 +254,9 @@ onMounted(() => {
      --background-secondary was doing this job and couldn't: the grid sits on a .popover
      (--surface-1, #1f1f1f in dark), and --background-secondary is #151515 there — a shade
      DARKER than the surface under it. The selected span read as a faint dent instead
-     of a fill. Foreground over the surface holds in both schemes because --foreground-primary inverts with
-     them, which is the same reason .popover mixes its own hover.
-     Mixed into --surface-1 rather than into `transparent`, so it is OPAQUE: the
+     of a fill. Foreground over the surface holds in both schemes because
+     --foreground-primary inverts with them, which is the same reason .popover mixes its
+     own hover. Mixed into --surface-1 rather than into `transparent`, so it is OPAQUE: the
      pip tracks underneath these cells, and a translucent band would let it show
      through as a travelling smudge. That ties the band to the surface the picker is
      used on — it has only ever been opened inside that popover, and the pip's
@@ -270,7 +270,7 @@ onMounted(() => {
   gap: var(--space-1);
 }
 .cal__month {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 /* Row gap only. A column gap slit the range band with a 2px gutter every day, so the
    span the ends round outward to make (below) arrived striped rather than continuous —
@@ -330,7 +330,8 @@ onMounted(() => {
 }
 /* no background here — the pip IS the hover, and a fill under it would double the mark
    and kill the sense that one cursor is moving. Pointer-gated — it paints (see the note
-   on .btn:hover, controls.scss): a tapped day kept its hover foreground after the finger left. */
+   on .btn:hover, controls.scss): a tapped day kept its hover foreground after the finger
+   left. */
 @media (hover: hover) and (pointer: fine) {
   .cal__day:hover {
     color: var(--foreground-primary);

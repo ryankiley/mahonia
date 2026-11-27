@@ -207,8 +207,8 @@ function onName(e: Event) {
    same .folder__bodyinner and needs the identical release, and a SCOPED rule only
    ever matched the elements this component rendered */
 /* packing/checklist mode disables the name input (it's read-only there). Browsers
-   grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to primary foreground —
-   the folder name should read the same as it does in edit mode. */
+   grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to primary
+   foreground — the folder name should read the same as it does in edit mode. */
 .folder__name:disabled {
   color: var(--foreground-primary);
   -webkit-text-fill-color: var(--foreground-primary);
@@ -223,8 +223,8 @@ function onName(e: Event) {
    removed. Touch had them permanently anyway, so
    the hover branch was also the only place the two pointer types disagreed about
    what the app can do.
-   The controls are already quiet enough to sit there: --foreground-tertiary glyphs that deepen
-   on hover, which is the affordance doing its job rather than announcing itself. */
+   The controls are already quiet enough to sit there: --foreground-tertiary glyphs that
+   deepen on hover, which is the affordance doing its job rather than announcing itself. */
 
 @media (max-width: $bp-stack) {
   /* the header's own collapse to name + actions (--head-cols, the title and

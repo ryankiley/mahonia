@@ -114,8 +114,8 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
    the app's contained input for a floating surface, which is exactly what this is. This
    had its own copy, and the copy carried the bug the atom has now been fixed for: a
    --background-secondary fill on a --surface-1 panel measured 1.108:1 in dark and 1.10:1 in
-   light, and focusing it swapped in --background-tertiary, which IS --surface-1 in dark, so the
-   box vanished outright at 1.000:1 the moment you typed in it.
+   light, and focusing it swapped in --background-tertiary, which IS --surface-1 in dark,
+   so the box vanished outright at 1.000:1 the moment you typed in it.
    Only the geometry is local. The radius agrees with the atom's by construction —
    --popover-item-radius is pinned to the same `--radius-4 - --space-2` step — but it is
    named rather than repeated, because this box is concentric with THIS popover. */

@@ -239,7 +239,7 @@ function remove(p: Person) {
    come back with a re-typed name) */
 .ppl__remove.is-arming {
   color: var(--danger);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .ppl__swatches {
   display: flex;
@@ -318,8 +318,8 @@ function remove(p: Person) {
    WORD on the rule the way their icons sit on it (the row's own gap holds it off the
    field it follows), and min-height:0, so the row's height comes from that field
    exactly as a person row's comes from its name field.
-   It was .btn--ghost, whose hover paints a --background-tertiary plate. Getting the word flush
-   meant killing the trailing padding, and the plate went lopsided around it — 12px
+   It was .btn--ghost, whose hover paints a --background-tertiary plate. Getting the word
+   flush meant killing the trailing padding, and the plate went lopsided around it — 12px
    of ground on one side and none on the other. A quiet control only darkens, so
    there is no plate to go crooked. Stretch keeps the full-height target without
    letting the button set the height. */

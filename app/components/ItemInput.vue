@@ -965,8 +965,8 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
    just isn't a target (no hover, no active, nothing to press). The sizes under it step
    in by --space-3, which is what says "these belong to that" without a rule or a box.
    The size is the row's subject now, so it drops the trailing-qualifier dress (italic,
-   ink-3) a variant wears after a model name and takes the row's primary foreground, with the whole
-   width before the weight to itself. */
+   ink-3) a variant wears after a model name and takes the row's primary foreground, with
+   the whole width before the weight to itself. */
 .ac__product {
   padding: var(--space-2);
   cursor: default;

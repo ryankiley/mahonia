@@ -348,8 +348,8 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   gap: var(--space-2);
   color: var(--foreground-tertiary);
 }
-/* One step up from the rest of the line's foreground: a name is content, where "edited 3m ago"
-   is status. Still quiet enough to sit under the title without competing with it. */
+/* One step up from the rest of the line's foreground: a name is content, where "edited 3m
+   ago" is status. Still quiet enough to sit under the title without competing with it. */
 .view__byline {
   color: var(--foreground-secondary);
 }
@@ -357,7 +357,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
    bullet (•) reads bigger than a middle-dot at the same size; a small negative inline
    margin pulls the time a touch closer than the meta's flex gap. */
 .view__dot {
-  line-height: 1;
+  line-height: var(--leading-none);
   margin-inline: -2px;
 }
 /* route + dates on one row. The column gap is wide enough (--space-4, the gap between a
@@ -448,7 +448,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 .view__triph {
   margin: 0 0 var(--space-2);
   font-size: var(--text-base);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
   color: var(--foreground-tertiary);
 }

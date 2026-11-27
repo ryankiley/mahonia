@@ -14,7 +14,7 @@
   border-radius: var(--radius-pill);
   color: var(--foreground-primary);
   font-size: var(--text-base);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
@@ -52,7 +52,7 @@
   }
 }
 .btn:active {
-  opacity: 0.7;
+  opacity: var(--opacity-pressed);
 }
 .btn:disabled {
   opacity: 0.3;
@@ -75,8 +75,9 @@
 // "Create a list"): contained like the primary beside it, a step quieter. A ghost there
 // set a pill next to a bare word, and the two read as a button and a caption rather
 // than two things to press (Ryan: "it feels weird when one is contained and other is
-// not"). The ground is an AMOUNT OF FOREGROUND (--background-selected, the grey the account disc rests on, and
-// --background-selected-hover under the pointer), so it holds on a page, a dialog and a popover alike.
+// not"). The ground is an AMOUNT OF FOREGROUND (--background-selected, the grey the
+// account disc rests on, and --background-selected-hover under the pointer), so it holds
+// on a page, a dialog and a popover alike.
 .btn--soft {
   background: var(--background-selected);
   color: var(--foreground-primary);
@@ -139,9 +140,10 @@
 
 // Text link that goes somewhere off-site — the trail link, in the editor and in both
 // read views. Rests muted with a soft underline and DEEPENS on hover/focus: text to
-// primary foreground, underline one step to --foreground-secondary, which is the floor the --underline token
-// sets (a link's rule may reach --foreground-secondary, never --foreground-primary). Consumers add only their own
-// layout; the two trail links had been carrying byte-identical copies of this.
+// primary foreground, underline one step to --foreground-secondary, which is the floor
+// the --underline token sets (a link's rule may reach --foreground-secondary, never
+// --foreground-primary). Consumers add only their own layout; the two trail links had
+// been carrying byte-identical copies of this.
 .link {
   color: var(--foreground-secondary);
   text-decoration-color: var(--underline);
@@ -163,11 +165,12 @@
 // read views (ReadonlyListView's .view__*) — the link's own look is shared above, and
 // these had stayed behind as a copy in each.
 // The globe that stands in for a site's own mark reads as a placeholder rather than as
-// that site's icon: a step lighter than the link text it sits beside, which is --foreground-tertiary
-// against the link's --foreground-secondary. It was that AND 60% opaque, two steps down, which nothing
-// was there to show until the dates beside it got an icon of their own (#620): the same
-// glyph size, one line apart, at --foreground-tertiary whole, and the globe read as a different grey
-// for no reason (Ryan, 2026-11-25: "why are these different tones").
+// that site's icon: a step lighter than the link text it sits beside, which is
+// --foreground-tertiary against the link's --foreground-secondary. It was that AND 60%
+// opaque, two steps down, which nothing was there to show until the dates beside it got
+// an icon of their own (#620): the same glyph size, one line apart, at
+// --foreground-tertiary whole, and the globe read as a different grey for no reason
+// (Ryan, 2026-11-25: "why are these different tones").
 .head__icon--fallback,
 .view__trailicon--fallback {
   color: var(--foreground-tertiary);
@@ -188,7 +191,7 @@
 .btn--quiet {
   min-height: 0;
   padding: 0;
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
   letter-spacing: normal;
   white-space: nowrap;
   color: var(--foreground-tertiary);
@@ -219,26 +222,27 @@ button svg {
 // pairing would put a second focus stop in a surface that holds one or two controls.
 //
 // MONOCHROME, like the rest of the chrome: both states are a FILLED TRACK, and what
-// separates them is how much foreground is in it — --switch-track-off off, --foreground-primary on, 3.1:1 and 21:1
-// against the popover they sit on. The reference this borrows from uses green for
-// "on"; colour here belongs to the data viz only (see tokens.scss), and two weights of
-// one foreground carry the two states without spending the signal the category bar owns.
+// separates them is how much foreground is in it — --switch-track-off off,
+// --foreground-primary on, 3.1:1 and 21:1 against the popover they sit on. The reference
+// this borrows from uses green for "on"; colour here belongs to the data viz only (see
+// tokens.scss), and two weights of one foreground carry the two states without spending
+// the signal the category bar owns.
 //
-// Nothing is drawn in a background token. Both track colours are amounts of foreground, so they
-// composite over whatever surface the switch is dropped on — page, panel or popover —
+// Nothing is drawn in a background token. Both track colours are amounts of foreground,
+// so they composite over whatever surface the switch is dropped on — page, panel or popover —
 // instead of naming one and hoping. The first version named one: it painted the off
-// track --background-tertiary, and in dark mode --background-tertiary and --surface-1 are both #1f1f1f, so
-// the track disappeared into the card at 1.00:1 (light failed the same way more
-// quietly, at 1.20:1).
+// track --background-tertiary, and in dark mode --background-tertiary and --surface-1 are
+// both #1f1f1f, so the track disappeared into the card at 1.00:1 (light failed the same
+// way more quietly, at 1.20:1).
 //
 // AND NOTHING HAS AN EDGE. It used to: the off track was a 10% wash with a 1px inset
 // ring at 45% foreground around it, because a 10% fill carries no contrast of its own and the
 // ring was what gave the control a visible extent — the piece holding WCAG 1.4.11. But
-// 45% foreground is three times the weight of --border-strong, the darkest hairline in the app, so
-// the one thing in the whole UI that read as outlined was a switch that was off, in a
-// system where hairlines are faint and rare. Putting that same 3:1 into the fill (see
-// --switch-track-off) retires the ring: a shape with enough contrast of its own needs no edge
-// drawn around it, and the control is down to one animated colour from two.
+// 45% foreground is three times the weight of --border-strong, the darkest hairline in
+// the app, so the one thing in the whole UI that read as outlined was a switch that was
+// off, in a system where hairlines are faint and rare. Putting that same 3:1 into the
+// fill (see --switch-track-off) retires the ring: a shape with enough contrast of its own
+// needs no edge drawn around it, and the control is down to one animated colour from two.
 // (No padding, border or cursor declared: it is always a <button>, and the reset
 // already zeroes the first two and sets the pointer.)
 .switch {
@@ -285,13 +289,13 @@ button svg {
 // width; expressed in calc() rather than a literal so the track can be resized in
 // one place without re-deriving the offset.
 //
-// ONE COLOUR IN BOTH STATES, where it used to invert (--foreground-secondary off, --background-primary on). The
-// invert existed to survive a 10% off track too pale to read a background knob against; on
-// a --switch-track-off track the arithmetic runs the other way — --foreground-secondary measures 2.2:1 there and
-// the knob would be the part of the control that goes missing. --background-primary clears whatever
-// track it sits in (3.1:1 off, 21:1 on) and reads as a hole punched through it rather
-// than a second mark laid on top, which is how a 14px dot stays legible at both ends
-// of its travel.
+// ONE COLOUR IN BOTH STATES, where it used to invert (--foreground-secondary off,
+// --background-primary on). The invert existed to survive a 10% off track too pale to
+// read a background knob against; on a --switch-track-off track the arithmetic runs the
+// other way — --foreground-secondary measures 2.2:1 there and the knob would be the part
+// of the control that goes missing. --background-primary clears whatever track it sits in
+// (3.1:1 off, 21:1 on) and reads as a hole punched through it rather than a second mark
+// laid on top, which is how a 14px dot stays legible at both ends of its travel.
 .switch::after {
   content: "";
   position: absolute;
@@ -299,7 +303,7 @@ button svg {
   inset-inline-start: calc(2 * var(--tpx));
   inline-size: calc(14 * var(--tpx));
   block-size: calc(14 * var(--tpx));
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--background-primary);
   transition: translate var(--spring-track-dur) var(--spring-track); /* chases the pointer: the track spring */
 }
@@ -521,7 +525,8 @@ input[type="search"]::-webkit-search-decoration {
   display: inline-flex;
 }
 // (.menu__btn, the trigger's class, has no rule: every trigger also wears .btn--ghost,
-// whose --foreground-secondary is the resting foreground it wants. The class stays in the markup as a hook.)
+// whose --foreground-secondary is the resting foreground it wants. The class stays in the
+// markup as a hook.)
 .menu__list {
   position: absolute;
   top: calc(100% + var(--space-1));
@@ -607,7 +612,7 @@ input[type="search"]::-webkit-search-decoration {
    the reset's rule reaches buttons only, and a menu where some rows dim and some
    don't reads as half of them being broken. */
 .menu__item:active {
-  opacity: 0.7;
+  opacity: var(--opacity-pressed);
 }
 .menu__item {
   display: flex;
@@ -675,11 +680,12 @@ input[type="search"]::-webkit-search-decoration {
 // in the glyph column (the callout's inset is a row's), its words where a row's label
 // starts, so it reads as part of the same list rather than a box dropped on top of it.
 // Shaped like the plate (the item radius), since it sits where a row would.
-// Its ground is AN AMOUNT OF FOREGROUND, the well's 7% (.well, in this file, has the measurements:
-// 1.17:1 on the light popover, 1.23 on the dark), because a menu is a floating surface;
-// a page tone (--background-secondary) sat at 1.10:1 on the card in either theme, a box you had to
-// look for. Not a [data-row]: nothing here is pressed, so the plate passes it by.
-// SharePanel carried this alone as .share__nudge; lifted on the second consumer.
+// Its ground is AN AMOUNT OF FOREGROUND, the well's 7% (.well, in this file, has the
+// measurements: 1.17:1 on the light popover, 1.23 on the dark), because a menu is a
+// floating surface; a page tone (--background-secondary) sat at 1.10:1 on the card in
+// either theme, a box you had to look for. Not a [data-row]: nothing here is pressed, so
+// the plate passes it by. SharePanel carried this alone as .share__nudge; lifted on the
+// second consumer.
 .menu__callout {
   display: flex;
   align-items: start;
@@ -825,8 +831,8 @@ input[type="search"]::-webkit-search-decoration {
   border-radius: var(--popover-item-radius);
   // NOT var(--background-hover), though it resolves to the same thing by default.
   // That property is declared on the root (tokens.scss), so the var() inside it is
-  // substituted THERE and the finished colour inherits down — an inline --hov-foreground on this
-  // element could never reach it. Mixing here is what lets the plate take a hue
+  // substituted THERE and the finished colour inherits down — an inline --hov-foreground
+  // on this element could never reach it. Mixing here is what lets the plate take a hue
   // the row hands it (useMenuPlate); unset, it is plain foreground at the same amount.
   background: color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity), transparent);
   opacity: 0;
@@ -1032,10 +1038,11 @@ input[type="search"]::-webkit-search-decoration {
 }
 .undobar__btn {
   color: var(--background-primary);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   /* soft underline, matching the site's --underline house style — but the toast is
-     inverted (background text on foreground), so soften the BACKGROUND rather than using --foreground-tertiary
-     (which would vanish on the dark toast). Translucent background stays legible + quiet. */
+     inverted (background text on foreground), so soften the BACKGROUND rather than using
+     --foreground-tertiary (which would vanish on the dark toast). Translucent background
+     stays legible + quiet. */
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--background-primary) 55%, transparent);
   text-underline-offset: var(--underline-offset);
@@ -1106,11 +1113,12 @@ input[type="search"]::-webkit-search-decoration {
 // style carries focus on the caret, not a ring. Compose with .field; keep width,
 // padding and font local to the surface.
 // AN AMOUNT OF FOREGROUND, not a named surface — and that is the load-bearing part, for the
-// third time in this file (see --background-selected and --switch-track-off in tokens.scss, which both learned it
-// the same way). This drew its ground in --background-secondary, a PAGE surface, while most of the
-// things that wear it float: the import dialog's paste box and the feedback box sit on
-// --surface-1, and only /gear's search sits on --background-primary. A solid light-dark() pair is
-// only ever right on ONE ground, so on the floating one the well was gone —
+// third time in this file (see --background-selected and --switch-track-off in
+// tokens.scss, which both learned it the same way). This drew its ground in
+// --background-secondary, a PAGE surface, while most of the things that wear it float:
+// the import dialog's paste box and the feedback box sit on --surface-1, and only /gear's
+// search sits on --background-primary. A solid light-dark() pair is only ever right on
+// ONE ground, so on the floating one the well was gone —
 //   light  --background-secondary #f4f4f4 on --surface-1 #ffffff → 1.10:1
 //   dark   --background-secondary #151515 on --surface-1 #1f1f1f → 1.108:1
 // — a container you could not see you were about to type into. Focus made it worse
@@ -1124,9 +1132,10 @@ input[type="search"]::-webkit-search-decoration {
 // 1.200. It was 10% and 15% until 2026-11-07, which read as a dark grey slab on a white
 // popover (the lists menu's search is focused the moment it opens, so that was the only
 // state anyone saw); 6% would put the dark page under 1.10. ONE percentage, not a
-// light-dark() pair: var(--foreground-primary) already flips with the theme, and these two measured out
-// equal. Do not read that as a rule — sRGB is not symmetric and --background-selected needed 6.5/8.5 for
-// the same job; it is just what this amount does on these grounds.
+// light-dark() pair: var(--foreground-primary) already flips with the theme, and these
+// two measured out equal. Do not read that as a rule — sRGB is not symmetric and
+// --background-selected needed 6.5/8.5 for the same job; it is just what this amount does
+// on these grounds.
 .well {
   /* the text's inset from the tint, which every well had restated as --space-3; a
      box that wants another (the feedback box) sets its own */
@@ -1207,7 +1216,7 @@ input[type="search"]::-webkit-search-decoration {
 // the reset's button rule doesn't reach it. A label press activates its control, so
 // this fires from anywhere on the packing row, which is the whole row's tap target.
 .check:has(.check__box:not(:disabled):active) {
-  opacity: 0.7;
+  opacity: var(--opacity-pressed);
 }
 .check {
   position: relative;
@@ -1305,7 +1314,7 @@ input[type="search"]::-webkit-search-decoration {
 .addfolder__btn,
 .addfolder__input {
   font-size: var(--text-title);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
 }
 .addfolder__btn {
@@ -1356,8 +1365,9 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 /* THE PANEL HEADER — title left, flush-end X right — worn by the vault pane and the
-   account dialog (every dialog wears the title alone, for its primary foreground). Each surface keeps only the offset that puts it on its
-   own container's edge (a negative top nudge, a padding-block-start). */
+   account dialog (every dialog wears the title alone, for its primary foreground). Each
+   surface keeps only the offset that puts it on its own container's edge (a negative top
+   nudge, a padding-block-start). */
 .panel__head {
   display: flex;
   align-items: center;
@@ -1369,16 +1379,16 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 // ---- Quiet glyph ------------------------------------------------------------
-// A glyph that rests at the lesser foreground and lifts to primary foreground under the pointer or
-// keyboard focus: a row's trailing cluster (grip, duplicate, remove, the qty ± and
+// A glyph that rests at the lesser foreground and lifts to primary foreground under the
+// pointer or keyboard focus: a row's trailing cluster (grip, duplicate, remove, the qty ± and
 // the vault tick), its three menu triggers, the folder header's delete and grip, the
 // calendar's month arrows, the search field's clear, the vault's folder picker and
 // "Open" link, the plan's (?) marks. Ten scoped blocks said this; one class does.
 // Composes with .btn--icon.btn--ghost and .menu__btn, and stands alone on a span or
 // a link. LAST IN THE FILE on purpose: equal specificity with every resting foreground above
-// it (.btn's --foreground-primary, .btn--ghost's --foreground-secondary), so order is what lets it
-// win, which is its whole job. The hover is pointer-gated even though it's ink-only,
-// like every hover now (see .btn:hover); focus lifts it at every pointer.
+// it (.btn's --foreground-primary, .btn--ghost's --foreground-secondary), so order is
+// what lets it win, which is its whole job. The hover is pointer-gated even though it's
+// ink-only, like every hover now (see .btn:hover); focus lifts it at every pointer.
 // The transition names colour alone, as every site's own copy did.
 .foreground-quiet {
   color: var(--foreground-tertiary);

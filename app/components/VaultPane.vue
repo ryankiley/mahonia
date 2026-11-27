@@ -884,10 +884,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     translate: 0 -50%;
   }
 }
-/* --background-selected, the app's one tone for "on" (the mode tabs, the person filter, the row
-   toggles), and an amount of foreground, so it composites over this card. It was --background-tertiary,
-   a page tone that IS --surface-1 in dark: the chosen tab had no ground at all
-   there and was told from the others by its foreground alone. */
+/* --background-selected, the app's one tone for "on" (the mode tabs, the person filter,
+   the row toggles), and an amount of foreground, so it composites over this card. It was
+   --background-tertiary, a page tone that IS --surface-1 in dark: the chosen tab had no
+   ground at all there and was told from the others by its foreground alone. */
 .vp__tab.is-active {
   background: var(--background-selected);
   color: var(--foreground-primary);
@@ -1080,12 +1080,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   -webkit-touch-callout: none;
 }
 /* HELD: the touch hold has armed (see liftedId), so the row is picked up and the next
-   move carries it. --background-selected-hover, the step of foreground past both the hover tint (8%) and the
-   plate the active tab wears, because this has to read as a different state from "under
-   your finger" — it is the moment a scroll became a drag. An amount of foreground, not the
-   --background-tertiary it was: that tone is this card's own colour in dark, so there the hold
-   showed nothing. No transition: it lands with the vibration tick, and feedback that a
-   hold registered is instant or it isn't feedback. */
+   move carries it. --background-selected-hover, the step of foreground past both the
+   hover tint (8%) and the plate the active tab wears, because this has to read as a
+   different state from "under your finger" — it is the moment a scroll became a drag. An
+   amount of foreground, not the --background-tertiary it was: that tone is this card's
+   own colour in dark, so there the hold showed nothing. No transition: it lands with the
+   vibration tick, and feedback that a hold registered is instant or it isn't feedback. */
 .vp__add.is-lifted {
   background: var(--background-selected-hover);
 }

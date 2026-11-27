@@ -864,9 +864,9 @@ async function onSignOut() {
    so only the link's own look is said here). */
 .acct__switch {
   color: var(--foreground-primary);
-  font-weight: 600;
-  /* the house underline: soft at rest, deepens to --foreground-secondary — never primary foreground
-     (tokens.scss, the --underline rule) */
+  font-weight: var(--font-weight-semibold);
+  /* the house underline: soft at rest, deepens to --foreground-secondary — never primary
+     foreground (tokens.scss, the --underline rule) */
   text-decoration: underline;
   text-decoration-color: var(--underline);
   text-underline-offset: var(--underline-offset);
@@ -945,7 +945,8 @@ async function onSignOut() {
    On the signed-out screen the field sits over a full-width pill button, where a bare
    underline reads as a gap rather than a control: the same height, radius and padding
    as the button, so the two stack as one object, and the text starts on the left like
-   any other input, rather than centred with the prose. Its full width and placeholder foreground are .field's (controls.scss). */
+   any other input, rather than centred with the prose. Its full width and placeholder
+   foreground are .field's (controls.scss). */
 .acct__input {
   flex: 1 1 auto;
   min-height: var(--control-h);
@@ -983,11 +984,11 @@ async function onSignOut() {
 }
 /* CONTAINED, by the same recipe as .acct__input above — one container language for
    every control on this surface.
-   It recedes to --background-primary with a hairline rather than sitting on a raised fill, and it
-   has to: --surface-1 and --background-tertiary are the SAME value (#1f1f1f) in dark, so the
-   .btn atom's resting/hover fill is literally invisible inside a dialog. Going darker
-   than the surface is the only fill that reads here, and the hairline carries light
-   mode, where --surface-1 and --background-primary are both #fff.
+   It recedes to --background-primary with a hairline rather than sitting on a raised
+   fill, and it has to: --surface-1 and --background-tertiary are the SAME value (#1f1f1f)
+   in dark, so the .btn atom's resting/hover fill is literally invisible inside a dialog.
+   Going darker than the surface is the only fill that reads here, and the hairline
+   carries light mode, where --surface-1 and --background-primary are both #fff.
    flex-start because the section is a flex column: a stretched button centres its
    label away from the line every other row starts on. The pill corner is .btn's own. */
 .acct__btn {

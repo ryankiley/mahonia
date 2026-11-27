@@ -262,8 +262,8 @@ async function decide(decision: "allow" | "deny") {
 }
 .az__initial {
   font-size: var(--text-title);
-  font-weight: 600;
-  line-height: 1;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-none);
 }
 .az__home {
   width: calc(22 * var(--tpx));

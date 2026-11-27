@@ -74,9 +74,9 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 
       The mark is .item__mark, the same atom, so the "this one is on" plate is one recipe
       wherever it appears. What is added here is HUE: the chosen glyph lights in its own
-      category colour, the others stay quiet foreground, so the row says which kind at a glance
-      without needing the word beside it. The name field's placeholder still carries the
-      word for anyone who wants it spelled out.
+      category colour, the others stay quiet foreground, so the row says which kind at a
+      glance without needing the word beside it. The name field's placeholder still
+      carries the word for anyone who wants it spelled out.
     -->
     <!-- The route's end wears its mark and offers nothing — see isRouteEnd. Boxed to a
          toggle's width so the flag lands on the pixel the first toggle's glyph does, the
@@ -206,7 +206,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
   gap: var(--space-px);
 }
 /* quiet until chosen; .item__mark supplies the plate and the inline style the hue. The
-   quiet is .foreground-quiet's (controls.scss), worn in the markup: a resting colour stated here
-   tied the ghost button's hover on specificity and won on order, so an unchosen kind
-   never answered the pointer. */
+   quiet is .foreground-quiet's (controls.scss), worn in the markup: a resting colour
+   stated here tied the ghost button's hover on specificity and won on order, so an
+   unchosen kind never answered the pointer. */
 </style>

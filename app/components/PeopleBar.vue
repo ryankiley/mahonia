@@ -116,14 +116,14 @@ const { onKey } = useRovingRadio(
    change what the page shows, a few rows apart — so they wear its class rather than a
    copy of it: the option height and its row rhythm, --radius-2 (not the pill: that is
    for a button standing on its own, and a row of options never does), the chrome type
-   and the quiet foreground, the wash under a pointer, the inward focus ring, the --background-selected plate
-   when chosen (the app's one on-plate, and it answers the pointer a step up), and on a
-   coarse pointer the transparent ::before that makes a 32px chip a 44px target — top and
-   bottom only, since the chips sit --space-1 apart and an overhang sideways would hand
-   a neighbour's edge to the wrong chip. Where chips wrap onto a second row the two
-   rows' overhangs overlap across the 4px between them and 2px into each face; the
-   lower chip, later in the tree, takes that strip. A small cost against a target that
-   was 14px short.
+   and the quiet foreground, the wash under a pointer, the inward focus ring, the
+   --background-selected plate when chosen (the app's one on-plate, and it answers the
+   pointer a step up), and on a coarse pointer the transparent ::before that makes a 32px
+   chip a 44px target — top and bottom only, since the chips sit --space-1 apart and an
+   overhang sideways would hand a neighbour's edge to the wrong chip. Where chips wrap
+   onto a second row the two rows' overhangs overlap across the 4px between them and 2px
+   into each face; the lower chip, later in the tree, takes that strip. A small cost
+   against a target that was 14px short.
    What a chip here adds: a HAIRLINE, so an OFF chip still has an edge to find, unlike
    the bar's flat words which live inside one plate; and room for a dot and a carry
    beside the name. */
@@ -131,8 +131,8 @@ const { onKey } = useRovingRadio(
   gap: var(--space-2);
   padding: 0 var(--space-3);
   /* The outline IS the unselected chip — there is no fill under it — so in dark it takes
-     the stronger hairline. --border-primary there is 8% white, #141414 on a black page: enough
-     for a rule between two rows of text, not for a shape drawn in nothing else (Ryan,
+     the stronger hairline. --border-primary there is 8% white, #141414 on a black page:
+     enough for a rule between two rows of text, not for a shape drawn in nothing else (Ryan,
      2026-11-25: "outline states are a little dim"). Light keeps --border-primary. */
   border: 1px solid light-dark(var(--border-primary), var(--border-strong));
   /* Never wider than the row. Uncapped, a name near the 60-character limit drew a
@@ -149,10 +149,10 @@ const { onKey } = useRovingRadio(
   border-color: transparent;
 }
 /* (the hollow "no colour yet" dot is the shared .swatch--hollow atom — controls.scss) */
-/* The carry takes the chip's OWN foreground: t-muted is --foreground-secondary, a step DARKER than a
-   resting chip's --foreground-tertiary, so the qualifier out-shouted the name it qualifies on
-   every chip but the lit one. No margin — the chip's flex gap is the spacing,
-   and a margin on top of it doubled the step. */
+/* The carry takes the chip's OWN foreground: t-muted is --foreground-secondary, a step
+   DARKER than a resting chip's --foreground-tertiary, so the qualifier out-shouted the
+   name it qualifies on every chip but the lit one. No margin — the chip's flex gap is the
+   spacing, and a margin on top of it doubled the step. */
 .pplbar__wt {
   flex: none;
   color: inherit;

@@ -1,7 +1,8 @@
 /**
  * RESET — modern baseline (2026), ported from the portfolio repo's reset and
- * mapped onto gear's tokens (--background-primary / --foreground-primary / --border-primary / --accent, single --font).
- * Sources: Andy Bell (piccalil.li, 2023), Josh Comeau (2026).
+ * mapped onto gear's tokens (--background-primary / --foreground-primary /
+ * --border-primary / --accent, single --font). Sources: Andy Bell (piccalil.li, 2023),
+ * Josh Comeau (2026).
  *
  * Mahonia divergences kept on purpose:
  * - Universal margin/padding zero — gear's many unstyled <ul> grids (My Lists,
@@ -218,7 +219,7 @@ button {
 // (0,2,0) cannot set a button's opacity while it is pressed; a class that must hold
 // its opacity through a press says so with the press in its own selector.
 button:not(:disabled):active {
-  opacity: 0.7;
+  opacity: var(--opacity-pressed);
 }
 // Kill double-tap-to-zoom on the controls that get tapped in bursts — the ±
 // quantity steppers (a row's qty is MEANT to take three presses in a row, see

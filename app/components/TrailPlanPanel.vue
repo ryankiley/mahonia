@@ -875,10 +875,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 
           <!-- How much light there is to walk in: sunrise to sunset at the middle of the
                day's stretch, on its date. Arithmetic rather than an estimate, so it carries
-               no `~` and no band. It takes the caution foreground when the walking time before it
-               runs past the light less a margin (lightIsShort): a walk that ends in the dark
-               is the one thing about a day that a week's notice fixes. Only a dated list
-               with a route has it; everything else renders nothing rather than a guess. -->
+               no `~` and no band. It takes the caution foreground when the walking time
+               before it runs past the light less a margin (lightIsShort): a walk that
+               ends in the dark is the one thing about a day that a week's notice fixes.
+               Only a dated list with a route has it; everything else renders nothing
+               rather than a guess. -->
           <span
             v-if="dayDaylight[i] != null"
             class="plan__cell plan__cell--est plan__cell--light"
@@ -1199,7 +1200,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   padding-block: var(--space-1);
   line-height: var(--leading-normal);
   font-size: var(--text-title);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
 }
 /* the chevron rides with the NAME, as a folder's does — it belongs to the thing it
@@ -1207,9 +1208,9 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__collapse--tight {
   margin-left: calc(var(--space-2) * -1 + 2px);
 }
-/* …and only the delete goes to the far edge. Its foregrounds are .foreground-quiet's (controls.scss):
-   a resting colour stated here tied the ghost button's hover on specificity and won on
-   order, so the glyph never answered the pointer. */
+/* …and only the delete goes to the far edge. Its foregrounds are .foreground-quiet's
+   (controls.scss): a resting colour stated here tied the ghost button's hover on
+   specificity and won on order, so the glyph never answered the pointer. */
 .plan__del {
   flex: none;
   margin-left: auto;
@@ -1329,10 +1330,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   margin-left: var(--space-2);
   display: inline-flex;
   cursor: help;
-  /* the foregrounds are .foreground-quiet's (controls.scss). The resting state is --foreground-tertiary and NOT
-     --foreground-quaternary: the token's own definition says not to reuse it below the
-     page-title size, and at 14px it made the only sign an explanation exists a 1.35:1
-     smudge — invisible to exactly the reader who needed the explanation. */
+  /* the foregrounds are .foreground-quiet's (controls.scss). The resting state is
+     --foreground-tertiary and NOT --foreground-quaternary: the token's own definition
+     says not to reuse it below the page-title size, and at 14px it made the only sign an
+     explanation exists a 1.35:1 smudge — invisible to exactly the reader who needed the
+     explanation. */
 }
 /* The glyph is a circle and the button a bare 14px box, so the keyboard's ring was a
    square with the circle's edge touching each side. Round on focus only, as the bare
@@ -1346,9 +1348,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 }
 /* Units and other trailing small text take --foreground-tertiary, the lesser foreground.
  *
- * NOT `.t-muted`, which is --foreground-secondary and therefore DARKER — beside a derived figure (also
- * --foreground-tertiary) it made the unit louder than the number it qualifies, which is backwards. One
- * token for every unit on the panel, so "ft" reads the same weight wherever it appears. */
+ * NOT `.t-muted`, which is --foreground-secondary and therefore DARKER — beside a derived
+ * figure (also --foreground-tertiary) it made the unit louder than the number it
+ * qualifies, which is backwards. One token for every unit on the panel, so "ft" reads the
+ * same weight wherever it appears. */
 .plan__cell .t-muted,
 .plan__assume .t-muted {
   color: var(--foreground-tertiary);
@@ -1460,12 +1463,12 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__armchip.is-on {
   background: var(--map-control-selected);
   color: var(--map-foreground-primary);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .plan__armdot {
   width: calc(8 * var(--tpx));
   height: calc(8 * var(--tpx));
-  border-radius: 50%;
+  border-radius: var(--radius-round);
 }
 /* the unclaimed stretch has no day colour, because it is nobody's */
 .plan__armdot--rest {

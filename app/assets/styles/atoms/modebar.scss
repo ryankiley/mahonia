@@ -5,8 +5,7 @@
 // against ~160 B in the shared entry CSS). The rules are unchanged.
 // PORTED FROM THE DESIGN SYSTEM's menubar (.ds-menubar / .ds-menubar__item), not
 // re-derived. Its rules, verbatim, with only the token names mapped onto this app's.
-// (Left: the design system's names. This app has tokens of the same name for the first,
-// third and fourth, holding its own values, which is why the washes are given as amounts.)
+// (Left: the design system's names. Right: this app's.)
 //
 //   --foreground-primary   → the same name
 //   --foreground-secondary → --foreground-tertiary
@@ -77,19 +76,19 @@
 }
 
 // The wash matters: without a plate, a pointer crossing the bar changes the word's colour
-// and leaves no target under it. It has to sit clearly UNDER the selected state's --background-selected,
-// so pointing and choosing stay two steps rather than one.
-// Two amounts, matching --background-selected's own split and for the same reason: sRGB is not
-// symmetric, so one percentage does not buy one step in both themes. A flat 5% used to
-// read 1.12:1 on white and 1.08:1 on black — and once --background-selected quieted the selected state
-// to 1.16, the light-mode gap fell to 0.039 while dark's stayed at 0.078, i.e. the bar
-// lost half its hierarchy in one theme only. 3.5/5 put the step back, by ratio.
-// Dark is 7.5% now: --background-selected's dark plate went to 13% (2026-11-25, tokens.scss says why
-// ratios mislead next to black), and the wash keeps its place a little over halfway
-// up to it, as 3.5 is to 6.5 — at 5% it was #0d0d0d on #000, a hover nobody saw.
-// Kept as a color-mix and NOT a token: this is a transient tint that has to work on
-// whatever the bar sits on. (Not --background-hover either: that is the menus' row wash, 8% in
-// both themes, and this bar's is its own pair.)
+// and leaves no target under it. It has to sit clearly UNDER the selected state's
+// --background-selected, so pointing and choosing stay two steps rather than one.
+// Two amounts, matching --background-selected's own split and for the same reason: sRGB
+// is not symmetric, so one percentage does not buy one step in both themes. A flat 5% used to
+// read 1.12:1 on white and 1.08:1 on black — and once --background-selected quieted the
+// selected state to 1.16, the light-mode gap fell to 0.039 while dark's stayed at 0.078,
+// i.e. the bar lost half its hierarchy in one theme only. 3.5/5 put the step back, by ratio.
+// Dark is 7.5% now: --background-selected's dark plate went to 13% (2026-11-25,
+// tokens.scss says why ratios mislead next to black), and the wash keeps its place a
+// little over halfway up to it, as 3.5 is to 6.5 — at 5% it was #0d0d0d on #000, a hover
+// nobody saw. Kept as a color-mix and NOT a token: this is a transient tint that has to
+// work on whatever the bar sits on. (Not --background-hover either: that is the menus'
+// row wash, 8% in both themes, and this bar's is its own pair.)
 // Pointer-gated — it paints (see the note on .btn:hover, controls.scss). This bar is
 // the one every mode change goes through, so an ungated wash left the option you
 // last tapped lit next to the one actually selected — two "on" states at once, in the
@@ -112,17 +111,18 @@
 
 // SELECTED IS A STATE, not a hover that happens to be stuck — it keeps its plate whether
 // the pointer is on it or not, because the bar has to say which view you are in.
-// --background-selected, the same plate the classification chips wear, so the app has ONE tone meaning
-// "this control is on" rather than a chip at one weight and a mode tab at another. It
-// was an 8% foreground wash, which measured 1.19:1 against background and left this the heaviest
-// small plate on the page.
+// --background-selected, the same plate the classification chips wear, so the app has ONE
+// tone meaning "this control is on" rather than a chip at one weight and a mode tab at
+// another. It was an 8% foreground wash, which measured 1.19:1 against background and
+// left this the heaviest small plate on the page.
 .modebar__opt.is-active {
   background: var(--background-selected);
   color: var(--foreground-primary);
 }
 // …and the selected tab still answers the pointer: its plate rule above outranks the
 // hover wash by cascade order, which left the one tab you're on the one that never
-// reacted. One step up from --background-selected (the token's own note), gated like the wash.
+// reacted. One step up from --background-selected (the token's own note), gated like the
+// wash.
 @media (hover: hover) and (pointer: fine) {
   .modebar__opt.is-active:hover {
     background: var(--background-selected-hover);

@@ -331,8 +331,9 @@
    grows to --tap and the overshoot is pulled back out of the line (--tap-pull), the way
    the row's icon buttons do it — the target grows, the row's height doesn't.
    And keyboard focus lights the mark as the row's hover does (each row's own rule):
-   --foreground-secondary, not the --foreground-primary other chevrons lift to, because one of these sits on every
-   row and a column of full-ink marks would out-shout the weights. */
+   --foreground-secondary, not the --foreground-primary other chevrons lift to, because
+   one of these sits on every row and a column of full-ink marks would out-shout the
+   weights. */
 @media (pointer: coarse) {
   /* .optmenu named too: the wrap IS the OptionMenu's root, and the extra class keeps
      this ahead of the component's own trigger rule, which loads later at equal weight */
@@ -361,12 +362,12 @@
 /* The CLASSIFICATION CHIP — the lit ground that says a row is worn or consumable.
    In the editor it is the ON state of a toggle button; in the share views it is a
    static mark. Same picture either way, so the paint lives here rather than in two
-   scoped blocks: a quiet grey chip (--background-selected, whose whole job is this) carrying the
-   state without an inverted foreground chip's weight — these sit in a dense list, and a row
-   of black dots would out-shout the weights, which are what the page is for. Colour
-   would be the obvious signal, but this codebase reserves it for the data viz.
-   It used to take --background-tertiary and read heavy for it; see that token for why a surface
-   tone is the wrong thing to borrow for a filled state.
+   scoped blocks: a quiet grey chip (--background-selected, whose whole job is this)
+   carrying the state without an inverted foreground chip's weight — these sit in a dense
+   list, and a row of black dots would out-shout the weights, which are what the page is
+   for. Colour would be the obvious signal, but this codebase reserves it for the data viz.
+   It used to take --background-tertiary and read heavy for it; see that token for why a
+   surface tone is the wrong thing to borrow for a filled state.
    background-clip pins the ground to the CONTENT box, which is how it stays
    --icon-btn across every pointer: a coarse one grows the editor's button to --tap
    for the thumb, and a 44px disc drawn in a ~25px text line reaches the rules above
@@ -382,9 +383,10 @@
   border-radius: var(--radius-pill);
   color: var(--foreground-primary);
 }
-/* The hold, plus an answer: under a fine pointer the lit toggle steps up to --background-selected-hover
-   rather than sitting inert at its plate — a selected control still hovers. Buttons
-   only: the share views' marks are facts (role="img"), and a fact doesn't hover. */
+/* The hold, plus an answer: under a fine pointer the lit toggle steps up to
+   --background-selected-hover rather than sitting inert at its plate — a selected control
+   still hovers. Buttons only: the share views' marks are facts (role="img"), and a fact
+   doesn't hover. */
 @media (hover: hover) and (pointer: fine) {
   button.item__mark:hover {
     background-color: var(--background-selected-hover); /* longhand: the shorthand resets the clip above and the plate grew */
@@ -466,9 +468,9 @@
 /* The CAPTION FIELD — a line of live text under the thing it annotates, in the aside
    voice: an item's note, and its gear type and variant beside it (ItemRow's
    .item__note), and a day's note in the trip plan (.plan__daynote), which took the
-   item's recipe wholesale. No box and no handle; the lightest foreground, italic, and the same
-   foreground while typing as at rest, so nothing jumps between editing and reading. A static
-   16px, like .field, so focusing one on a phone never zooms the page. The caret
+   item's recipe wholesale. No box and no handle; the lightest foreground, italic, and the
+   same foreground while typing as at rest, so nothing jumps between editing and reading.
+   A static 16px, like .field, so focusing one on a phone never zooms the page. The caret
    carries focus.
    A NOTE is a textarea (a sentence wraps; a value doesn't), sized to its content where
    the engine can and by script where it can't, so it reads as a caption that grows

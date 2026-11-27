@@ -34,8 +34,8 @@ const card = computed(() => presence.value === "signedOut");
          the scrim. The X is the same control the vault pane closes with. -->
     <SignInHead v-if="card">{{ label }}</SignInHead>
     <header v-else class="panel__head acctmodal__head">
-      <!-- .t-label is --foreground-secondary by design; a panel TITLE steps up to primary foreground, which is
-           what the sharing and vault headers already do. -->
+      <!-- .t-label is --foreground-secondary by design; a panel TITLE steps up to primary
+           foreground, which is what the sharing and vault headers already do. -->
       <h2 class="t-label panel__title">{{ label }}</h2>
       <!-- btn--flush-end is how the other two put their X in a repeatable place: it
            cancels the icon button's own inset so the GLYPH — not the 32px box around

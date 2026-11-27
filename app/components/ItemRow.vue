@@ -2353,26 +2353,26 @@ function dismissFix() {
      weight cell no longer asks: it centres too (see .item__weight in the stack block
      below), which needs no baseline from this wrap at all.
      THE DESKTOP CELL ABOVE STILL ASKS, AND THAT IS FINE — measured, not assumed.
-     Chromium and WebKit both land the unit's foreground within half a pixel of the number's at
-     1100px, the same residue the fixed mobile cell reads, so there is nothing here to
-     fix and no reason to spend the desktop grid's baseline on it. What actually diverges
-     is a cell with NO TEXT ANYWHERE (the mobile line's two icon-only clusters); a centred
-     wrap like this one leads with a text span, and both engines take its baseline from
-     that. Re-measure from FOREGROUND, never from the box model, if this is ever revisited: the
-     box formula reports a phantom error here because WebKit sizes the field 24px against
-     a 20.8px line box. */
+     Chromium and WebKit both land the unit's foreground within half a pixel of the
+     number's at 1100px, the same residue the fixed mobile cell reads, so there is nothing
+     here to fix and no reason to spend the desktop grid's baseline on it. What actually
+     diverges is a cell with NO TEXT ANYWHERE (the mobile line's two icon-only clusters);
+     a centred wrap like this one leads with a text span, and both engines take its
+     baseline from that. Re-measure from FOREGROUND, never from the box model, if this is
+     ever revisited: the box formula reports a phantom error here because WebKit sizes the
+     field 24px against a 20.8px line box. */
 .item__unit {
   flex: none;
 }
 /* (The unit trigger's touch hit area — --tap, pulled back onto the line — is drawn with
    My Gear's row picker: atoms/item.scss.) */
 /* Quiet by default — one of these sits on every row, and a column of hard chevrons
-   would shout louder than the weights they belong to. That resting step (--foreground-tertiary, and
-   the pin that keeps it from shrinking) is the shared .chev now, atoms/controls.scss.
-   Only the LIFT is the row's own: --foreground-secondary rather than the --foreground-primary every other chevron
-   takes, because this one lifts on the ROW being hovered, not on its own trigger — a
-   column of full-ink marks following the pointer down the list would read as the loud
-   thing the quiet default exists to avoid. */
+   would shout louder than the weights they belong to. That resting step
+   (--foreground-tertiary, and the pin that keeps it from shrinking) is the shared .chev
+   now, atoms/controls.scss. Only the LIFT is the row's own: --foreground-secondary rather
+   than the --foreground-primary every other chevron takes, because this one lifts on the
+   ROW being hovered, not on its own trigger — a column of full-ink marks following the
+   pointer down the list would read as the loud thing the quiet default exists to avoid. */
 /* Keyboard focus has to light the mark too, or the affordance exists for pointers only:
    that half is the shared rule (atoms/item.scss), on the wrap's :focus-within. */
 @media (hover: hover) and (pointer: fine) {
@@ -2394,10 +2394,11 @@ function dismissFix() {
 /* Water's fixed consumable mark: the control's exact box — .btn--icon's size — minus
    the button and minus the lit plate, because there is nothing to press. Sized like
    the button so the droplet sits in the column every other row's mark is in.
-   --foreground-tertiary, the resting foreground of every glyph beside it (.foreground-quiet, controls.scss). It
-   was --foreground-secondary, a step up to say "a fact, not a control" — but one step of grey
-   between neighbours reads as a mismatch, not as a state, and the row already says
-   water three other ways. The foreground only: no hover lift, since nothing here presses. */
+   --foreground-tertiary, the resting foreground of every glyph beside it
+   (.foreground-quiet, controls.scss). It was --foreground-secondary, a step up to say "a
+   fact, not a control" — but one step of grey between neighbours reads as a mismatch, not
+   as a state, and the row already says water three other ways. The foreground only: no
+   hover lift, since nothing here presses. */
 .item__clsfixed {
   display: inline-flex;
   align-items: center;
@@ -2494,12 +2495,12 @@ function dismissFix() {
 }
 /* THE CHOICE: base · worn · consumable, as the app's own tabs — the mode bar's chip
    (.modebar__opt, atoms/modebar.scss), the way the share panel's two tabs wear it. No
-   track and no outline: the chosen one takes --background-selected, the one tone for "this is the one
-   that's on" (the row's own mark included, so the mark and the option that set it
-   agree), and the others answer the pointer with the mode bar's wash. The chip brings
-   its height, its foregrounds, the wash, the plate, the inward focus ring and the touch hit
-   area; what's below is where an option here differs from one in the bar. A segmented
-   track was built first and was the only one of its kind (Ryan, 2026-11-25: "can we
+   track and no outline: the chosen one takes --background-selected, the one tone for
+   "this is the one that's on" (the row's own mark included, so the mark and the option
+   that set it agree), and the others answer the pointer with the mode bar's wash. The
+   chip brings its height, its foregrounds, the wash, the plate, the inward focus ring and
+   the touch hit area; what's below is where an option here differs from one in the bar. A
+   segmented track was built first and was the only one of its kind (Ryan, 2026-11-25: "can we
    use existing tab designs"). */
 .item__classes {
   display: flex;
@@ -2514,7 +2515,7 @@ function dismissFix() {
   /* the card's concentric corner, like the well and the stepper under it, and the
      strong weight — both as the share panel's tabs take them */
   border-radius: var(--pop-inner-radius);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 /* Every line in the popover starts on the card's padding edge — the switch row, the
    labels, the field's box and the derived line all share it. An earlier version
@@ -2522,7 +2523,7 @@ function dismissFix() {
    number is right-aligned so there is no left text edge to meet, and the field's BOX
    is the dominant vertical line, so indenting past it just read as two ragged edges. */
 .item__poplabel {
-  line-height: 1;
+  line-height: var(--leading-none);
   white-space: nowrap;
 }
 /* the worn count's row: the stepper takes what "All" leaves, so the row ends on the
@@ -2556,12 +2557,13 @@ function dismissFix() {
   width: 0;
   text-align: center;
 }
-/* The chip's ground is AN AMOUNT OF FOREGROUND, the well's two (.well, atoms/controls.scss): 7%
-   at rest, 10% under the pointer — the same pair the kcal field takes in the popover
-   beside this one, so the two cards' grounds agree. It drew them in --background-secondary and
-   --background-tertiary, page tones on a floating card: 1.10:1 at rest on the light popover, and in
-   dark --background-tertiary IS --surface-1, so pointing at a count erased its chip. Not --background-selected:
-   that is the tone for ON, and here on is the inverted chip below. */
+/* The chip's ground is AN AMOUNT OF FOREGROUND, the well's two (.well,
+   atoms/controls.scss): 7% at rest, 10% under the pointer — the same pair the kcal field
+   takes in the popover beside this one, so the two cards' grounds agree. It drew them in
+   --background-secondary and --background-tertiary, page tones on a floating card: 1.10:1
+   at rest on the light popover, and in dark --background-tertiary IS --surface-1, so
+   pointing at a count erased its chip. Not --background-selected: that is the tone for
+   ON, and here on is the inverted chip below. */
 .item__split {
   min-width: var(--icon-btn);
   min-height: var(--icon-btn);
@@ -2585,14 +2587,15 @@ function dismissFix() {
    page, so a well sunk into it reads as "type here" at a glance, where a hairline
    rectangle has to be looked at to be seen.
    That fill is the .well atom (atoms/controls.scss), worn in the markup: an amount of
-   foreground, which composites over the card, where the --background-secondary this used sat at 1.10:1 on
-   it. Focus is the atom's too, the ground deepening a step and nothing drawn round it —
-   the one focus every contained field on a floating surface takes (the trail panel's
-   fields, the searches, the paste boxes). This one used to swap to --background-tertiary and add a
-   hairline ring; the ring was standing in for a deepening that couldn't show, since
-   --background-tertiary is the card's own colour in dark. Only the geometry is this field's — the
-   transparent edge included: it is part of the box's size, and under forced colours,
-   where fills are stripped, it is repainted and is all the field has. */
+   foreground, which composites over the card, where the --background-secondary this used
+   sat at 1.10:1 on it. Focus is the atom's too, the ground deepening a step and nothing
+   drawn round it — the one focus every contained field on a floating surface takes (the
+   trail panel's fields, the searches, the paste boxes). This one used to swap to
+   --background-tertiary and add a hairline ring; the ring was standing in for a deepening
+   that couldn't show, since --background-tertiary is the card's own colour in dark. Only
+   the geometry is this field's — the transparent edge included: it is part of the box's
+   size, and under forced colours, where fills are stripped, it is repainted and is all
+   the field has. */
 .item__popinput {
   /* the worn stepper's height, so the two cards' one control each measure the same:
      --pop-ctl-h is an icon button's box, which is what sets the stepper's (.item__pop) */
@@ -2807,9 +2810,9 @@ function dismissFix() {
    undiscoverable, and the row's right half visibly re-populates under the cursor as
    as you scan down the list. A row that simply shows its controls has no flicker to
    have.
-   They are ghosted (--foreground-tertiary) at rest and darken on hover instead, so the row is calm
-   without being blank. Nothing here is opacity-animated any more, which also retires
-   the Safari layer-snap workaround the old rule needed. */
+   They are ghosted (--foreground-tertiary) at rest and darken on hover instead, so the
+   row is calm without being blank. Nothing here is opacity-animated any more, which also
+   retires the Safari layer-snap workaround the old rule needed. */
 
 /* the .reveal recipe now lives in atoms/controls.scss — three surfaces disclose the
    same way, and while it was scoped here the other two got the class names with none
@@ -2850,10 +2853,10 @@ function dismissFix() {
 .reveal-field-leave-to {
   opacity: 0;
 }
-/* the common-name field is an upright quiet LABEL (--foreground-secondary), distinct from the note's
-   italic aside voice below it — mirrors the read-only sub-line's two voices. .item__note
-   (atoms/item.scss) also matches this element and sets italic; the two classes together
-   outweigh it. */
+/* the common-name field is an upright quiet LABEL (--foreground-secondary), distinct from
+   the note's italic aside voice below it — mirrors the read-only sub-line's two voices.
+   .item__note (atoms/item.scss) also matches this element and sets italic; the two
+   classes together outweigh it. */
 .item__note.item__gtype-input {
   color: var(--foreground-secondary);
   font-style: normal;
@@ -2881,7 +2884,8 @@ function dismissFix() {
 }
 /* the variant field keeps .item__note's italic aside voice (the voice the row's name
    used for it before it moved down here), and the dot between the two fields takes the
-   gear type's quiet upright foreground so it reads as punctuation, not as either field's text */
+   gear type's quiet upright foreground so it reads as punctuation, not as either field's
+   text */
 .item__gtype-dot {
   color: var(--foreground-tertiary);
 }
@@ -2898,8 +2902,9 @@ function dismissFix() {
    costs exactly the line the <input> did and the row's height is unchanged until there
    is something to wrap. */
 /* quiet "suggest a fix" link under a row (a <button>: the pointer is the reset's). Its
-   foregrounds are .foreground-quiet's (atoms/controls.scss), in the markup: the lesser foreground at rest,
-   primary foreground under the pointer and on keyboard focus, on the fade. */
+   foregrounds are .foreground-quiet's (atoms/controls.scss), in the markup: the lesser
+   foreground at rest, primary foreground under the pointer and on keyboard focus, on the
+   fade. */
 .item__under-link {
   display: inline-flex;
   align-items: center;
@@ -2915,9 +2920,9 @@ function dismissFix() {
 }
 /* composes .btn--icon for the real tap target (--icon-btn box, --tap on touch) —
    without it the bare 14px glyph was the whole hit area. This rule keeps the quiet
-   --foreground-tertiary treatment over .btn--ghost's foreground, and the negative block margins pull the
-   enlarged box back out of layout so the fix row keeps its one-text-line rhythm
-   (the actions cluster's overshoot technique). */
+   --foreground-tertiary treatment over .btn--ghost's foreground, and the negative block
+   margins pull the enlarged box back out of layout so the fix row keeps its one-text-line
+   rhythm (the actions cluster's overshoot technique). */
 .item__fixdismiss {
   margin-block: var(--tap-pull);
 }
@@ -3068,12 +3073,12 @@ function dismissFix() {
        Half of this line doesn't: the qty cell, the unit wrap and both icon clusters are
        flex boxes that centre their own contents, so none of them offers a baseline and
        each one gets a SYNTHESIZED one instead — a value the spec leaves the engine to
-       derive, and here the engines disagreed. Measured from the rendered foreground against the
-       pre-fix rules: WebKit put the count 2px off the weight beside it, and the grip 2px
-       off the numbers, while Blink did not move a pixel — its own error was sub-pixel
-       (the unit 0.4px high, the class toggles 0.8px above the ⋯ and the grip), which is
-       to say Chrome reports this line as fine. Four cells, four reference edges, and no
-       width at which they all agree.
+       derive, and here the engines disagreed. Measured from the rendered foreground
+       against the pre-fix rules: WebKit put the count 2px off the weight beside it, and
+       the grip 2px off the numbers, while Blink did not move a pixel — its own error was
+       sub-pixel (the unit 0.4px high, the class toggles 0.8px above the ⋯ and the grip),
+       which is to say Chrome reports this line as fine. Four cells, four reference edges,
+       and no width at which they all agree.
        It takes a cell with NO TEXT ANYWHERE to break, which is why the icon clusters are
        the ones that did. A centred wrap that leads with a text span is not enough on its
        own — both engines take its baseline from that span, which is why the identically

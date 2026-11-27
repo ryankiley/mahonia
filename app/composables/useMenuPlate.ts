@@ -198,8 +198,8 @@ export function useMenuPlate(): {
       // elements the plate may land on at all. The design system's ds-menu takes every
       // row's colour unconditionally, which is right there and wrong here: Mahonia's
       // rows already vary their foreground for HIERARCHY (a section item and the switcher's
-      // "New list" sit at --foreground-secondary), so washing from that would light those rows more
-      // faintly than their neighbours — "less hoverable" rather than "different in
+      // "New list" sit at --foreground-secondary), so washing from that would light those
+      // rows more faintly than their neighbours — "less hoverable" rather than "different in
       // kind". Marking the one row that means it leaves every other menu untouched.
       //
       // The COLOUR comes from computed `color`, which is resolved — light-dark()
