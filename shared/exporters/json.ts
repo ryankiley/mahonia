@@ -13,7 +13,7 @@
 
 import type { Folder, Item, ListData, ListMeta, Person, TripDay, Unit, Waypoint } from "../types";
 import { pickListMeta, UNITS } from "../types";
-import { MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, ROUTE_END_IDS, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN, normalizeMetaFields } from "../ops";
+import { MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN, normalizeMetaFields } from "../ops";
 import { normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
@@ -71,8 +71,7 @@ function remintOrdered<T extends { id: string; sortOrder: number }>(
  * SAME reducer helpers the server runs on create (normalizeFolder/
  * normalizeItem) — the client never trusts a file, even its own export. Ids
  * are re-minted: a backup's ids are foreign strings, and duplicates must not
- * survive into the new list (they'd break op targeting). The route's two ends
- * are the one exception — see ROUTE_END_IDS below. folderId references
+ * survive into the new list (they'd break op targeting). folderId references
  * are re-pointed through the old→new map (dangling → null, like addItem's
  * coercion), and sortOrder is renumbered from the backup's ordering, so a
  * hand-edited file with gaps or ties still imports sanely.
@@ -145,28 +144,14 @@ export function jsonToListImport(text: string): JsonImport | null {
   // no array here at all, which is why this coerces rather than assuming one.
   // Waypoints, same treatment as days: re-minted ids, re-validated rather than trusted.
   // No sortOrder to renumber — route order is the only order — so they sort by alongM,
-  // and normalizeWaypoint drops anything that isn't a placed pin.
-  //
-  // TWO IDS SURVIVE, and they are the reason this isn't a plain uid() map. The route's own
-  // ends carry seedRouteEnds' FIXED ids, which is the only thing that makes them
-  // recognisable as the route's ends rather than as pins somebody dropped. Re-minting them
-  // left a restored backup with a trailhead and a finish nobody could match, so
-  // ensureRouteEnds read the pair as missing and added a second one of each — two stacked
-  // markers on the first list opened after a restore. Kept on the FIRST occurrence only: a
-  // hand-edited file can repeat them, and a duplicate id breaks op targeting.
-  const seenEndIds = new Set<string>();
+  // and normalizeWaypoint drops anything that isn't a placed pin. The route's own two
+  // ends are re-minted with the rest: a pin is a route end by its kind, not by its id.
   const waypoints = (Array.isArray(raw.waypoints) ? raw.waypoints : [])
     .filter(isRecord)
     .slice(0, MAX_WAYPOINTS)
     .map((w) => normalizeWaypoint(w as unknown as Waypoint))
     .filter((w): w is Waypoint => w != null)
-    .map((w) => {
-      if ((ROUTE_END_IDS as readonly string[]).includes(w.id) && !seenEndIds.has(w.id)) {
-        seenEndIds.add(w.id);
-        return w;
-      }
-      return { ...w, id: uid() };
-    })
+    .map((w) => ({ ...w, id: uid() }))
     .sort((a, b) => a.alongM - b.alongM);
 
   const days = remintOrdered<TripDay>(raw.days, MAX_DAYS, normalizeDay);

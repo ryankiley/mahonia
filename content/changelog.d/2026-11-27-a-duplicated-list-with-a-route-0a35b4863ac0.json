@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "A duplicated list with a route no longer shows two trailheads and two finishes."
+  ]
+}

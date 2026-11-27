@@ -92,6 +92,14 @@ describe("a waypoint survives every boundary in the chain", () => {
     expect(back.data.waypoints!.map((w) => w.label)).toEqual(["Timberline Lodge", "spring", "Cairn Basin"]);
   });
 
+  it("the JSON BACKUP — the route's own ends are re-minted like any other pin", () => {
+    const routed = applyOps(state(), [{ t: "setMeta", patch: { routeGeometry: GEOMETRY } }]);
+    const seeded = new Set(routed.waypoints!.map((w) => w.id));
+    const back = jsonToListImport(listToJson(routed as never))!;
+    expect(back.data.waypoints!.map((w) => w.kind)).toEqual(["trailhead", "end"]);
+    expect(back.data.waypoints!.filter((w) => seeded.has(w.id))).toEqual([]);
+  });
+
   it("a DUPLICATE — fresh ids, same positions", () => {
     const copy = cloneListData(withRoute() as never);
     expect(copy.waypoints).toHaveLength(3);

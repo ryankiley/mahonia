@@ -228,8 +228,9 @@ function simplify(points: readonly LatLon[], toleranceM: number): LatLon[] {
 /**
  * A track's points → the stored geometry, simplified until it fits the budget.
  *
- * The tolerance doubles until the point count is under the cap, bounded — a route that
- * refuses to simplify (every point a genuine corner) still terminates rather than looping.
+ * The tolerance doubles until the point count is under the cap. That always ends: a
+ * tolerance wider than the track itself keeps only its two ends, so even a route whose
+ * every point is a genuine corner fits after enough doublings.
  *
  * It STARTS TIGHT and loosens, rather than starting at a value that always fits. Measured
  * against the real Timberline export (3,522 points), 15 m produced 339 points — two-thirds
@@ -242,18 +243,9 @@ export function routeGeometryFromPoints(points: readonly LatLon[]): string | und
   if (points.length < 2) return undefined;
   let tolerance = 6;
   let simplified = simplify(points, tolerance);
-  for (let i = 0; i < 12 && simplified.length > MAX_ROUTE_POINTS; i++) {
+  while (simplified.length > MAX_ROUTE_POINTS) {
     tolerance *= 2;
     simplified = simplify(points, tolerance);
-  }
-  if (simplified.length > MAX_ROUTE_POINTS) {
-    // last resort: keep the ends and thin the middle evenly. Worse-looking than DP, but
-    // bounded, and it only happens on a track this file was never designed for.
-    const step = simplified.length / MAX_ROUTE_POINTS;
-    const thinned: LatLon[] = [];
-    for (let i = 0; i < MAX_ROUTE_POINTS; i++) thinned.push(simplified[Math.floor(i * step)]!);
-    thinned[thinned.length - 1] = simplified[simplified.length - 1]!;
-    simplified = thinned;
   }
   return normalizeRouteGeometry(encodePolyline(simplified));
 }

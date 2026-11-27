@@ -112,6 +112,17 @@ describe("simplification fits the budget without wasting it", () => {
     expect(decodePolyline(geo!).length).toBeLessThanOrEqual(MAX_ROUTE_POINTS);
   });
 
+  it("keeps loosening for corners tens of kilometres apart, and keeps the track's two ends", () => {
+    // every other point is 0.5° (about 55 km) north of its neighbours: twelve doublings of
+    // the 6 m tolerance reach 24 km, and nothing short of the swing itself thins this
+    const swings = Array.from({ length: 1200 }, (_, i) => ({ lat: 40 + (i % 2) * 0.5, lon: -120 + i * 0.05 }));
+    const kept = decodePolyline(routeGeometryFromPoints(swings)!);
+    expect(kept.length).toBeGreaterThanOrEqual(2);
+    expect(kept.length).toBeLessThanOrEqual(MAX_ROUTE_POINTS);
+    expect(kept[0]).toEqual({ lat: expect.closeTo(40, 5), lon: expect.closeTo(-120, 5) });
+    expect(kept.at(-1)).toEqual({ lat: expect.closeTo(40.5, 5), lon: expect.closeTo(-120 + 1199 * 0.05, 5) });
+  });
+
   it("thins a straight run to its endpoints — nothing between them is information", () => {
     // `line()` is perfectly straight, so DP is right to keep only the ends. Worth pinning:
     // it's the clearest demonstration that the budget is spent on corners, not on samples.

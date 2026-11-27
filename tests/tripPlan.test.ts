@@ -11,6 +11,7 @@ import {
   nextOwnedDay,
   restingKcal,
   toblerSpeedMs,
+  TRAIL_FACTOR,
   walkingVo2,
 } from "../shared/tripPlan";
 
@@ -24,12 +25,17 @@ const METS = (vo2: number) => vo2 / 3.5;
 const acsmVo2 = (speedMs: number, gradeFrac: number) =>
   0.1 * (speedMs * 60) + 1.8 * (speedMs * 60) * gradeFrac + 3.5;
 
+// Published figures are for a paved surface and the model costs every walk as a trail.
+// The trail factor multiplies everything above the 3.05 resting intercept, so dividing
+// that part by it gives the figure the same walk would have on pavement.
+const onPavement = (vo2: number) => 3.05 + (vo2 - 3.05) / TRAIL_FACTOR;
+
 describe("walkingVo2 — the two transcription ambiguities, pinned", () => {
   // The source table prints `(w+l)wt(…)`. VO2 is PER KILOGRAM, so the load term has to
   // be the ratio (w+l)/w. The product form comes out an order of magnitude high, and
   // this is the test that says so.
   it("level walking lands at ~3.2 METs, which only the ratio form does", () => {
-    const vo2 = walkingVo2({ speedMs: 1.34, gradePct: 0, bodyKg: 70, terrain: "paved" });
+    const vo2 = onPavement(walkingVo2({ speedMs: 1.34, gradePct: 0, bodyKg: 70 }));
     expect(METS(vo2)).toBeGreaterThan(2.9);
     expect(METS(vo2)).toBeLessThan(3.5);
     // the product form would give (70 × 8.06) + 3.05 ≈ 567 mL/kg/min — 162 METs
@@ -56,7 +62,7 @@ describe("walkingVo2 — the two transcription ambiguities, pinned", () => {
     // ACSM runs high; minimum mechanics should be under it across the range, not over
     for (const [deg, speedMs] of [[0, 1.34], [3, 1.2], [6, 1.1], [9, 1.0]] as const) {
       const frac = Math.tan((deg * Math.PI) / 180);
-      const ours = walkingVo2({ speedMs, gradePct: frac * 100, bodyKg: 70, terrain: "paved" });
+      const ours = onPavement(walkingVo2({ speedMs, gradePct: frac * 100, bodyKg: 70 }));
       const acsm = acsmVo2(speedMs, frac);
       expect(ours).toBeLessThanOrEqual(acsm * 1.05);
       expect(ours).toBeGreaterThan(acsm * 0.7);
@@ -64,7 +70,7 @@ describe("walkingVo2 — the two transcription ambiguities, pinned", () => {
   });
 });
 
-describe("walkingVo2 — load and terrain", () => {
+describe("walkingVo2 — load", () => {
   it("carrying a pack costs more", () => {
     const bare = walkingVo2({ speedMs: 1.2, gradePct: 5, bodyKg: 70, loadKg: 0 });
     const loaded = walkingVo2({ speedMs: 1.2, gradePct: 5, bodyKg: 70, loadKg: 14 });
@@ -72,16 +78,6 @@ describe("walkingVo2 — load and terrain", () => {
     // 14 kg on a 70 kg walker is +20% gravitational load; the cost above the 3.05
     // resting intercept should rise by about that
     expect((loaded - 3.05) / (bare - 3.05)).toBeCloseTo(1.2, 1);
-  });
-
-  it("rougher ground costs more", () => {
-    const base = { speedMs: 1.2, gradePct: 0, bodyKg: 70 } as const;
-    expect(walkingVo2({ ...base, terrain: "trail" })).toBeGreaterThan(
-      walkingVo2({ ...base, terrain: "paved" }),
-    );
-    expect(walkingVo2({ ...base, terrain: "rough" })).toBeGreaterThan(
-      walkingVo2({ ...base, terrain: "trail" }),
-    );
   });
 
   it("declines rather than inventing a number for nonsense inputs", () => {

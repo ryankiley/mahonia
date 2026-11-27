@@ -52,30 +52,10 @@ const SIGNATURE = [0x2e, 0x46, 0x49, 0x54];
  */
 export const MAX_FIT_PINS = MAX_WAYPOINTS;
 
-/** The width of each base type, by the low five bits of its byte. */
-const BASE_SIZE: Record<number, number> = {
-  0x00: 1, // enum
-  0x01: 1, // sint8
-  0x02: 1, // uint8
-  0x03: 2, // sint16
-  0x04: 2, // uint16
-  0x05: 4, // sint32
-  0x06: 4, // uint32
-  0x07: 1, // string
-  0x08: 4, // float32
-  0x09: 8, // float64
-  0x0a: 1, // uint8z
-  0x0b: 2, // uint16z
-  0x0c: 4, // uint32z
-  0x0d: 1, // byte
-  0x0e: 8, // sint64
-  0x0f: 8, // uint64
-  0x10: 8, // uint64z
-};
-
 interface FieldDef {
   num: number;
   size: number;
+  /** the base type, by the low five bits of its byte */
   base: number;
 }
 /** where one field of interest sits inside a data message */
@@ -273,70 +253,27 @@ function fillAltitude(points: TrackPoint[]): void {
  * value — which is how the format says "no reading": a sample without a fix writes
  * 0x7FFFFFFF into its position rather than omitting the field. A field wider than its
  * base type is an array, and its first element is the one that answers for it.
+ *
+ * Only the base types the profile gives the fields read here. A file that declares one
+ * of them as anything else has no reading for it: a position that isn't semicircles
+ * would otherwise be scaled as if it were, and land as a wrong place on the map.
  */
 function readNumber(view: DataView, at: number, f: FieldDef, le: boolean): number | undefined {
-  const width = BASE_SIZE[f.base];
-  if (width == null || f.size < width || at + width > view.byteLength) return undefined;
+  const read = (width: number, get: () => number, invalid: number) => {
+    if (f.size < width || at + width > view.byteLength) return undefined;
+    const v = get();
+    return v === invalid ? undefined : v;
+  };
   switch (f.base) {
-    case 0x00: // enum
+    case 0x00: // enum: a course point's type
     case 0x02: // uint8
-    case 0x0d: {
-      // byte
-      const v = view.getUint8(at);
-      return v === 0xff ? undefined : v;
-    }
-    case 0x0a: {
-      const v = view.getUint8(at);
-      return v === 0 ? undefined : v;
-    }
-    case 0x01: {
-      const v = view.getInt8(at);
-      return v === 0x7f ? undefined : v;
-    }
-    case 0x03: {
-      const v = view.getInt16(at, le);
-      return v === 0x7fff ? undefined : v;
-    }
-    case 0x04: {
-      const v = view.getUint16(at, le);
-      return v === 0xffff ? undefined : v;
-    }
-    case 0x0b: {
-      const v = view.getUint16(at, le);
-      return v === 0 ? undefined : v;
-    }
-    case 0x05: {
-      const v = view.getInt32(at, le);
-      return v === 0x7fffffff ? undefined : v;
-    }
-    case 0x06: {
-      const v = view.getUint32(at, le);
-      return v === 0xffffffff ? undefined : v;
-    }
-    case 0x0c: {
-      const v = view.getUint32(at, le);
-      return v === 0 ? undefined : v;
-    }
-    case 0x08: {
-      const v = view.getFloat32(at, le);
-      return Number.isFinite(v) ? v : undefined;
-    }
-    case 0x09: {
-      const v = view.getFloat64(at, le);
-      return Number.isFinite(v) ? v : undefined;
-    }
-    case 0x0e: {
-      const v = view.getBigInt64(at, le);
-      return v === BigInt("0x7fffffffffffffff") ? undefined : Number(v);
-    }
-    case 0x0f: {
-      const v = view.getBigUint64(at, le);
-      return v === BigInt("0xffffffffffffffff") ? undefined : Number(v);
-    }
-    case 0x10: {
-      const v = view.getBigUint64(at, le);
-      return v === BigInt(0) ? undefined : Number(v);
-    }
+      return read(1, () => view.getUint8(at), 0xff);
+    case 0x04: // uint16: altitude
+      return read(2, () => view.getUint16(at, le), 0xffff);
+    case 0x05: // sint32: a position, in semicircles
+      return read(4, () => view.getInt32(at, le), 0x7fffffff);
+    case 0x06: // uint32: enhanced altitude
+      return read(4, () => view.getUint32(at, le), 0xffffffff);
     default:
       return undefined;
   }

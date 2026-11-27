@@ -1,5 +1,5 @@
 import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
-import { MAX_ITEMS, seedRouteEnds } from "~~/shared/ops";
+import { MAX_ITEMS } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { splitWeightTail } from "~~/shared/pasteList";
@@ -85,35 +85,17 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
   // carry with it, and nothing pointing at it, so there is no cascade to write and no
   // undo to offer — a removed day is two numbers, and re-typing them costs less than the
   // toast would. Reordering is a sortOrder patch, exactly as it is for folders.
-  function addDay() {
-    const days = snapshot.value?.days ?? [];
-    dispatch({ t: "addDay", day: { id: uid(), sortOrder: days.length } });
+  /** Returns the new day's id: dispatch applies the op before it returns, so the day is
+   *  in the snapshot by then and a caller can patch it straight away. */
+  function addDay(): string {
+    const id = uid();
+    dispatch({ t: "addDay", day: { id, sortOrder: snapshot.value?.days?.length ?? 0 } });
+    return id;
   }
   const updateDay = (id: string, patch: DayPatch) => dispatch({ t: "updateDay", id, patch });
   /** A pin at a distance along the route. No sortOrder — route order is the only order. */
   function addWaypoint(alongM: number, kind: WaypointKind = "landmark") {
     dispatch({ t: "addWaypoint", waypoint: { id: uid(), kind, alongM } });
-  }
-  /**
-   * The route's two ends, for a list whose geometry predates them.
-   *
-   * seedRouteEnds fires when the geometry CHANGES (see the reducer's setMeta), so a route
-   * imported before this existed has no trailhead and no finish — and no way to grow one,
-   * because neither kind is placeable by hand, on purpose. This fills the gap from the
-   * geometry the list is already holding, reusing the seeder's own fixed ids so a second
-   * call adds nothing and a loop stays a loop.
-   *
-   * NOT in the reducer. A reducer replays ops and has to give the same answer every time;
-   * a rule that invents a waypoint whenever it notices one missing would write a different
-   * history depending on when it happened to run.
-   */
-  function ensureRouteEnds() {
-    const geo = snapshot.value?.routeGeometry;
-    if (!geo) return;
-    const have = new Set((snapshot.value?.waypoints ?? []).map((w) => w.id));
-    for (const w of seedRouteEnds(geo)) {
-      if (!have.has(w.id)) dispatch({ t: "addWaypoint", waypoint: w });
-    }
   }
   const updateWaypoint = (id: string, patch: Partial<Waypoint>) =>
     dispatch({ t: "updateWaypoint", id, patch });
@@ -533,7 +515,7 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
 
   return {
     setMeta, setUnit, addFolder, updateFolder, moveFolderBefore, addDay,
-    updateDay, addWaypoint, ensureRouteEnds, updateWaypoint, removeWaypoint, removeDay,
+    updateDay, addWaypoint, updateWaypoint, removeWaypoint, removeDay,
     addPerson, updatePerson, removePerson, removeFolder, addBlankItem, addVaultItem,
     addBlankItemAfter, pasteItemsAfter, isEmptyRow, discardEmpty, updateItem, removeItem,
     setItemWeight,

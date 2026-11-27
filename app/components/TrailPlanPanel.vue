@@ -124,12 +124,14 @@ function removeDay(i: number) {
 /** A ghost row becoming real. Returns the id to patch. Only ever asked for a row the
  *  list shows, and `days` is clamped to the reducer's ceiling, so every add here is
  *  one the reducer takes. */
-function ensureDay(i: number): string | null {
+function ensureDay(i: number): string {
   const existing = stored.value[i];
   if (existing) return existing.id;
-  // fill any gap before it too, so sortOrder stays the position in the trip
-  for (let k = stored.value.length; k <= i; k++) c.addDay();
-  return null; // the patch lands on the next tick, once the op has applied
+  // fill any gap before it too, so sortOrder stays the position in the trip; the last
+  // day added is the row's own
+  let id = "";
+  for (let k = stored.value.length; k <= i; k++) id = c.addDay();
+  return id;
 }
 
 // ---- a row's identity ----
@@ -521,12 +523,8 @@ const descentFor = (i: number) =>
 // One commit for both metre fields. Distance reads in the trip's km/mi; ascent is
 // a HEIGHT and reads in metres or feet, never the km/mi beside it — same parser,
 // the fallback unit is the whole difference.
-async function commitDayMetres(maybeId: string | null, field: "distanceM" | "ascentM", e: Event) {
-  // read BEFORE the wait: a ghost's row stays put while its day arrives (see dayKey), and
-  // the render in between sets the field to the new day's figure, which is none
+function commitDayMetres(id: string, field: "distanceM" | "ascentM", e: Event) {
   const raw = (e.target as HTMLInputElement).value.trim();
-  const id = await realDayId(maybeId);
-  if (!id) return;
   const unit = field === "distanceM" ? distanceUnit.value : ascentUnit.value;
   // "" and NOT undefined, spelled out per field. The patch is JSON on its way to
   // the server and JSON.stringify drops undefined keys, so clearing a day's figure
@@ -541,20 +539,10 @@ async function commitDayMetres(maybeId: string | null, field: "distanceM" | "asc
   );
 }
 
-/** The id to patch: the row's own, or, for a ghost that ensureDay just made real, the
- *  day its add created — which lands on the next tick, at the end of the stored days. */
-async function realDayId(id: string | null): Promise<string | null> {
-  if (id) return id;
-  await nextTick();
-  return stored.value[stored.value.length - 1]?.id ?? null;
-}
-
 // The day's note commits on change like the figures do. "" is the clear: a string
 // survives the JSON trip whole, so it needs no sentinel (see DayPatch).
-async function commitDayNote(maybeId: string | null, e: Event) {
-  const note = (e.target as HTMLTextAreaElement).value.trim(); // before the wait, as above
-  const id = await realDayId(maybeId);
-  if (id) c.updateDay(id, { note });
+function commitDayNote(id: string, e: Event) {
+  c.updateDay(id, { note: (e.target as HTMLTextAreaElement).value.trim() });
 }
 // The note grows to fit its text: natively through field-sizing, by hand where that is
 // missing, and fitTextarea is the gate (a no-op where it isn't needed). On mount AND on
