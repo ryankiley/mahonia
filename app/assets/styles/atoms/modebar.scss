@@ -88,7 +88,7 @@
 // little over halfway up to it, as 3.5 is to 6.5 — at 5% it was #0d0d0d on #000, a hover
 // nobody saw. Kept as a color-mix and NOT a token: this is a transient tint that has to
 // work on whatever the bar sits on. (Not --background-hover either: that is the menus'
-// row wash, 8% in both themes, and this bar's is its own pair.)
+// row wash, 8% light and 12% dark, and this bar's is its own quieter pair.)
 // Pointer-gated — it paints (see the note on .btn:hover, controls.scss). This bar is
 // the one every mode change goes through, so an ungated wash left the option you
 // last tapped lit next to the one actually selected — two "on" states at once, in the

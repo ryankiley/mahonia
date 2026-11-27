@@ -833,8 +833,12 @@ input[type="search"]::-webkit-search-decoration {
   // That property is declared on the root (tokens.scss), so the var() inside it is
   // substituted THERE and the finished colour inherits down — an inline --hov-foreground
   // on this element could never reach it. Mixing here is what lets the plate take a hue
-  // the row hands it (useMenuPlate); unset, it is plain foreground at the same amount.
-  background: color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity), transparent);
+  // the row hands it (useMenuPlate); unset, it is plain foreground at the same amounts,
+  // one for each theme as --background-hover has.
+  background: light-dark(
+    color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity), transparent),
+    color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity-dark), transparent)
+  );
   opacity: 0;
   pointer-events: none;
   // The travel is on the TRACK role, the one tokens.scss names this plate under: it
@@ -1127,7 +1131,7 @@ input[type="search"]::-webkit-search-decoration {
 // moment it became the thing you were using. That is the Worn/Consumable switch's bug (#216)
 // exactly, in the atom the switch's fix was written next to.
 // Mixed from foreground, the fill composites over whatever it lands on and cannot match its
-// surface. (It is --background-hover's 8% since 2026-11-27, one number for the menus'
+// surface. (It is the hover tint's light amount, 8%, since 2026-11-27, one number for the menus'
 // row tint and this; the figures here were measured a point lower.) At 7% it reads 1.169
 // light and 1.226 dark on a popover, 1.120 dark on the page — all clear of the 1.10 that
 // vanished — and focus lifts to 10%: 1.254 / 1.352 / 1.200. It was 10% and 15% until

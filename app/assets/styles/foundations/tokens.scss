@@ -174,8 +174,10 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      argued at .well (atoms/controls.scss), which had the pair first; the other three
      restated it. --background-field-focus is the same ground one step on: the well
      focused, a chip pointed at. ONE percentage each, not a light-dark() pair: these
-     measured out equal. ---- */
-  --background-field: var(--background-hover);
+     measured out equal. The resting amount is the hover tint's LIGHT one in both
+     themes, not the tint itself: that takes 12% in dark, which would put a well at rest
+     above its own focus. ---- */
+  --background-field: color-mix(in oklab, var(--foreground-primary) var(--background-hover-opacity), transparent);
   --background-field-focus: color-mix(in oklab, var(--foreground-primary) 10%, transparent);
 
   /* ---- foreground: neutral grey ramp; primary is true black / white ---- */
@@ -556,10 +558,20 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      a kit's "add an item" choices did on /gear, a list drawn in the page's own flow and
      styled like a menu's rows — and the token test could not see it, since the name IS
      defined somewhere. The value every popover reads is unchanged: the var()s resolve to
-     the same --foreground-primary and the same 8% here as they did one level down, and
-     the finished mix still takes its theme from wherever it is used. ---- */
+     the same --foreground-primary and the same amount here as they did one level down,
+     and the finished mix still takes its theme from wherever it is used.
+     TWO AMOUNTS, 8% and 12%, as the selected ground and the hairlines have and for
+     their reason: one percentage does not buy the same step on black as on white. It
+     was 8% in both until 2026-11-27, when the plain button's hover came to read this
+     too: on the dark page that put #141414 where #1f1f1f had been, a hover you had to
+     look for. 12% of white on black is #1f1f1f again, and the menus' rows take the same
+     step up. ---- */
   --background-hover-opacity: 8%;
-  --background-hover: color-mix(in oklab, var(--foreground-primary) var(--background-hover-opacity), transparent);
+  --background-hover-opacity-dark: 12%;
+  --background-hover: light-dark(
+    color-mix(in oklab, var(--foreground-primary) var(--background-hover-opacity), transparent),
+    color-mix(in oklab, var(--foreground-primary) var(--background-hover-opacity-dark), transparent)
+  );
   /* dialog scrim — pure-black alphas so it stays on the neutral ramp (no warm
      tint, same rule as the surfaces above) */
   /* 10% light / 30% dark. 18% read as heavy over the white page (Ryan, 2026-10-17:

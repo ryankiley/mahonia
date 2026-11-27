@@ -1,6 +1,7 @@
 {
   "date": "2026-11-27",
   "changed": [
+    "The row or button under the pointer shows more clearly in dark mode.",
     "Disabled buttons, checks and rows all dim to the same strength.",
     "The legal page writes its date the way the rest of the app does."
   ],
