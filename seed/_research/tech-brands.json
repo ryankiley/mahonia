@@ -467,6 +467,7 @@
       "name": "Five to Nine Jacket",
       "variant": "Men's Large",
       "category_hint": "clothing",
+      "common_name": "rain jacket",
       "weight_value": 630,
       "weight_unit": "g",
       "weight_source": "manufacturer",
