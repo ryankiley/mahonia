@@ -7,6 +7,7 @@ import { catalogRow, seedCatalogRow, weightOf } from "./helpers/catalog";
 import { createTestDb } from "./helpers/db";
 import { parseCsv } from "../shared/exporters/csv";
 import {
+  CATALOG_CSV_HEADERS,
   csvToCatalogRows,
   isCitationUrl,
   serializeCsv,
@@ -122,28 +123,16 @@ describe("parseCsv — hand-rolled RFC4180-ish", () => {
 });
 
 describe("serializeCsv + csvToCatalogRows round-trip", () => {
-  const csv = serializeCsv(
-    ["brand", "name", "variant", "category_hint", "weight_mg", "weight_source", "source_url"],
-    [
-      {
-        brand: "Zpacks",
-        name: "Duplex",
-        variant: "",
-        category_hint: "shelter",
-        weight_mg: 549981,
-        weight_source: "manufacturer",
-        source_url: "https://zpacks.com/products/duplex-tent",
-      },
-      {
-        brand: "",
-        name: "Smartwater bottle, 1L",
-        variant: "1L",
-        category_hint: "water",
-        weight_mg: 39000,
-        weight_source: "measured",
-        source_url: "https://example.com/spec",
-      },
-    ],
+  type Cells = Partial<Record<(typeof CATALOG_CSV_HEADERS)[number], string | number>>;
+  /** A catalog CSV under the full header: each record is a valid pack row unless it says otherwise. */
+  const csvOf = (...records: Cells[]) =>
+    serializeCsv(
+      CATALOG_CSV_HEADERS,
+      records.map((r) => ({ brand: "X", name: "Y", category_hint: "pack", weight_mg: 100, weight_source: "manufacturer", source_url: "https://x", ...r })),
+    );
+  const csv = csvOf(
+    { brand: "Zpacks", name: "Duplex", variant: "", category_hint: "shelter", weight_mg: 549981, source_url: "https://zpacks.com/products/duplex-tent" },
+    { brand: "", name: "Smartwater bottle, 1L", variant: "1L", category_hint: "water", weight_mg: 39000, weight_source: "measured", source_url: "https://example.com/spec" },
   );
 
   it("round-trips rows, mapping blank brand/variant to null", () => {
@@ -162,56 +151,49 @@ describe("serializeCsv + csvToCatalogRows round-trip", () => {
     expect(rows[1].brand).toBeNull();
   });
 
+  it("refuses a file whose header lacks a column the build writes, and names it", () => {
+    const without = (...cols: string[]) => serializeCsv(CATALOG_CSV_HEADERS.filter((h) => !cols.includes(h)), [{ name: "Y", weight_mg: 100, weight_source: "manufacturer" }]);
+    expect(() => csvToCatalogRows(without("kcal"))).toThrow(/missing.*: kcal$/);
+    expect(() => csvToCatalogRows(without("common_name", "attributes"))).toThrow(/missing.*: common_name, attributes$/);
+    // the columns in another order are the same file
+    const [first, ...rest] = csv.trimEnd().split("\n").map((line) => parseCsv(line)[0]!);
+    const reversed = serializeCsv([...first!].reverse(), rest.map((cells) => Object.fromEntries(first!.map((h, i) => [h, cells[i]]))));
+    expect(csvToCatalogRows(reversed)).toEqual(csvToCatalogRows(csv));
+  });
+
   it("rejects an invalid weight_source", () => {
-    const bad = "brand,name,variant,category_hint,weight_mg,weight_source,source_url\nX,Y,,pack,100,guessed,https://x\n";
-    expect(() => csvToCatalogRows(bad)).toThrow(/weight_source/);
+    expect(() => csvToCatalogRows(csvOf({ weight_source: "guessed" }))).toThrow(/weight_source/);
   });
 
   it("rejects a non-positive weight_mg", () => {
-    const bad = "brand,name,variant,category_hint,weight_mg,weight_source,source_url\nX,Y,,pack,0,manufacturer,https://x\n";
-    expect(() => csvToCatalogRows(bad)).toThrow(/weight_mg/);
+    expect(() => csvToCatalogRows(csvOf({ weight_mg: 0 }))).toThrow(/weight_mg/);
   });
 
-  it("parses kcal when present, null when blank or the column is absent", () => {
-    const withKcal =
-      "brand,name,variant,category_hint,weight_mg,weight_source,source_url,kcal\n" +
-      "Clif,Energy Bar,single bar,consumable,68000,manufacturer,https://x,250\n" +
-      "MSR,IsoPro,110g,consumable,110000,manufacturer,https://x,\n";
-    const rows = csvToCatalogRows(withKcal);
+  it("parses kcal when present, null when blank", () => {
+    const rows = csvToCatalogRows(csvOf({ brand: "Clif", name: "Energy Bar", category_hint: "consumable", kcal: 250 }, { brand: "MSR", name: "IsoPro", category_hint: "consumable" }));
     expect(rows[0].kcal).toBe(250);
     expect(rows[1].kcal).toBeNull();
-    // the round-trip fixture above has no kcal column at all — same null
-    expect(csvToCatalogRows(csv)[0].kcal).toBeNull();
   });
 
-  it("parses the attributes column strictly, null when blank or the column is absent", () => {
-    const withAttrs =
-      "brand,name,variant,attributes,category_hint,weight_mg,weight_source,source_url\n" +
-      "EE,Revelation,\"20F, 950FP, Regular\",temp_f=20; fill_power=950; length=Regular,sleep,566000,manufacturer,https://x\n" +
-      "Zpacks,Duplex,,,shelter,549981,manufacturer,https://x\n";
-    const rows = csvToCatalogRows(withAttrs);
+  it("parses the attributes column strictly, null when blank", () => {
+    const revelation: Cells = { brand: "EE", name: "Revelation", variant: "20F, 950FP, Regular", attributes: "temp_f=20; fill_power=950; length=Regular", category_hint: "sleep" };
+    const rows = csvToCatalogRows(csvOf(revelation, { brand: "Zpacks", name: "Duplex", category_hint: "shelter" }));
     expect(rows[0].attributes).toEqual({ length: "Regular", temp_f: 20, fill_power: 950 });
     expect(rows[1].attributes).toBeNull();
-    expect(csvToCatalogRows(csv)[0].attributes).toBeNull();
-    const bad = withAttrs.replace("temp_f=20", "temp_f=20F");
+    const bad = csvOf({ ...revelation, attributes: "temp_f=20F; fill_power=950; length=Regular" });
     expect(() => csvToCatalogRows(bad)).toThrow(/row 2 \(Revelation\).*temp_f/);
   });
 
-  it("parses attributes_unpublished as a list of axes, empty when blank or absent", () => {
-    const csv2 =
-      "brand,name,variant,attributes,attributes_unpublished,category_hint,weight_mg,weight_source,source_url\n" +
-      "Acme,Hoody,Men's,fit=Men's,size,clothing,300000,manufacturer,https://x\n" +
-      "Acme,Tent,,,,shelter,900000,manufacturer,https://x\n";
-    const rows = csvToCatalogRows(csv2);
+  it("parses attributes_unpublished as a list of axes, empty when blank", () => {
+    const hoody: Cells = { brand: "Acme", name: "Hoody", variant: "Men's", attributes: "fit=Men's", attributes_unpublished: "size", category_hint: "clothing" };
+    const rows = csvToCatalogRows(csvOf(hoody, { brand: "Acme", name: "Tent", category_hint: "shelter" }));
     expect(rows[0].attributesUnpublished).toEqual(["size"]);
     expect(rows[1].attributesUnpublished).toEqual([]);
-    expect(csvToCatalogRows(csv)[0].attributesUnpublished).toEqual([]);
-    expect(() => csvToCatalogRows(csv2.replace(",size,", ",colour,"))).toThrow(/attributes_unpublished/);
+    expect(() => csvToCatalogRows(csvOf({ ...hoody, attributes_unpublished: "colour" }))).toThrow(/attributes_unpublished/);
   });
 
   it("rejects a non-positive or fractional kcal", () => {
-    const bad = (v: string) =>
-      `brand,name,variant,category_hint,weight_mg,weight_source,source_url,kcal\nX,Y,,consumable,100,manufacturer,https://x,${v}\n`;
+    const bad = (v: string) => csvOf({ category_hint: "consumable", kcal: v });
     expect(() => csvToCatalogRows(bad("0"))).toThrow(/kcal/);
     expect(() => csvToCatalogRows(bad("250.5"))).toThrow(/kcal/);
   });

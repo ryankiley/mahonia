@@ -1,6 +1,6 @@
 // A catalog row, seeded and read back. catalog.test.ts wrote the insert eleven times
-// and the weight read-back seven; candidates, seedRenames, seedSizes and
-// hydrateCatalogNames each had their own copies of the insert.
+// and the weight read-back seven; candidates, seedRenames and hydrateCatalogNames
+// each had their own copies of the insert.
 
 import { eq } from "drizzle-orm";
 import * as schema from "../../server/db/schema";

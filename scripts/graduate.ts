@@ -9,7 +9,7 @@ import type { Db } from "../server/utils/db";
 import { normalizeVariant, tidyQuote } from "../shared/catalogQuality";
 import { identity, specToMg } from "./catalogCsv";
 import type { Unit } from "../shared/types";
-import { formatResearchFile, GRADUATED_FILE_NAME, researchFileNote, type ResearchRow } from "./research";
+import { formatResearchFile, GRADUATED_FILE_NAME, type ResearchRow } from "./research";
 
 type Row = typeof catalogItems.$inferSelect;
 
@@ -199,12 +199,12 @@ export function planGraduation(
     if (file === GRADUATED_FILE_NAME) continue;
     // a file that isn't JSON throws here, before anything is written; the build and the
     // audit refuse such a file too
-    const data = JSON.parse(raw) as { _comment?: unknown; _note?: unknown; rows?: unknown } | null;
+    const data = JSON.parse(raw) as { _comment?: unknown; rows?: unknown } | null;
     const held = data?.rows;
     if (!Array.isArray(held)) continue;
     const { rows, replaced, before } = rewriteResearchRows(held, wanted);
     if (!replaced.size) continue;
-    // the file's note goes with it, whichever key it was under (researchFileNote)
+    // the file's note goes with it
     writes.set(file, formatResearchFile({ ...data, rows }));
     inPlace.set(file, replaced.size);
     for (const key of replaced) {
@@ -220,9 +220,9 @@ export function planGraduation(
   const rest = incoming.filter((r) => !placed.has(researchIdentity(r)));
   if (rest.length) {
     const graduatedRaw = files.find((f) => f.file === GRADUATED_FILE_NAME)?.raw;
-    const before = graduatedRaw ? (JSON.parse(graduatedRaw) as { _comment?: unknown; _note?: unknown; rows?: ResearchRow[] }) : {};
+    const before = graduatedRaw ? (JSON.parse(graduatedRaw) as { _comment?: unknown; rows?: ResearchRow[] }) : {};
     const rows = mergeResearch(before.rows ?? [], rest);
-    writes.set(GRADUATED_FILE_NAME, formatResearchFile({ _comment: researchFileNote(before) ?? GRADUATED_COMMENT, rows }));
+    writes.set(GRADUATED_FILE_NAME, formatResearchFile({ _comment: before._comment ?? GRADUATED_COMMENT, rows }));
   }
   return { writes, inPlace, toGraduated: rest.length, overwrites };
 }

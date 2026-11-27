@@ -350,7 +350,9 @@ export const SIZE_LETTER_WORD: Record<string, string> = {
   XL: "X-Large",
   XXL: "XX-Large",
 };
-const SIZE_WORD_LETTER: Record<string, string> = Object.fromEntries(
+/** The same family read the other way, keyed by the word in lower case ("x-large" → "XL"),
+ *  since a research row or a person may spell "medium". */
+export const SIZE_WORD_LETTER: Record<string, string> = Object.fromEntries(
   Object.entries(SIZE_LETTER_WORD).map(([letter, word]) => [word.toLowerCase(), letter]),
 );
 // a letter size standing as a token: at the start of the string or after a space, a

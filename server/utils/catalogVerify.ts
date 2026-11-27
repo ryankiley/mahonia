@@ -38,6 +38,7 @@ import { and, desc, eq, getTableColumns, gt, isNotNull, or, sql, type SQL } from
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
 import { normalizeGearType } from "../../scripts/gearTypes";
 import { researchStamp } from "../../scripts/graduate";
+import { buildSearchTerms } from "../../scripts/searchTerms";
 import { soldByOf } from "../../shared/catalogAxes";
 import { CATALOG_CATEGORIES, categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged, tidyQuote } from "../../shared/catalogQuality";
 import { isCatalogId, MAX_BRAND_LEN, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
@@ -249,7 +250,8 @@ export async function verifyCatalogItem(
   // corrected maker's weight and citation, and nothing else: its name and gear type are the
   // research's, and so is its weight's being the maker's. That holds after a first
   // correction too, when the row's verifier is set and only its edit history says where it
-  // came from, which is read only when the call would change something the research owns.
+  // came from: every call on such a row reads it, since the house style below reads a
+  // research row's quote as its research file does.
   let revive = false;
   let research = false;
   if (current && current.status !== "active") {
@@ -259,12 +261,7 @@ export async function verifyCatalogItem(
     const renames = identity.brand !== current.brand || identity.name !== current.name || identity.variant !== current.variant;
     const retypes = (gearType !== "" && normKey(gearType) !== normKey(current.commonName)) || (category != null && category !== current.categoryHint);
     const measures = source === "measured";
-    // the write below would respell the gear type, or rewrite the kind or the search terms
-    // the build gave the row: kept as they are on a research row, so its search still works
-    const touches =
-      (askedLabel != null && (askedLabel !== current.commonName || (normKey(askedLabel) || null) !== current.searchTerms)) ||
-      (askedKind != null && askedKind !== current.categoryHint);
-    research = seedManaged(current) || ((renames || retypes || measures || touches) && current.verifiedBy != null && (await wasResearchRow(db, current.id)));
+    research = seedManaged(current) || (current.verifiedBy != null && (await wasResearchRow(db, current.id)));
     if (research && measures) {
       return `Row ${current.id} comes from Mahonia's research files, which hold the maker's published weight: a weight from the person's own scale belongs on their piece of My Gear (edit_my_gear's weight_g), not on the catalog's row.`;
     }
@@ -373,7 +370,7 @@ export async function verifyCatalogItem(
             ...identity,
             categoryHint: kind,
             commonName: label,
-            searchTerms: normKey(label) || null,
+            searchTerms: buildSearchTerms(identity.name, kind, label),
             status: "active",
             ...verified,
           })
@@ -423,7 +420,7 @@ export async function verifyCatalogItem(
         ...verified,
         ...identity,
         ...(typedKind ? { categoryHint: typedKind } : {}),
-        ...(label && !research ? { commonName: label, searchTerms: normKey(label) || null } : {}),
+        ...(label && !research ? { commonName: label, searchTerms: buildSearchTerms(identity.name, kind, label) } : {}),
         ...(revive ? { status: "active", mergedIntoId: null } : {}),
       })
       .where(eq(catalogItems.id, row.id))

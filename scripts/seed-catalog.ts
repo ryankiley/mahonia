@@ -17,8 +17,6 @@ import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import { ensureCatalogSchema } from "../server/utils/catalog";
-import { sizesToWords } from "./seedSizes";
-import { refoldVaultIdentities } from "./seedIdentities";
 import { renameMovedVariants } from "./seedRenames";
 import { retireOrphans } from "./seedRetire";
 import { upsertSeedRows } from "./seedUpsert";
@@ -36,10 +34,6 @@ async function main() {
   const db = await useDb();
   await ensureCatalogSchema(db);
 
-  const moved = await sizesToWords(db);
-  if (moved.catalog || moved.vault) console.log(`Sizes as words: ${moved.catalog} catalog rows and ${moved.vault} My Gear rows renamed in place.`);
-  const refolded = await refoldVaultIdentities(db);
-  if (refolded) console.log(`Identities refolded: ${refolded} My Gear rows re-keyed in place.`);
   const renamed = await renameMovedVariants(db, rows);
   if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);
 

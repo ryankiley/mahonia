@@ -20,6 +20,7 @@ import {
   RANGE_G,
   splitKnownBrand,
 } from "../../shared/catalogQuality";
+import { buildSearchTerms } from "../../scripts/searchTerms";
 import { itemDisplayName } from "../../shared/weights";
 import { trigramScore, type CatalogSearchResult } from "../../shared/catalogSearch";
 import { bumpUsage, ensureCatalogSchema, searchCatalog } from "./catalog";
@@ -297,10 +298,10 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     try {
       const ins = await db.insert(catalogItems).values({
         brand: rawBrand, name: rawName, variant, categoryHint: category,
-        // the typed gear type, as the row's gear type for the next pick and as its
-        // search term, since the search matches brand + name + search_terms and
-        // "tent" would otherwise never find a community "Duplex Zip"
-        commonName, searchTerms: commonName ? normKey(commonName) || null : null,
+        // the typed gear type, as the row's gear type for the next pick, and the search
+        // terms the build would give the row, since the search matches brand + name +
+        // search_terms and "tent" would otherwise never find a community "Duplex Zip"
+        commonName, searchTerms: buildSearchTerms(rawName, category, commonName),
         weightMg: med, weightSource: "community", verified: false, status: "active", usageCount: lists,
       }).returning();
       await markPromoted(key, ins[0]!.id);
