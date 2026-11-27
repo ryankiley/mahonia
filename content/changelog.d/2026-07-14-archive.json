@@ -1,0 +1,6 @@
+{
+  "date": "2026-07-14",
+  "added": [
+    "Import a JSON backup to restore a list. Exporting and re-importing now round-trips a list at full fidelity."
+  ]
+}

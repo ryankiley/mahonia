@@ -1,0 +1,31 @@
+{
+  "date": "2026-07-19",
+  "added": [
+    "Every item carries a gear type like \"tent\", filled in when you pick it, shown under the product, and renamable per list.",
+    "Start a new list straight from the editor's ⋯ menu."
+  ],
+  "changed": [
+    "Typing a gear name now surfaces closer name matches first, above merely-popular ones.",
+    "Editing and packing modes now ease from one to the other when you switch, instead of snapping.",
+    "Empty folders no longer draw a faint line under their name.",
+    "Editing an item's name now offers its gear type right below, so gear you type in yourself can carry one too.",
+    "CSV exports carry a \"Gear Type\" column; older files with a \"Common Name\" column still import.",
+    "A group row no longer offers a gear type of its own. The group's name already is one."
+  ],
+  "fixed": [
+    "Switching to packing mode no longer makes the rows taller.",
+    "Item notes sit the same distance below their name in shared and public lists as they do in the editor.",
+    "The “Add an item” button lines up with the list's row spacing.",
+    "Nesting an item under a piece of gear that has a weight groups the two, and that gear's own weight stays on its own line.",
+    "Renaming a catalog item to your own name clears the gear type that came with it.",
+    "Un-nesting an item out of a group the app made hands its gear type back and removes the leftover group row.",
+    "Dragging one weighed item onto another no longer pops the keyboard open on a phone.",
+    "The gear type and note button says what it will open, and opens to that field.",
+    "Screen readers and voice control can now reach an item's gear type and note button.",
+    "\"Create a list\" no longer drops the list you were on out of your browser history.",
+    "Printed lists no longer show an \"Add an item\" line under each group.",
+    "A renamed catalog item keeps tracking the catalog's gear type, and your own gear type still tracks its product name.",
+    "A CSV column called \"Type\" is no longer imported as a gear type. Only a \"Gear Type\" or \"Common Name\" column is.",
+    "An unnamed item no longer shows the placeholder label \"Group\" unless it really is a group."
+  ]
+}

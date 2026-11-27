@@ -1,0 +1,52 @@
+{
+  "date": "2026-08-07",
+  "added": [
+    "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page.",
+    "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link.",
+    "When a saved list can’t be opened anymore, the page names it and lets you forget it.",
+    "Food and fuel picked from the catalog arrive marked consumable, so a Clif bar never counts toward base weight.",
+    "My Gear now remembers the calories you've entered for a food, and brings them back the next time you add it to a list.",
+    "The sharing panel says when a list was opened from your account rather than its edit link, and can hand this device a fresh one."
+  ],
+  "changed": [
+    "Switching between the gear, packing and planning views is instant on a long list.",
+    "Delete list in the editor's ⋯ menu reads in red.",
+    "Each action in the editor's ⋯ menu now carries an icon, so the menu can be scanned by shape as well as read.",
+    "Your gear vault is now called My Gear, everywhere it's named.",
+    "\"Your lists\" is no longer a page. Your lists live in the editor's switcher, and forgetting or deleting one is in its ⋯ menu.",
+    "When a list's gear already reaches My Gear on its own, each row's save button reads \"Already in My Gear\" and goes quiet.",
+    "The consumable and worn toggles swapped places, and a water row carries a lit consumable mark, so the marks line up in one column.",
+    "When a list's gear already reaches My Gear on its own, each row's save button steps aside instead of sitting dimmed.",
+    "The save button sits first in a row's trailing icons, so the icons every row shares hold a steady column.",
+    "A new row offers Save to My Gear once it has a name and a weight or a catalog pick, not before.",
+    "Coming back to the planning view is instant, and it keeps where you left it.",
+    "A shared list's heading is tighter: who made it and when on one line, the trail and the dates on the next.",
+    "A shared list no longer labels itself \"Read-only\". There was never anything on the page to edit.",
+    "On a wide screen, an item's quantity has a + and a − beside the number. On a phone it stays a plain field.",
+    "The packs button's corners now match the Gear / Packing / Planning switcher it sits above."
+  ],
+  "fixed": [
+    "A pack whose edit link was replaced no longer shows up twice in the list switcher.",
+    "Forgetting or deleting a list now sticks. It no longer turns up again in the list switcher.",
+    "Renaming a list shows in the list switcher straight away.",
+    "The browser tab shows a list's new name the moment you refresh, instead of the name it was carrying a minute ago.",
+    "Renaming a row to a different piece of gear no longer leaves the old product's catalog weight behind.",
+    "Typing a list's name while the list is still loading no longer loses the start of it.",
+    "Correcting a piece of gear's spelling or product link reaches My Gear straight away.",
+    "A list that can't reach the server says \"Not saved\" and holds still while it retries, with a growing pause.",
+    "The editor's toolbar icons sit at the right edge again on a list that hasn't been edited yet.",
+    "Forgetting a list that’s no longer online warns that this device's copy may be all that’s left.",
+    "Water rows no longer offer Save to My Gear. Water is a volume you carry, not gear.",
+    "On a phone, packing mode no longer shows each item twice.",
+    "Typing \"water\" and tapping away marks the row consumable, the same as choosing the water suggestion.",
+    "A list made while signed in shows up in the list switcher on your other devices, and opens there from the account, no edit link needed.",
+    "The Worn and Consumable switches read clearly when they're off, in dark mode too.",
+    "The Worn and Consumable switches are a full-size tap target; they look the same.",
+    "Saying \"click Consumable\" to a speech-input tool finds the Consumable switch.",
+    "A row's ⋯ menu opens upward when the row sits near the bottom of the screen.",
+    "\"New list\" in the pack switcher now lights up under the pointer and the keyboard, like the lists above it.",
+    "On a water row the weight's unit now lines up with every other row's instead of sitting slightly right of the column.",
+    "Adding an item near the bottom of the page scrolls just far enough to show the new row.",
+    "The unit menu on a folder's last item no longer gets cut off at the folder's edge."
+  ]
+}

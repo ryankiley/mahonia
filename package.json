@@ -19,7 +19,6 @@
     "typecheck": "node scripts/typecheck.mjs",
     "bundle-budget": "node scripts/bundle-budget.mjs",
     "changelog": "jiti scripts/changelog.ts",
-    "changelog:compact": "jiti scripts/compact-changelog.ts",
     "release-notes": "jiti scripts/release-notes.ts",
     "og:site": "jiti scripts/render-og-site.ts",
     "catalog:build": "jiti scripts/build-catalog.ts",

@@ -1,8 +1,8 @@
-# A GitHub Release per changelog date, cut from the entries the site already renders.
+# A GitHub Release per changelog date: the Releases page is the changelog.
 #
 # WHY: the changelog is written once, per PR, as a fragment in content/changelog.d,
-# and the site is where people read it. GitHub is a second place the same words are
-# useful for free — a Release has an Atom feed (/releases.atom), a "Watch → Releases
+# and GitHub is where people read it (the site's /changelog redirects there). A
+# Release comes with an Atom feed (/releases.atom), a "Watch → Releases
 # only" notification, a permalink, and a tag that makes `git log vA..vB` mean "what
 # shipped between those two days". Nothing here is written by hand: the body is the
 # day's entries, the title is the date, the version IS the date (see
@@ -31,7 +31,6 @@ on:
     branches: [main]
     paths:
       - content/changelog.d/**
-      - content/changelog.json
       # Direct runtime inputs of scripts/release-notes.ts. Without these, a
       # parser or merge fix waits for the nightly run before repairing releases.
       - scripts/changelogSources.ts
@@ -39,7 +38,6 @@ on:
       - scripts/releaseNotes.ts
       - scripts/release-notes.ts
       - shared/calendar.ts
-      - shared/changelog.ts
       - .github/workflows/releases.yml
   # a day with no merges still needs yesterday cut: 09:10 UTC is 02:10 Pacific,
   # past midnight either side of daylight saving

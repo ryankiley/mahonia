@@ -1,0 +1,14 @@
+{
+  "date": "2026-08-01",
+  "added": [
+    "Create an account with a passkey: your face, fingerprint or screen lock, no password to pick.",
+    "Sign in with a passkey in one tap, or have a link emailed to you instead.",
+    "Set a display name and it shows under the title on lists you share or publish. Leave it blank and they stay anonymous.",
+    "Delete your account from the account page. It asks separately whether to delete your lists.",
+    "Sign out everywhere, from your account page. It ends every session on every device.",
+    "Mahonia emails you when a passkey is added to your account, so you find out if it wasn't you."
+  ],
+  "changed": [
+    "Your gear vault lives in an account instead of behind a link, so it's there on every device. Lists still need no account."
+  ]
+}

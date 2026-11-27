@@ -22,12 +22,11 @@ npm run changelog -- --added "One plain sentence about the observable change."
 
 `--added` / `--changed` / `--fixed`, repeatable. House style: plain, user-facing, the
 observable behavior — never the implementation. See existing entries in
-`content/changelog.json` for the voice.
+`content/changelog.d/` for the voice.
 
 That command writes a **new file** under `content/changelog.d/`, one per PR, so two open
-PRs can never conflict over it. `content/changelog.json` is the archive — don't hand-edit
-it; `npm run changelog:compact` folds settled fragments in, occasionally, on its own PR.
-See `shared/changelog.ts`.
+PRs can never conflict over it. That directory is the whole changelog. See
+`scripts/changelogSources.ts`.
 
 Not user-facing (refactor, deps, infra, catalog data)? Prefix the PR title —
 `refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:` — or put the `skip-changelog`

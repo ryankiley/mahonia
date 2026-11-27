@@ -5,7 +5,7 @@
 // briefly on a page of its own, and now it is GitHub's Releases: the same entries,
 // one release per day that ships something, with a feed. The site says so once, in
 // the Open source paragraph, and /changelog redirects there. The entries themselves
-// are still written per PR (see shared/changelog.ts); only the rendering moved.
+// are still written per PR (see scripts/changelogSources.ts); only the rendering moved.
 useHead({
   title: "About — Mahonia",
   meta: [

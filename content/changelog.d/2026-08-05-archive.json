@@ -1,0 +1,28 @@
+{
+  "date": "2026-08-05",
+  "added": [
+    "Add a hike's distance to its trail link, in miles or kilometres.",
+    "Lists with calories and trip dates show what that works out to per day."
+  ],
+  "changed": [
+    "On a phone, removing an item lives in the row's ⋯ menu with the other actions.",
+    "On a phone, a list's trip dates now sit tight under its trail link, so the title, trail and dates read as one block.",
+    "A shared list marks worn and consumable items with the editor's icons instead of spelling the word.",
+    "The trip date picker starts its weeks on Sunday and tracks the day under your cursor."
+  ],
+  "fixed": [
+    "On a phone, every icon on a row lines up with the numbers.",
+    "On a phone, the worn and consumable icons sit in the same place on every row.",
+    "Opening a row's ⋯ menu no longer nudges every other row in that folder sideways.",
+    "On a narrow phone, an item's drag handle no longer runs off the edge of the screen.",
+    "Opening a list's trip dates now closes the trail link's card, instead of leaving both open on top of each other.",
+    "\"Pick up where you left off\" goes away for good once you've opened your lists.",
+    "On a shared list, each item's amount and weight sit at the right edge, in line with the totals.",
+    "On a phone, the weight summary's second line no longer starts with a stray divider.",
+    "A heavy item's weight no longer breaks between the number and its unit.",
+    "An item that splits its count into worn and packed no longer runs into the weight beside it.",
+    "An item with no weight lines its dash up with the numbers above and below it.",
+    "In the folder breakdown, a long folder name keeps its colour dot and its weight with it.",
+    "Trip dates between the two you picked read as selected in dark mode."
+  ]
+}

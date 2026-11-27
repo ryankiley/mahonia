@@ -3,45 +3,36 @@
 // change. Content is checked-in JSON — never derived from git at build time,
 // which is unreliable on Vercel's shallow clone.
 //
-// Usage (unchanged):
+// Usage:
 //   npm run changelog -- --added "Sort folders by weight."
 //   npm run changelog -- --fixed "…" --fixed "…" --changed "…"
-//   npm run changelog -- --date 2026-07-16 --title "Big release" --added "…"
+//   npm run changelog -- --date 2026-07-16 --added "…"
 //
-// --added / --changed / --fixed are repeatable. --date overrides today, --title
-// sets the batch headline. Entries are hand-written (the PR author adds one per
-// user-facing change) — never auto-generated, so the changelog stays
-// plain, user-facing prose.
+// --added / --changed / --fixed are repeatable. --date overrides today. Entries
+// are hand-written (the PR author adds one per user-facing change) — never
+// auto-generated, so the changelog stays plain, user-facing prose.
 //
-// This writes a NEW FILE under content/changelog.d/ rather than appending to
-// content/changelog.json. Appending is what it used to do, and it meant every PR
-// shipped on the same day edited the same release object at the top of the same
-// file — so two open PRs conflicted on the same handful of lines, every time (28
-// commits touched that file on one day). Two PRs can't conflict on files neither
-// of them shares. scripts/release-notes.ts folds the fragments back together
-// for each day's release; shared/changelog.ts has the full reasoning.
+// Each run writes a NEW FILE under content/changelog.d/, so two open PRs never
+// edit the same lines. scripts/release-notes.ts folds the fragments back together
+// for each day's release; scripts/changelogSources.ts has the full reasoning.
 //
-// Run through jiti like its siblings (changelog:compact, release-notes), so the
-// directory, the calendar and the day are the ONE copy each of those already owns:
-// this file used to be plain .mjs to keep `npm run changelog` a bare node call, and
-// held its own spellings of all three, which is how the writer came to stamp a day
-// the reader settled on a different clock.
+// Run through jiti like release-notes, so the directory, the calendar and the day
+// are the ONE copy each of those already owns; a writer with its own spelling of
+// the day can stamp one the reader settles on a different clock.
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isCalendarDate } from "../shared/calendar";
-import { CHANGELOG_GROUPS, type ChangelogGroup, type ChangelogRelease } from "../shared/changelog";
-import { FRAGMENT_DIR } from "./changelogSources";
+import { CHANGELOG_GROUPS, FRAGMENT_DIR, type ChangelogGroup, type ChangelogRelease } from "./changelogSources";
 import { CHANGELOG_TZ, todayIn } from "./releaseNotes";
 
-// --- parse args: repeatable --added/--changed/--fixed, single --date/--title ---
+// --- parse args: repeatable --added/--changed/--fixed, single --date ---
 const argv = process.argv.slice(2);
 const groups: Record<ChangelogGroup, string[]> = { added: [], changed: [], fixed: [] };
 // Changelog days are Pacific calendar days — the clock the release workflow
 // settles them on — wherever this command happens to run.
 let date = todayIn(CHANGELOG_TZ);
-let title: string | undefined;
 
 for (let i = 0; i < argv.length; i++) {
   const arg = argv[i]!;
@@ -54,38 +45,26 @@ for (let i = 0; i < argv.length; i++) {
     if (!isCalendarDate(val)) fail("--date must be a real YYYY-MM-DD calendar date");
     date = val;
     i++;
-  } else if (arg === "--title") {
-    if (val === undefined) fail("--title needs a value");
-    title = val.trim();
-    i++;
   } else {
     fail(`unknown argument: ${arg}`);
   }
 }
 
-// Blank bullets are dropped rather than written. `--added "  "` used to pass the
-// check below (length 1) and write `[""]`, which the content gate in
-// tests/changelog.test.ts then failed — the CLI printing ✓ over something that
-// turns the next PR red.
+// Blank bullets are dropped rather than written: `--added "  "` would otherwise
+// write `[""]`, which parseChangelogRelease rejects, so the CLI would print ✓
+// over something that turns the next PR red.
 for (const key of CHANGELOG_GROUPS) {
   groups[key] = groups[key].filter((s) => s.length > 0);
 }
 
-// At least one BULLET, not merely one flag. A title-only fragment is a release
-// with nothing in it: the same content gate rejects it, and app/pages/about.vue
-// would render a dated heading with an empty body. --title still works, alongside
-// the bullets it is a headline for.
+// At least one BULLET, not merely one flag: a fragment with nothing in it is a
+// release with an empty body, and the parser rejects it.
 if (!groups.added.length && !groups.changed.length && !groups.fixed.length) {
-  fail(
-    title
-      ? "--title is a headline for a batch, so it needs at least one --added / --changed / --fixed beside it"
-      : "nothing to add — pass at least one --added / --changed / --fixed",
-  );
+  fail("nothing to add — pass at least one --added / --changed / --fixed");
 }
 
-// --- build the fragment: a release object, same shape the page already reads ---
+// --- build the fragment: a release object, the shape the release script reads ---
 const fragment: ChangelogRelease = { date };
-if (title) fragment.title = title;
 for (const key of CHANGELOG_GROUPS) {
   if (groups[key].length) fragment[key] = groups[key];
 }
@@ -101,13 +80,13 @@ const body = JSON.stringify(fragment, null, 2) + "\n";
 //
 // The hash carries the whole burden, because date+slug collide REGULARLY — the
 // slug is six words of one bullet, and this project ships batches of closely
-// related sentences. There is already a same-day pair in the archive whose first
+// related sentences. There is already a same-day pair in the changelog whose first
 // six words match ("When a list's gear is already reaching My Gear on its own…").
 // 4 hex chars is 16 bits, which is a coin-flip-scale collision across a few
 // thousand entries and would have silently overwritten one of them; 12 is 48 bits,
 // which is not going to happen. The local guard below can only see this branch, so
 // the hash length is what protects the cross-branch case.
-const first = groups.added[0] ?? groups.changed[0] ?? groups.fixed[0] ?? title ?? "";
+const first = groups.added[0] ?? groups.changed[0] ?? groups.fixed[0] ?? "";
 const slug =
   first
     .toLowerCase()
