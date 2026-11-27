@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated November 25, 2026</p>
+        <p class="t-sm t-muted">Last updated November 27, 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -49,6 +49,12 @@ useHead({
           it can’t appear on a read-only link or in a JSON backup, and it doesn’t follow you to
           another device. Clear the field and the estimates fall back to a stated
           assumption.
+        </p>
+        <p>
+          <strong>Your usual fit</strong>, Men’s or Women’s, is remembered from the gear you pick, so
+          a product sold in both opens on the one you usually choose. Like body weight, it’s saved
+          <strong>on this device only</strong> and never sent to the server. Clearing this site’s data
+          in your browser forgets it.
         </p>
         <p>
           Importing a map file stores the line your <strong>route</strong> follows, and that’s the only
