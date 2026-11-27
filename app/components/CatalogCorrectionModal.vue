@@ -8,6 +8,7 @@ const weight = ref("");
 const sourceUrl = ref("");
 const reason = ref("");
 const edited = ref(false); // did the user touch the weight field?
+const weightField = useTemplateRef<HTMLInputElement>("weightField");
 
 // prefill the user's current weight as the suggestion whenever the dialog opens —
 // immediate, because this component is Lazy-mounted on first use, when the target
@@ -23,6 +24,22 @@ watch(
     }
   },
   { immediate: true },
+);
+// The figure takes the caret, selected: it is the one thing this card asks for, and a
+// typed number should replace the suggestion rather than join it. The NUMBER only, not
+// its unit: the server reads a bare figure as grams whatever unit the list shows, so
+// selecting "31.3 oz" whole would turn a typed 30 into thirty grams.
+// On the node, post (see BaseModal's move-in): the field is made anew for each target,
+// and on the first one it reaches the page after the tick a watch on `target` could wait.
+watch(
+  weightField,
+  (el) => {
+    if (!el) return;
+    el.focus();
+    const unitAt = weight.value.search(/\s/);
+    el.setSelectionRange(0, unitAt < 0 ? weight.value.length : unitAt);
+  },
+  { flush: "post" },
 );
 
 async function onSubmit() {
@@ -54,7 +71,7 @@ async function onSubmit() {
 
       <label class="dlg__field">
         <span class="t-sm t-muted">Correct weight</span>
-        <input v-model="weight" class="field" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" @input="edited = true" @keydown.enter="onSubmit" />
+        <input ref="weightField" v-model="weight" class="field" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" @input="edited = true" @keydown.enter="onSubmit" />
       </label>
       <label class="dlg__field">
         <span class="t-sm t-muted">Source link <em>(a maker’s or shop’s page applies it right away)</em></span>

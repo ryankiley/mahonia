@@ -52,6 +52,13 @@ watch(
     }
   },
 );
+// The box takes the caret as the dialog opens: a link or a CSV is on the clipboard by
+// the time anyone gets here, so the card is one paste and Import. Watched on the NODE,
+// post, not on `open` and a tick: the box is made anew on every open, and on the first
+// one (LazyImportModal) it reaches the page later than a tick after `open` is seen,
+// which is the wait BaseModal's own move-in had to stop relying on.
+const textBox = useTemplateRef<HTMLTextAreaElement>("textBox");
+watch(textBox, (el) => el?.focus(), { flush: "post" });
 
 // A JSON-backup restore arrives as the whole list — its meta (title, unit, the route
 // read off a GPX, the trip dates) around its content; CSV/LighterPack imports are
@@ -192,6 +199,7 @@ function importFile(text: string, file: File) {
     />
 
     <textarea
+      ref="textBox"
       v-model="text"
       class="field well import__text"
       rows="5"
