@@ -259,7 +259,7 @@ const meta = computed(() => {
   width: var(--gear-type-w);
   height: 1lh;
   margin-inline-end: calc(var(--space-2) - var(--space-4));
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* the slot as a button: no box of its own, the glyph just deepens under a pointer */
 .vault__typebtn {
@@ -273,11 +273,11 @@ const meta = computed(() => {
    would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
    unevenly at that size and read on a real page as an image that failed to load. */
 .vault__typebtn.is-blank {
-  color: var(--ink-ghost);
+  color: var(--foreground-ghost);
 }
 @media (hover: hover) and (pointer: fine) {
   .vault__typebtn:hover {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
@@ -287,7 +287,7 @@ const meta = computed(() => {
    keeps "×2" from reading as part of the number */
 .vault__owned {
   margin-right: 0.75ch;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* the unit picker beside the figure: content-sized, centred on its own text like the
    list row's .item__unitwrap, and as quiet at rest — a chevron on every row. The box is
@@ -299,12 +299,12 @@ const meta = computed(() => {
 }
 @media (hover: hover) and (pointer: fine) {
   .vault__row:hover .vault__unitchev {
-    color: var(--ink-2);
+    color: var(--foreground-secondary);
   }
 }
 .vault__weight {
   flex: none;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   /* a fixed column so the weights line up down the list instead of ragging with
      the name lengths beside them */
   min-width: 5rem;

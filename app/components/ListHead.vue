@@ -858,7 +858,7 @@ onClickOutside(trailEl, closeTrail);
      em can't be used directly (it would resolve against this SVG's inherited 16px,
      not the title's 32px), so the title's own token is multiplied explicitly. */
   margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - var(--icon) / 2);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   opacity: 0;
   visibility: hidden;
   transition:
@@ -872,7 +872,7 @@ onClickOutside(trailEl, closeTrail);
 .head__titlewrap:focus-within .head__pencil {
   opacity: 1;
   visibility: visible;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 @media (hover: hover) and (pointer: fine) {
   .head__titlewrap:hover .head__pencil {
@@ -920,11 +920,11 @@ onClickOutside(trailEl, closeTrail);
     max-width: 100%;
   }
 }
-/* much lighter than .field's --ink-3 default: at 32px bold, --ink-3 reads as a real
-   title someone typed rather than as an empty field. See --ink-ghost in tokens.scss
+/* much lighter than .field's --foreground-tertiary default: at 32px bold, --foreground-tertiary reads as a real
+   title someone typed rather than as an empty field. See --foreground-ghost in tokens.scss
    for why going under the AA floor is sound here specifically. */
 .head__title::placeholder {
-  color: var(--ink-ghost);
+  color: var(--foreground-ghost);
 }
 /* The trail link row. Holds the "Add a trail" button OR the resolved link, in the same
    place, and keeps its height either way so nothing below shifts as the affordance
@@ -1083,7 +1083,7 @@ onClickOutside(trailEl, closeTrail);
    reference's 32px. */
 .head__cardbtn {
   flex: none;
-  color: var(--ink);
+  color: var(--foreground-primary);
   font-size: var(--text-chrome);
 }
 /* opens the row's 8px gap out to 12 before the word (see the template note) */
@@ -1094,7 +1094,7 @@ onClickOutside(trailEl, closeTrail);
    the affordance is a line of text in the page's own flow, not a control on a surface, so
    colour alone carries the hover — and with no box, its glyph sits flush at the same x as
    the resolved link's mark with nothing to compensate for. */
-/* the inks are .btn--quiet's own (controls.scss) — rest at --ink-3, lift to --ink under
+/* the inks are .btn--quiet's own (controls.scss) — rest at --foreground-tertiary, lift to --foreground-primary under
    the pointer or keyboard focus; the icon inherits currentColor, so it lifts with the
    text. Restating the resting colour here used to TIE the atom's hover on specificity
    (scoping adds a [data-v-] attribute) and win on order, so the button never answered
@@ -1126,7 +1126,7 @@ onClickOutside(trailEl, closeTrail);
    That was defensible when there was ONE of them and the row was
    otherwise empty; with trail and dates side by side, the row is a real part of the
    header, and a header that appears only when pointed at is a header you don't know
-   you have. They rest at --ink-3 and darken on hover instead, so the block is still
+   you have. They rest at --foreground-tertiary and darken on hover instead, so the block is still
    quiet without being blank. (This also retires the touch/keyboard carve-outs the
    reveal needed: nothing to reveal, nothing to except.) */
 /* The edit panel — a floating form anchored under the link, so the link stays visible
@@ -1177,7 +1177,7 @@ onClickOutside(trailEl, closeTrail);
    sits to it (16, set on the adjacent-sibling rule below). */
 .head__panellabel {
   margin-block-end: var(--space-2);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   font-size: var(--text-micro);
   font-weight: 600; /* the type system's one strong weight — no 500 (typography.scss) */
   line-height: var(--leading-control); /* 14.4px — a tight box, so the label reads as attached to its field */
@@ -1187,7 +1187,7 @@ onClickOutside(trailEl, closeTrail);
    boundary. Each label sits above its own field, so a placeholder never has to stand in
    for one.
    The fill is the .well atom (atoms/controls.scss), worn in the markup: its ground (an
-   amount of ink, so it shows on this card in both themes, where the --paper-2 this used
+   amount of ink, so it shows on this card in both themes, where the --background-secondary this used
    sat at 1.10:1 on it), its ink, its placeholder, and its focus — the ground deepens a
    step and nothing is drawn round it, the one focus every contained field on a floating
    surface takes. Only the geometry below is this panel's. */
@@ -1242,7 +1242,7 @@ onClickOutside(trailEl, closeTrail);
 .head__gpx {
   display: flex;
   align-items: center;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* The file row is the URL field's second way in, so it hangs off that field at the
    label's own tight step (8) rather than the 16 that separates one pair from the next —
@@ -1252,7 +1252,7 @@ onClickOutside(trailEl, closeTrail);
   margin-block-start: var(--space-2);
 }
 .head__gpxbtn {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
@@ -1270,7 +1270,7 @@ onClickOutside(trailEl, closeTrail);
   cursor: help;
 }
 .head__gpxerr {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* The two answers to the pins offer. Text buttons rather than real ones: this sits inside
    a sentence in a quiet panel, and a pair of chrome buttons here would outweigh the
@@ -1285,7 +1285,7 @@ onClickOutside(trailEl, closeTrail);
    lifts to meet it — .ink-quiet (atoms/controls.scss), in the markup */
 .head__gpxyes {
   margin-left: var(--space-1);
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .head__gpxno {
   margin-left: var(--space-2);
@@ -1297,7 +1297,7 @@ onClickOutside(trailEl, closeTrail);
      evenly. It was 4 below, to match a pull into the floor the row no longer makes. */
   margin: var(--space-3) 0;
   border: 0;
-  border-block-start: 1px solid var(--line);
+  border-block-start: 1px solid var(--border-primary);
 }
 /* The .menu__item atom's treatment, with this panel's own geometry: its ground on the
    grounds' edge with the fields and the rule above it, its icon on the words' edge. */
@@ -1364,15 +1364,15 @@ onClickOutside(trailEl, closeTrail);
   justify-self: stretch;
   block-size: var(--icon-btn);
   border-radius: var(--radius-2);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). The wash
    and the ink used to sit in two consecutive rules on the identical selector; they
    are one affordance, so they travel as one block now. */
 @media (hover: hover) and (pointer: fine) {
   .head__dateclear:hover {
-    background: var(--popover-hover);
-    color: var(--ink);
+    background: var(--wash-hover);
+    color: var(--foreground-primary);
   }
 }
 

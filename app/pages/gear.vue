@@ -915,11 +915,11 @@ async function exportGear(kind: string) {
    ragged right edge reads as a mistake rather than as rag, and at a narrow window
    the last word would otherwise strand on its own line. */
 .vault__sentline {
-  color: var(--ink);
+  color: var(--foreground-primary);
   text-wrap: balance;
 }
 .vault__error {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 
 /* --- the bar --- */
@@ -946,21 +946,21 @@ async function exportGear(kind: string) {
 .vault__view {
   margin-left: auto;
   white-space: nowrap;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .vault__view:focus-within {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 /* a step quieter than the value beside it, as the word it replaced was */
 .vault__viewmark {
   flex: none;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* the mark and its turn are the shared .chev (atoms/controls.scss); focus lights it,
    and so does the pointer (below) */
 .vault__view:focus-within .chev {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 /* Pointer-gated, like every hover on this page that paints, ink included: on touch
    a tap leaves :hover latched on the picker after its menu has closed, a lit control
@@ -968,7 +968,7 @@ async function exportGear(kind: string) {
 @media (hover: hover) and (pointer: fine) {
   .vault__view:hover,
   .vault__view:hover .chev {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 /* a clear break before the first heading, on both tabs: the count closes the controls
@@ -1024,7 +1024,7 @@ async function exportGear(kind: string) {
 .vault__midmark {
   width: var(--control-h);
   height: var(--control-h);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* the kit's name is typed where its button was, so it is centred as the button was */
 .vault__mid :deep(.addfolder__input) {

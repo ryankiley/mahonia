@@ -135,10 +135,10 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   white-space: nowrap;
 }
 .keys__join {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .keys__what {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* the key cap: the row's own quiet chrome — a hairline box on the raised surface,
    sized off the small text so a chord doesn't stand taller than the line beside it */
@@ -160,13 +160,13 @@ const GROUPS: { title: string; rows: Row[] }[] = [
      key column of a <dl>, and none of them is.) */
   font-size: var(--text-chrome);
   line-height: 1.4;
-  color: var(--ink);
-  background: var(--paper-2);
-  border: 1px solid var(--line-2);
+  color: var(--foreground-primary);
+  background: var(--background-secondary);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-2);
 }
 .keys__note em {
   font-style: normal;
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 </style>

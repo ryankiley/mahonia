@@ -223,7 +223,7 @@ function act(event: MenuEvent | FootEvent) {
    wear too. The rule sits on the <li> rather than on the row, so it spans the same
    width the travelling plate does (both measure from the popover's padding box)
    instead of the row's own inset. */
-/* THE ONE COLOURED ROW IN THE CHROME. It was --ink-3 with the trash glyph doing the
+/* THE ONE COLOURED ROW IN THE CHROME. It was --foreground-tertiary with the trash glyph doing the
    distinguishing, on the monochrome rule in tokens.scss; it now spends --danger, and
    the token's comment has been widened to say so rather than left asserting a rule
    this breaks.

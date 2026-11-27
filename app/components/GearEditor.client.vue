@@ -1607,27 +1607,27 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* Toolbar actions recede until hovered, keyboard-focused, or open. Scope this to
    the editor so icon buttons elsewhere keep their existing emphasis. */
 .editor > .topbar :deep(.btn--icon) {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 @media (hover: hover) and (pointer: fine) {
   .editor > .topbar :deep(.btn--icon:hover) {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 .editor > .topbar :deep(.btn--icon:focus-visible),
 .editor > .topbar :deep(.btn--icon[aria-expanded="true"]) {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 
 /* on = the pane (or the sharing panel) is open: the icon takes full ink and a soft
    ground, so the button reads as a held state rather than a hover. One rule for both,
-   so the two topbar popovers signal their state identically — and --lit for the ground,
+   so the two topbar popovers signal their state identically — and --wash-selected for the ground,
    the one tone the app uses for "on" (the mode tabs, the person filter, the row
-   toggles), where this used a second one, --paper-2. */
+   toggles), where this used a second one, --background-secondary. */
 .editor__vault.is-on,
 .editor__share.is-on {
-  color: var(--ink);
-  background: var(--lit);
+  color: var(--foreground-primary);
+  background: var(--wash-selected);
 }
 /* The sharing panel hangs off a 32px button near the right end of the bar. `.menu`
    makes that button the containing block, so `right: 0` puts the panel's right edge at
@@ -1697,7 +1697,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
    deepening to full ink on hover the way every under-link on the site does */
 .editor__vaultadd {
   flex: none;
-  color: var(--ink);
+  color: var(--foreground-primary);
   font-weight: 600;
 }
 /* packing progress — one quiet line between the totals and the checklist. The
@@ -1722,7 +1722,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* .packbar__clear kept as the print-hide hook (see print.scss); its button styling
    comes from the shared .btn--quiet */

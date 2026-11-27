@@ -55,7 +55,7 @@ import {
 import { setNoStore, setReadEdgeCache } from "./http";
 import { ogFonts } from "./ogFonts";
 
-// tokens.scss, light values: --paper / --ink / --ink-2
+// tokens.scss, light values: --background-primary / --foreground-primary / --foreground-secondary
 const PAPER = "#ffffff";
 const INK = "#000000";
 const INK_2 = "#595959";

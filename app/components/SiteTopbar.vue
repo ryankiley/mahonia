@@ -57,7 +57,7 @@ defineProps<{
   gap: var(--space-2);
 }
 .brand {
-  color: var(--ink);
+  color: var(--foreground-primary);
   /* One word that never yields. The reset lets every flex child shrink below its
      content, and at 320px with the bar full ("My Gear", "Create a list", the account
      glyph) this link was the one squeezed — to 64px, where overflow-wrap split the

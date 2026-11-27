@@ -251,17 +251,17 @@ onMounted(() => {
   width: calc(7 * var(--icon-btn));
 
   /* The range band, mixed from INK rather than picked off the surface ramp.
-     --paper-2 was doing this job and couldn't: the grid sits on a .popover
-     (--surface-float, #1f1f1f in dark), and --paper-2 is #151515 there — a shade
+     --background-secondary was doing this job and couldn't: the grid sits on a .popover
+     (--surface-1, #1f1f1f in dark), and --background-secondary is #151515 there — a shade
      DARKER than the surface under it. The selected span read as a faint dent instead
-     of a fill. Ink over the surface holds in both schemes because --ink inverts with
+     of a fill. Ink over the surface holds in both schemes because --foreground-primary inverts with
      them, which is the same reason .popover mixes its own hover.
-     Mixed into --surface-float rather than into `transparent`, so it is OPAQUE: the
+     Mixed into --surface-1 rather than into `transparent`, so it is OPAQUE: the
      pip tracks underneath these cells, and a translucent band would let it show
      through as a travelling smudge. That ties the band to the surface the picker is
      used on — it has only ever been opened inside that popover, and the pip's
      containing grid is the same element, so the two can't be separated by accident. */
-  --cal-band: color-mix(in oklab, var(--ink) 14%, var(--surface-float));
+  --cal-band: color-mix(in oklab, var(--foreground-primary) 14%, var(--surface-1));
 }
 .cal__head {
   display: flex;
@@ -298,7 +298,7 @@ onMounted(() => {
   inline-size: var(--icon-btn);
   block-size: var(--icon-btn);
   border-radius: var(--radius-2);
-  background: color-mix(in oklab, var(--ink) 12%, transparent);
+  background: color-mix(in oklab, var(--foreground-primary) 12%, transparent);
   pointer-events: none;
   /* the track spring — quick, never overshoots — same rule as the menus' plate: a cursor that
      overshoots lands on the wrong day, however briefly. Under the POINTER only: walked by
@@ -311,7 +311,7 @@ onMounted(() => {
   display: grid;
   place-items: center;
   block-size: var(--icon-btn);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .cal__day {
   display: grid;
@@ -323,7 +323,7 @@ onMounted(() => {
      stops reading as one bar. 8px on a 32px box softens the corner without rounding
      the thing away. */
   border-radius: var(--radius-2);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
@@ -333,7 +333,7 @@ onMounted(() => {
    on .btn:hover, controls.scss): a tapped day kept its hover ink after the finger left. */
 @media (hover: hover) and (pointer: fine) {
   .cal__day:hover {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 /* The grid is one tab stop and the arrows walk it, so the focused day has to be
@@ -347,7 +347,7 @@ onMounted(() => {
 /* today is MARKED, not selected — a ring rather than a fill, so it can't be mistaken
    for one end of the range */
 .cal__day.is-today {
-  box-shadow: inset 0 0 0 1px var(--line-2);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 /* the span between the ends is tinted; the ends themselves are inverted ink. Same
    monochrome vocabulary as the row toggles: a filled ground means "on".
@@ -356,7 +356,7 @@ onMounted(() => {
    while the pointer is over it. */
 .cal__day.is-between {
   background: var(--cal-band);
-  color: var(--ink);
+  color: var(--foreground-primary);
   border-radius: 0;
 }
 /* The pip is masked while it's under the band, so an in-range day answers the pointer
@@ -366,7 +366,7 @@ onMounted(() => {
    the file is unchanged, so it still lands after .is-between and before the ends. */
 @media (hover: hover) and (pointer: fine) {
   .cal__day.is-between:hover {
-    background: color-mix(in oklab, var(--ink) 22%, var(--surface-float));
+    background: color-mix(in oklab, var(--foreground-primary) 22%, var(--surface-1));
   }
 }
 .cal__day.is-start,
@@ -374,7 +374,7 @@ onMounted(() => {
 .cal__day.is-start:hover,
 .cal__day.is-end:hover {
   background: var(--accent);
-  color: var(--accent-ink);
+  color: var(--accent-foreground);
 }
 /* the ends round outward only, so a range reads as one continuous bar */
 .cal__day.is-start {

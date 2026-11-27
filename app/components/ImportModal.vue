@@ -274,6 +274,6 @@ function importFile(text: string, file: File) {
   cursor: help;
 }
 .import__err {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 </style>

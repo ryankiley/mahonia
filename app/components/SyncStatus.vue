@@ -111,7 +111,7 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "" |
      the production build with "Invalid media query" — dev is happy either way. -->
 <style scoped lang="scss">
 .syncstatus {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   /* the chrome tier, not body size: this annotates the app rather than being part of
      the list, and it shares a dense toolbar with 32px icon buttons */
   font-size: var(--text-chrome);
@@ -129,6 +129,6 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "" |
 }
 /* a genuine "Not saved" is the one state worth full ink */
 .syncstatus.is-alert {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 </style>

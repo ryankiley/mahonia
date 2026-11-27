@@ -46,8 +46,8 @@
 // 280px cap is the point of the cap — the portfolio's original kept a nowrap row
 // (it had a keyboard-shortcut column to hold on one line) and never enforced it.
 .tooltip__content {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--foreground-primary);
+  color: var(--background-primary);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-2);
   box-shadow: var(--shadow-pop);

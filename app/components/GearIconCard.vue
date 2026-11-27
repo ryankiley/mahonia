@@ -94,7 +94,7 @@ useMenuDismiss(open, toRef(props, "root"));
 .iconpick__auto {
   min-height: var(--iconpick-cell);
   border-radius: var(--popover-item-radius);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 .iconpick__cell {
   display: inline-flex;
@@ -114,14 +114,14 @@ useMenuDismiss(open, toRef(props, "root"));
 /* the one you have: the menus' wash under full-strength ink */
 .iconpick__cell[aria-pressed="true"],
 .iconpick__auto[aria-pressed="true"] {
-  background: var(--popover-hover);
-  color: var(--ink);
+  background: var(--wash-hover);
+  color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
   .iconpick__cell:hover,
   .iconpick__auto:hover {
-    background: var(--popover-hover);
-    color: var(--ink);
+    background: var(--wash-hover);
+    color: var(--foreground-primary);
   }
 }
 </style>

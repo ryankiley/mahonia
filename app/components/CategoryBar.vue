@@ -119,7 +119,7 @@ watch(
   transition: background-color var(--spring-fade-dur) var(--spring-fade);
 }
 .catbar__track.is-empty {
-  background-color: var(--line);
+  background-color: var(--border-primary);
 }
 .catbar__seg {
   flex-grow: var(--share);
@@ -200,9 +200,9 @@ watch(
    strong weight, secondary ink. The figure beside them keeps full ink. */
 .catbar__name {
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
-/* the figure carries the data (full ink); its unit is secondary (--ink-2, the one
+/* the figure carries the data (full ink); its unit is secondary (--foreground-secondary, the one
    de-emphasis level — same as every other unit), and the two sit tight as one
    "1,300 g" pair — which trails the name's last word rather than breaking from it.
    text-indent is reset because the hanging indent above belongs to the ITEM, and a
@@ -215,10 +215,10 @@ watch(
   text-indent: 0;
 }
 .catbar__num {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .catbar__unit {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* roomier separation between folder entries when they sit on one line on a phone */
 @media (max-width: $bp-stack) {

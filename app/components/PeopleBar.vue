@@ -116,7 +116,7 @@ const { onKey } = useRovingRadio(
    change what the page shows, a few rows apart — so they wear its class rather than a
    copy of it: the option height and its row rhythm, --radius-2 (not the pill: that is
    for a button standing on its own, and a row of options never does), the chrome type
-   and the quiet ink, the wash under a pointer, the inward focus ring, the --lit plate
+   and the quiet ink, the wash under a pointer, the inward focus ring, the --wash-selected plate
    when chosen (the app's one on-plate, and it answers the pointer a step up), and on a
    coarse pointer the transparent ::before that makes a 32px chip a 44px target — top and
    bottom only, since the chips sit --space-1 apart and an overhang sideways would hand
@@ -131,10 +131,10 @@ const { onKey } = useRovingRadio(
   gap: var(--space-2);
   padding: 0 var(--space-3);
   /* The outline IS the unselected chip — there is no fill under it — so in dark it takes
-     the stronger hairline. --line there is 8% white, #141414 on a black page: enough
+     the stronger hairline. --border-primary there is 8% white, #141414 on a black page: enough
      for a rule between two rows of text, not for a shape drawn in nothing else (Ryan,
-     2026-11-25: "outline states are a little dim"). Light keeps --line. */
-  border: 1px solid light-dark(var(--line), var(--line-2));
+     2026-11-25: "outline states are a little dim"). Light keeps --border-primary. */
+  border: 1px solid light-dark(var(--border-primary), var(--border-strong));
   /* Never wider than the row. Uncapped, a name near the 60-character limit drew a
      chip wider than a 320px screen and ran off it; capped, the chip stops at the
      row's edge and the name inside it clips (.pplbar__name). */
@@ -149,8 +149,8 @@ const { onKey } = useRovingRadio(
   border-color: transparent;
 }
 /* (the hollow "no colour yet" dot is the shared .swatch--hollow atom — controls.scss) */
-/* The carry takes the chip's OWN ink: t-muted is --ink-2, a step DARKER than a
-   resting chip's --ink-3, so the qualifier out-shouted the name it qualifies on
+/* The carry takes the chip's OWN ink: t-muted is --foreground-secondary, a step DARKER than a
+   resting chip's --foreground-tertiary, so the qualifier out-shouted the name it qualifies on
    every chip but the lit one. No margin — the chip's flex gap is the spacing,
    and a margin on top of it doubled the step. */
 .pplbar__wt {

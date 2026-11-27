@@ -115,7 +115,7 @@ const captionParts = computed(() =>
      visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
      loose beside the tightly-tracked display figure */
   letter-spacing: var(--track-unit);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 
@@ -123,18 +123,18 @@ const captionParts = computed(() =>
    already one object in the layout (.headline__uc) and one target in the markup, so
    lighting only the mark made the word beside it look like it belonged to something
    else. They start a step apart — the chevron is the quieter of the two — and meet at
-   --ink, which is the lift the vault's takes (gear.vue). Hung off the trigger, not the whole .headline, so the caption beside it
+   --foreground-primary, which is the lift the vault's takes (gear.vue). Hung off the trigger, not the whole .headline, so the caption beside it
    isn't a hover target for a menu it has nothing to do with.
    The pointer half is gated: on touch a tap latches :hover on the figure and the
    unit would stay lit after the picker closed. Focus is the lift touch and keys get. */
 .headline__amount:focus-within .headline__unit,
 .headline__amount:focus-within .chev {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
   .headline__amount:hover .headline__unit,
   .headline__amount:hover .chev {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 
@@ -154,7 +154,7 @@ const captionParts = computed(() =>
   display: flex;
   align-items: baseline;
   font-size: var(--text-chrome);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   white-space: nowrap;
   max-width: min(40vw, 26ch);
 }

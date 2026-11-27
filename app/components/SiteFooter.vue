@@ -54,7 +54,7 @@ const here = (p: string) => route.path === p;
    shell the page happens to sit in. A plain block: it holds the nav and nothing
    else, and the nav lays out its own links. */
 .foot__inner {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
   padding-block: var(--space-5);
 }
 .foot__nav {
@@ -63,7 +63,7 @@ const here = (p: string) => route.path === p;
   gap: var(--space-3) var(--space-5);
 }
 .foot__link {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   border-bottom: 1px solid transparent;
   transition: color var(--spring-fade-dur) var(--spring-fade), border-color var(--spring-fade-dur) var(--spring-fade);
 }
@@ -72,8 +72,8 @@ const here = (p: string) => route.path === p;
    on whatever was last tapped. */
 @media (hover: hover) and (pointer: fine) {
   .foot__link:hover {
-    color: var(--ink);
-    border-bottom-color: var(--ink-2);
+    color: var(--foreground-primary);
+    border-bottom-color: var(--foreground-secondary);
   }
 }
 </style>

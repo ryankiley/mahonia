@@ -36,8 +36,8 @@ export const WAYPOINT_KIND_META: Record<WaypointKind, { label: string; icon: Ico
   // It also settles the LOOP, where the start and the finish are one coordinate: the map
   // draws the finish over the trailhead there (see RouteMap's finishM), and two marks with
   // the same glyph overlap invisibly instead of looking like a rendering fault.
-  trailhead: { label: "Trailhead", icon: IconRacingFlag, color: "var(--ink)" },
-  end: { label: "End", icon: IconRacingFlag, color: "var(--ink)" },
+  trailhead: { label: "Trailhead", icon: IconRacingFlag, color: "var(--foreground-primary)" },
+  end: { label: "End", icon: IconRacingFlag, color: "var(--foreground-primary)" },
 };
 
 /** Anything unrecognised reads as a landmark, so a pin always has a glyph and a name. */

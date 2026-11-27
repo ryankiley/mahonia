@@ -1126,7 +1126,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   gap: var(--space-5);
 }
 .plan__note {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   max-width: 46ch;
 }
 .plan__days {
@@ -1187,7 +1187,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
    the column's far edge — the same reason the folder title does it. */
 .plan__name {
   flex: 0 1 auto;
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 /* A day's heading, and the heading over the ground no day claims, at one size.
    A folder's name is an <input>, which builds a 41px box out of a 33px line and 4px
@@ -1247,7 +1247,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   align-items: center;
   gap: var(--space-1);
   min-height: var(--field-h);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   /* the editor's row size — .field pins its inputs to a literal 1rem for the iOS
      zoom rule, and the text beside them has to sit on the same line as those */
   font-size: var(--text-base);
@@ -1274,7 +1274,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 /* estimates sit a step back from the figures you entered — the `~` carries the claim,
    this only keeps the eye on what's yours */
 .plan__cell--est {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* a derived sentence under the day's figures (the camp, the ground, the carry), in the
    estimate's ink, with a glyph for its subject so a stack of them scans by shape */
@@ -1283,7 +1283,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .plan__fact .plan__gl {
   /* the glyph's box sits on the baseline row; nudge it to the text's optical centre */
@@ -1293,7 +1293,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 /* the once-only hint above the days, same ink, same size, no glyph */
 .plan__carryhint {
   margin-top: var(--space-2);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* THE CLIMB AND ITS DROP SHARE ONE CELL: one fact read twice, up and down over the same
    ground, drawn as a staircase and its own reflection. So the drop sits a HAIR from the
@@ -1305,11 +1305,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   gap: var(--space-1);
   margin-left: var(--space-1);
   /* derived, like every other estimate on the row */
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* a climb read off the GPX rather than typed */
 .plan__cell.is-derived .plan__num {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* The light, when the walk runs past it: the figure and its sun step FORWARD to full
    ink, from the estimate's step back. Not --danger: that token is spent on destruction
@@ -1319,7 +1319,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
    says why. */
 .plan__cell--light.is-short,
 .plan__cell--light.is-short .plan__gl {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 /* the (?) — quiet until wanted, and a real button so it's reachable by keyboard and
    by touch, unlike the title= it replaces */
@@ -1329,28 +1329,28 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   margin-left: var(--space-2);
   display: inline-flex;
   cursor: help;
-  /* the inks are .ink-quiet's (controls.scss). The resting state is --ink-3 and NOT
-     --ink-ghost: the ghost token's own definition says not to reuse it below the
+  /* the inks are .ink-quiet's (controls.scss). The resting state is --foreground-tertiary and NOT
+     --foreground-ghost: the ghost token's own definition says not to reuse it below the
      page-title size, and at 14px it made the only sign an explanation exists a 1.35:1
      smudge — invisible to exactly the reader who needed the explanation. */
 }
 .plan__gl {
   flex: none;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
-/* Units and other trailing small text take --ink-3, the lesser ink.
+/* Units and other trailing small text take --foreground-tertiary, the lesser ink.
  *
- * NOT `.t-muted`, which is --ink-2 and therefore DARKER — beside a derived figure (also
- * --ink-3) it made the unit louder than the number it qualifies, which is backwards. One
+ * NOT `.t-muted`, which is --foreground-secondary and therefore DARKER — beside a derived figure (also
+ * --foreground-tertiary) it made the unit louder than the number it qualifies, which is backwards. One
  * token for every unit on the panel, so "ft" reads the same weight wherever it appears. */
 .plan__cell .t-muted,
 .plan__assume .t-muted {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* :deep, because the chips' spans are FigureChip's — rendered by a child, they carry
    its scope and not this panel's, so a plain scoped selector matches nothing */
 .plan__chips :deep(.t-muted) {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* mirrored, not a second icon — see the template */
 .plan__gl--down {
@@ -1396,7 +1396,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
  * Tabular numerals go too: they exist to make a COLUMN of figures line up, and these sit
  * in a row where nothing is above or below anything. Proportional digits set better. */
 .plan__chips .chip :deep(.t-num) {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   font-variant-numeric: normal;
 }
 .plan__assume,
@@ -1405,13 +1405,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   align-items: baseline;
   gap: var(--space-2);
   flex-wrap: wrap;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .plan__accuracy {
   max-width: 56ch;
 }
 .plan__assumed {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .plan__bodynum {
   width: 4rem;
@@ -1426,7 +1426,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   gap: var(--space-px);
   padding: var(--space-1);
   border-radius: var(--radius-2);
-  background: var(--map-paper);
+  background: var(--map-background);
   box-shadow: var(--map-control-shadow);
 }
 .plan__armchip {
@@ -1437,7 +1437,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   padding: 0 var(--space-2);
   border-radius: var(--radius-1);
   font-size: var(--text-chrome);
-  color: var(--map-ink-3);
+  color: var(--map-foreground-tertiary);
   white-space: nowrap;
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). The armed
@@ -1446,14 +1446,14 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 @media (hover: hover) and (pointer: fine) {
   .plan__armchip:hover {
     background: var(--map-control-hover);
-    color: var(--map-ink);
+    color: var(--map-foreground-primary);
   }
 }
 /* armed is a STATE, and it has to hold its plate whether the pointer is on it or not —
    it is the only thing on screen saying which day the next tap lands in */
 .plan__armchip.is-on {
   background: var(--map-control-selected);
-  color: var(--map-ink);
+  color: var(--map-foreground-primary);
   font-weight: 600;
 }
 .plan__armdot {
@@ -1490,7 +1490,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 }
 .plan__wplist > * + *,
 .plan__wpadd {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 /* …and when the day has no pins yet, the add row IS the first row, so it drops its rule —
    the same exception .folder__add--first makes for an empty folder. */
@@ -1505,7 +1505,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 /* ink, not a category hue — it is the itinerary talking, the same thing the handle on
    the map says by being paper-filled rather than solid */
 .plan__campkind {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* Lifted wholesale from .catbar__legend, deliberately: "the same treatment" means the same
    spacing and the same hanging indent, not something that merely resembles it. */
@@ -1628,6 +1628,6 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 }
 .plan__restname {
   /* a step back from a day's heading: this names the ground left over, not a plan */
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 </style>

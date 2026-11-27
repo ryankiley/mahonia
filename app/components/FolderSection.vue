@@ -160,7 +160,7 @@ function onName(e: Event) {
   left: 0;
   right: 0;
   height: var(--space-px);
-  background: var(--ink);
+  background: var(--foreground-primary);
   pointer-events: none;
 }
 .folder--drop-before::before {
@@ -210,8 +210,8 @@ function onName(e: Event) {
    grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to full ink —
    the folder name should read the same as it does in edit mode. */
 .folder__name:disabled {
-  color: var(--ink);
-  -webkit-text-fill-color: var(--ink);
+  color: var(--foreground-primary);
+  -webkit-text-fill-color: var(--foreground-primary);
   opacity: 1;
 }
 
@@ -223,7 +223,7 @@ function onName(e: Event) {
    removed. Touch had them permanently anyway, so
    the hover branch was also the only place the two pointer types disagreed about
    what the app can do.
-   The controls are already quiet enough to sit there: --ink-3 glyphs that deepen
+   The controls are already quiet enough to sit there: --foreground-tertiary glyphs that deepen
    on hover, which is the affordance doing its job rather than announcing itself. */
 
 @media (max-width: $bp-stack) {

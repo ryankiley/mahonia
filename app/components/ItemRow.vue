@@ -2185,7 +2185,7 @@ function dismissFix() {
    phone would leave the glyph inked after the finger had gone. */
 @media (hover: hover) and (pointer: fine) {
   .check:hover .check__icon {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 /* a group (parent) in packing mode: name + trailing collapse chevron, like the
@@ -2203,12 +2203,12 @@ function dismissFix() {
   /* same caption tuck as the read/edit rows (shared token) so the common name sits the
      same distance under the name in packing mode too */
   margin-top: var(--caption-tuck);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* the variant on that sub-line: the aside voice the edit face's variant field and the
    read row's .item__rovariant use, a size under the upright gear type it qualifies */
 .item__cvariant {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   font-style: italic;
 }
 /* the unit suffix gap (.item__wunit) is shared with the read rows — atoms/item.scss */
@@ -2240,7 +2240,7 @@ function dismissFix() {
    glyph before the figure, which would be one more mark to learn on the row #299 just
    quieted). The chevron is a glyph, so it stays upright. */
 .item__weight .field:read-only {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   cursor: default;
   caret-color: transparent;
   font-style: italic;
@@ -2361,9 +2361,9 @@ function dismissFix() {
 /* (The unit trigger's touch hit area — --tap, pulled back onto the line — is drawn with
    My Gear's row picker: atoms/item.scss.) */
 /* Quiet by default — one of these sits on every row, and a column of hard chevrons
-   would shout louder than the weights they belong to. That resting step (--ink-3, and
+   would shout louder than the weights they belong to. That resting step (--foreground-tertiary, and
    the pin that keeps it from shrinking) is the shared .chev now, atoms/controls.scss.
-   Only the LIFT is the row's own: --ink-2 rather than the --ink every other chevron
+   Only the LIFT is the row's own: --foreground-secondary rather than the --foreground-primary every other chevron
    takes, because this one lifts on the ROW being hovered, not on its own trigger — a
    column of full-ink marks following the pointer down the list would read as the loud
    thing the quiet default exists to avoid. */
@@ -2371,7 +2371,7 @@ function dismissFix() {
    that half is the shared rule (atoms/item.scss), on the wrap's :focus-within. */
 @media (hover: hover) and (pointer: fine) {
   .item:hover .item__unitchev {
-    color: var(--ink-2);
+    color: var(--foreground-secondary);
   }
 }
 /* transparent native select over the unit text — the same construction the total's
@@ -2388,8 +2388,8 @@ function dismissFix() {
 /* Water's fixed consumable mark: the control's exact box — .btn--icon's size — minus
    the button and minus the lit plate, because there is nothing to press. Sized like
    the button so the droplet sits in the column every other row's mark is in.
-   --ink-3, the resting ink of every glyph beside it (.ink-quiet, controls.scss). It
-   was --ink-2, a step up to say "a fact, not a control" — but one step of grey
+   --foreground-tertiary, the resting ink of every glyph beside it (.ink-quiet, controls.scss). It
+   was --foreground-secondary, a step up to say "a fact, not a control" — but one step of grey
    between neighbours reads as a mismatch, not as a state, and the row already says
    water three other ways. The ink only: no hover lift, since nothing here presses. */
 .item__clsfixed {
@@ -2398,7 +2398,7 @@ function dismissFix() {
   justify-content: center;
   width: var(--icon-btn);
   min-height: var(--icon-btn);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* ON is a FILLED GROUND, not just darker ink — the shared `.item__mark` chip
    (atoms/item.scss), which the share views' rows draw as a static mark, so the two
@@ -2406,9 +2406,9 @@ function dismissFix() {
    signal hover already uses, so a toggle would read as merely hovered.
    The OFF ink is scoped to the off state (`:not`) rather than stated flat: a scoped
    rule carries its component's attribute, so a flat `.item__clsbtn` would outrank
-   the shared chip's own colour and leave a lit toggle drawn in --ink-3. */
+   the shared chip's own colour and leave a lit toggle drawn in --foreground-tertiary. */
 .item__clsbtn:not(.item__mark) {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .item__clsbtn {
   border-radius: var(--radius-pill);
@@ -2416,7 +2416,7 @@ function dismissFix() {
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .item__clsbtn:hover {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 @media (pointer: coarse) {
@@ -2488,7 +2488,7 @@ function dismissFix() {
 }
 /* THE CHOICE: base · worn · consumable, as the app's own tabs — the mode bar's chip
    (.modebar__opt, atoms/modebar.scss), the way the share panel's two tabs wear it. No
-   track and no outline: the chosen one takes --lit, the one tone for "this is the one
+   track and no outline: the chosen one takes --wash-selected, the one tone for "this is the one
    that's on" (the row's own mark included, so the mark and the option that set it
    agree), and the others answer the pointer with the mode bar's wash. The chip brings
    its height, its inks, the wash, the plate, the inward focus ring and the touch hit
@@ -2538,7 +2538,7 @@ function dismissFix() {
   display: flex;
   align-items: center;
   border-radius: var(--pop-inner-radius);
-  background: var(--wash);
+  background: var(--wash-field);
 }
 .item__wornbtn {
   flex: none;
@@ -2552,39 +2552,39 @@ function dismissFix() {
 }
 /* The chip's ground is AN AMOUNT OF INK, the well's two (.well, atoms/controls.scss): 7%
    at rest, 10% under the pointer — the same pair the kcal field takes in the popover
-   beside this one, so the two cards' grounds agree. It drew them in --paper-2 and
-   --paper-3, page tones on a floating card: 1.10:1 at rest on the light popover, and in
-   dark --paper-3 IS --surface-float, so pointing at a count erased its chip. Not --lit:
+   beside this one, so the two cards' grounds agree. It drew them in --background-secondary and
+   --background-tertiary, page tones on a floating card: 1.10:1 at rest on the light popover, and in
+   dark --background-tertiary IS --surface-1, so pointing at a count erased its chip. Not --wash-selected:
    that is the tone for ON, and here on is the inverted chip below. */
 .item__split {
   min-width: var(--icon-btn);
   min-height: var(--icon-btn);
   padding-inline: var(--space-2);
   border-radius: var(--pop-inner-radius);
-  background: var(--wash);
-  color: var(--ink-2);
+  background: var(--wash-field);
+  color: var(--foreground-secondary);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .item__split:hover {
-    background: var(--wash-deep);
-    color: var(--ink);
+    background: var(--wash-field-focus);
+    color: var(--foreground-primary);
   }
 }
 /* .field is deliberately borderless — it lives in the row grid, where a box per cell
    would be pure noise. On a floating surface that reasoning inverts: with nothing
    around it the number reads as printed text, not as something you can type into.
    So the field declares itself here, and only here.
-   A FILL rather than a border does it: --surface-float is the brightest tone on the
+   A FILL rather than a border does it: --surface-1 is the brightest tone on the
    page, so a well sunk into it reads as "type here" at a glance, where a hairline
    rectangle has to be looked at to be seen.
    That fill is the .well atom (atoms/controls.scss), worn in the markup: an amount of
-   ink, which composites over the card, where the --paper-2 this used sat at 1.10:1 on
+   ink, which composites over the card, where the --background-secondary this used sat at 1.10:1 on
    it. Focus is the atom's too, the ground deepening a step and nothing drawn round it —
    the one focus every contained field on a floating surface takes (the trail panel's
-   fields, the searches, the paste boxes). This one used to swap to --paper-3 and add a
+   fields, the searches, the paste boxes). This one used to swap to --background-tertiary and add a
    hairline ring; the ring was standing in for a deepening that couldn't show, since
-   --paper-3 is the card's own colour in dark. Only the geometry is this field's — the
+   --background-tertiary is the card's own colour in dark. Only the geometry is this field's — the
    transparent edge included: it is part of the box's size, and under forced colours,
    where fills are stripped, it is repainted and is all the field has. */
 .item__popinput {
@@ -2605,7 +2605,7 @@ function dismissFix() {
    "calc icon seems small here"). */
 .item__poplineicon {
   flex: none;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* row controls (note + remove) stay visible at rest; the note button is lit when
    a note exists, and hover just darkens for feedback */
@@ -2642,7 +2642,7 @@ function dismissFix() {
 /* banked: the tick holds at full ink so the row keeps saying so */
 .item__vault-btn.is-active,
 .item__vault-btn.is-active:hover {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .item__vault-btn:disabled {
   cursor: default;
@@ -2687,7 +2687,7 @@ function dismissFix() {
    light front sweeps left-to-right through the glyph — a soft-edged mask wipe
    over the icon held at full ink, whose final frame is the no-mask state, so the
    sweep ends where rest begins. When the enter class lifts, the button's own
-   color transition (above) settles the lit glyph onto --ink-3 — the SAME token
+   color transition (above) settles the lit glyph onto --foreground-tertiary — the SAME token
    every other icon in the cluster rests at, so a settled row reads as one even
    set, not a set with one recently-excited member.
    Leave is a quick quiet fade: the moment belongs to arrival.
@@ -2706,7 +2706,7 @@ function dismissFix() {
   animation: vault-pop calc(var(--spring-step-dur) * 3) var(--spring-step);
 }
 .vaultin-enter-active .item__vault-btn {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .vaultin-enter-active .item__vault-btn svg {
   mask-image: linear-gradient(100deg, #000 45%, rgba(0, 0, 0, 0) 65%);
@@ -2759,13 +2759,13 @@ function dismissFix() {
   transform: translateY(var(--drag-dy, 0)) scale(1.01);
   /* a raised surface tone (not the page colour) so the lifted row reads as
      elevated in BOTH themes without a glow — dark gets a visible dark-grey card */
-  background: var(--paper-2);
+  background: var(--background-secondary);
   border-radius: var(--radius-2);
   /* a hairline ring (subtle in BOTH themes — no white glow in dark, which the
      old --ink-derived shadow caused) + the shared floating-surface drop (--shadow-pop,
      also used by the toast) so the two lifted surfaces read at one height */
   box-shadow:
-    0 0 0 1px var(--line-2),
+    0 0 0 1px var(--border-strong),
     var(--shadow-pop);
   /* no `cursor` here. This row is pointer-events:none two lines up, so it is never
      hit-tested and never gets to set one — the `cursor: grabbing` that used to sit
@@ -2781,15 +2781,15 @@ function dismissFix() {
   left: 0;
   right: 0;
   height: var(--space-px);
-  background: var(--ink);
+  background: var(--foreground-primary);
   pointer-events: none;
 }
 /* "will nest under this row" — a left thread bar + faint tint on the target parent,
    the only cue when nesting under a row that has no children yet (and so no group
    tail line to light up). Mirrors the nested block's own left thread line. */
 .item-wrap.is-nest-parent > .item {
-  box-shadow: inset 2px 0 0 var(--ink);
-  background: var(--paper-2);
+  box-shadow: inset 2px 0 0 var(--foreground-primary);
+  background: var(--background-secondary);
   border-radius: var(--radius-1);
 }
 /* grip is the last icon in the trailing actions cluster (note · remove · grip); the
@@ -2801,7 +2801,7 @@ function dismissFix() {
    undiscoverable, and the row's right half visibly re-populates under the cursor as
    as you scan down the list. A row that simply shows its controls has no flicker to
    have.
-   They are ghosted (--ink-3) at rest and darken on hover instead, so the row is calm
+   They are ghosted (--foreground-tertiary) at rest and darken on hover instead, so the row is calm
    without being blank. Nothing here is opacity-animated any more, which also retires
    the Safari layer-snap workaround the old rule needed. */
 
@@ -2844,12 +2844,12 @@ function dismissFix() {
 .reveal-field-leave-to {
   opacity: 0;
 }
-/* the common-name field is an upright quiet LABEL (--ink-2), distinct from the note's
+/* the common-name field is an upright quiet LABEL (--foreground-secondary), distinct from the note's
    italic aside voice below it — mirrors the read-only sub-line's two voices. .item__note
    (atoms/item.scss) also matches this element and sets italic; the two classes together
    outweigh it. */
 .item__note.item__gtype-input {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   font-style: normal;
 }
 /* The gear type + variant line. The field keeps .item__note's width:100% as the
@@ -2877,7 +2877,7 @@ function dismissFix() {
    used for it before it moved down here), and the dot between the two fields takes the
    gear type's quiet upright ink so it reads as punctuation, not as either field's text */
 .item__gtype-dot {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
    Reads as a caption: the lightest ink (matching the "Add an item" placeholder) and
@@ -2909,7 +2909,7 @@ function dismissFix() {
 }
 /* composes .btn--icon for the real tap target (--icon-btn box, --tap on touch) —
    without it the bare 14px glyph was the whole hit area. This rule keeps the quiet
-   --ink-3 treatment over .btn--ghost's ink, and the negative block margins pull the
+   --foreground-tertiary treatment over .btn--ghost's ink, and the negative block margins pull the
    enlarged box back out of layout so the fix row keeps its one-text-line rhythm
    (the actions cluster's overshoot technique). */
 .item__fixdismiss {
@@ -2972,8 +2972,8 @@ function dismissFix() {
    (atoms/controls.scss) — the person entries take their dot through it too */
 /* picker entries: the chosen one wears the on-plate */
 .item__personpick.is-active {
-  background: var(--lit);
-  color: var(--ink);
+  background: var(--wash-selected);
+  color: var(--foreground-primary);
 }
 
 @media (max-width: $bp-stack) {

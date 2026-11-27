@@ -257,8 +257,8 @@ async function decide(decision: "allow" | "deny") {
   width: calc(48 * var(--tpx));
   height: calc(48 * var(--tpx));
   border-radius: var(--radius-3);
-  background: var(--paper-2);
-  color: var(--ink);
+  background: var(--background-secondary);
+  color: var(--foreground-primary);
 }
 .az__initial {
   font-size: var(--text-title);
@@ -274,7 +274,7 @@ async function decide(decision: "allow" | "deny") {
 .az__tie {
   width: var(--space-6);
   height: 0;
-  border-top: 3px dotted var(--ink-3);
+  border-top: 3px dotted var(--foreground-tertiary);
 }
 
 /* ---- what it asks for ---- */
@@ -288,20 +288,20 @@ async function decide(decision: "allow" | "deny") {
 .az__scopes {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 .az__scope {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
   padding-block: var(--space-3);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border-primary);
 }
 .az__scopeicon {
   flex: none;
   /* centred on the first line of the text beside it: (1.5em line − the glyph) / 2 */
   margin-top: calc((1lh - var(--icon)) / 2);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 
 /* ---- what Mahonia couldn't check ---- */
@@ -310,7 +310,7 @@ async function decide(decision: "allow" | "deny") {
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-2);
-  background: var(--paper-2);
+  background: var(--background-secondary);
 }
 .az__cautionicon {
   flex: none;
@@ -327,14 +327,14 @@ async function decide(decision: "allow" | "deny") {
   gap: var(--space-3);
 }
 .az__deny {
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--border-strong);
 }
 .az__back {
   align-self: flex-start;
   margin-top: var(--space-2);
 }
 .az__note {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .az__fine {
   font-size: var(--text-chrome);

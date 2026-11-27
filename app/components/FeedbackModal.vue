@@ -142,9 +142,9 @@ async function send() {
 /* the count is information, not an alarm — it only stops being muted once it is
    close enough to matter */
 .fb__count.is-low {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .fb__error {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 </style>

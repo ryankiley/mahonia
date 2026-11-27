@@ -182,7 +182,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   text-align: right;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .wprow__coord {
   grid-area: coord;

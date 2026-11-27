@@ -34,7 +34,7 @@ const card = computed(() => presence.value === "signedOut");
          the scrim. The X is the same control the vault pane closes with. -->
     <SignInHead v-if="card">{{ label }}</SignInHead>
     <header v-else class="panel__head acctmodal__head">
-      <!-- .t-label is --ink-2 by design; a panel TITLE steps up to full ink, which is
+      <!-- .t-label is --foreground-secondary by design; a panel TITLE steps up to full ink, which is
            what the sharing and vault headers already do. -->
       <h2 class="t-label panel__title">{{ label }}</h2>
       <!-- btn--flush-end is how the other two put their X in a repeatable place: it
