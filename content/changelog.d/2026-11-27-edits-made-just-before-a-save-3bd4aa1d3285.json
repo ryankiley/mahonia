@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "Edits made just before a save failed are no longer lost when you switch lists or close the tab."
+  ]
+}

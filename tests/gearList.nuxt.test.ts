@@ -1,13 +1,13 @@
 // The ONE suite here that needs a Nuxt app booted. Everything else in tests/ is
 // plain TS on the node environment and should stay that way — see vitest.config.ts.
 //
-// Why this can't be plain TS: the bug under test isn't a decision a pure function
-// makes, it's an ORDERING hazard between three side effects that only exist inside
-// the live controller — flush() splicing ops out of the queue, dispose() rewriting
-// the on-device record, and the in-flight request's catch running after both. A
-// helper extracted for testability would be exercising a different shape than the
-// one that breaks. So: boot Nuxt, stub the two boundaries (the fetch and the
-// IndexedDB store), and drive the real singleton through the real sequence.
+// Why this can't be plain TS: what is under test isn't a decision a pure function
+// makes, it's an ORDERING hazard between side effects that only exist inside the live
+// controller — a batch out in a request, dispose() and later edits writing the
+// on-device record, and the request settling after both. A helper extracted for
+// testability would be exercising a different shape than the one that breaks. So: boot
+// Nuxt, stub the two boundaries (the fetch and the IndexedDB store), and drive the real
+// singleton through the real sequence.
 //
 // Real timers, but not the real waits: the 4 s capture debounce, the 450 ms flush
 // debounce and the 1.5 s retry backoff are each shortened through the seam the
@@ -24,6 +24,7 @@ import { vaultRow } from "./helpers/vault";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import { DRAFT_KEY, localKey, type LocalListRecord } from "~~/shared/localList";
+import type { Op } from "~~/shared/ops";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
@@ -109,10 +110,7 @@ const storage = stubLocalStorage();
 const CAPTURE_DEBOUNCE_MS = 300;
 _setCaptureDebounce(CAPTURE_DEBOUNCE_MS);
 // the flush behind every dispatch, and the first retry after a failed one — every
-// case here waits out the first, and one waits out the second. The backoff stays
-// above persistLocal's 200 ms write debounce: the re-queue case asserts that the
-// failed op is on the device BEFORE the retry takes it back off the queue, which is
-// the order the app has at 1.5 s and loses if the retry outruns the write.
+// case here waits out the first, and one waits out the second
 _setFlushDebounce(20);
 _setFlushBackoff(300);
 
@@ -207,13 +205,19 @@ registerEndpoint("/api/edit/rotate", {
 // The mutate is left hanging until the test settles it by hand — that pending window
 // IS the bug's window, and controlling it is the whole point.
 let mutateCalls = 0;
-let settleMutate: { resolve: (v: unknown) => void; reject: (e: unknown) => void };
+type Settle = { resolve: (v: unknown) => void; reject: (e: unknown) => void };
+let settleMutate: Settle;
+// every request in the order it arrived, with the ops it carried — for the cases
+// where two are out at once and each has to be settled on its own
+let mutates: (Settle & { ops: Op[] })[] = [];
 registerEndpoint("/api/edit/mutate", {
   method: "POST",
-  handler: () => {
+  handler: async (event) => {
+    const { ops } = await readBody<{ ops: Op[] }>(event);
     mutateCalls++;
     return new Promise((resolve, reject) => {
       settleMutate = { resolve, reject };
+      mutates.push({ ops, resolve, reject });
     });
   },
 });
@@ -262,6 +266,7 @@ beforeEach(() => {
   storage.clear(); // the decision store
   resetVaultCapture(); // the capture memo is module-scoped
   mutateCalls = 0;
+  mutates = [];
   captureCalls = 0;
   captureBodies = [];
   beacons.length = 0;
@@ -276,20 +281,22 @@ afterEach(() => {
   useGearList().dispose();
 });
 
-describe("useGearList — a flush that fails after the editor moved on", () => {
+describe("useGearList — a batch still out when the editor moved on", () => {
   beforeEach(() => {
     listResponse = snapshotFor("Original");
   });
 
-  // The regression this suite exists for. Sequence:
-  //   1. an edit is queued and flush() splices it out of `pending` into a request
-  //   2. the user navigates out of the editor mid-flight → dispose() runs, writing
-  //      the now-EMPTY queue over this list's on-device record, and bumps the epoch
-  //   3. the request fails (the connection that dropped is often why they left)
-  //   4. the catch sees a moved epoch — and must not simply return
-  // Before the fix step 4 returned, and the ops existed nowhere: not on the server,
-  // not in `pending`, not on disk.
-  it("recovers the in-flight ops into that list's on-device record", async () => {
+  const failed = () => createError({ statusCode: 500, statusMessage: "network" });
+  const queued = () => records.get(localKey(TOKEN))?.pending;
+  // long enough for a settled request's continuation to run, before asserting that it
+  // wrote nothing
+  const settled = () => new Promise((r) => setTimeout(r, 50));
+
+  // The rule this suite holds: the on-device record keeps every op the server has not
+  // acknowledged to the list that is open. A batch out in a request is still in the
+  // queue, so leaving mid-flight writes it to the record with everything else, and
+  // nothing has to be put back when the request then fails.
+  it("keeps the in-flight ops in that list's on-device record", async () => {
     const c = await opened();
     c.setMeta({ title: "Renamed while leaving" });
 
@@ -297,44 +304,94 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
 
     // the SPA navigation lands mid-flight
     c.dispose();
-    // dispose() writes synchronously; prove the queue really was clobbered, so this
-    // test fails loudly if that ordering ever changes and the premise goes stale
-    await vi.waitFor(() => expect(records.get(localKey(TOKEN))?.pending).toEqual([]));
+    await vi.waitFor(() => expect(queued()).toMatchObject([{ t: "setMeta" }]));
 
-    // ...and only THEN does the request fail
-    settleMutate.reject(createError({ statusCode: 500, statusMessage: "network" }));
+    // ...and only THEN does the request fail (the connection that dropped is often
+    // why they left)
+    settleMutate.reject(failed());
+    await settled();
 
-    await vi.waitFor(() => {
-      const rec = records.get(localKey(TOKEN));
-      expect(rec?.pending).toHaveLength(1);
-      expect(rec?.pending[0]).toMatchObject({ t: "setMeta" });
-    });
-    // the snapshot stored alongside them is the one the ops were computed against,
-    // so the next open replays them onto a consistent base
+    expect(queued()).toMatchObject([{ t: "setMeta", patch: { title: "Renamed while leaving" } }]);
     expect(records.get(localKey(TOKEN))?.snapshot.title).toBe("Renamed while leaving");
+    // the batch already out was not sent a second time on the way out
+    expect(mutateCalls).toBe(1);
   });
 
-  // The recovery must be SPECIFIC to the moved-epoch case. A flush that succeeds has
-  // landed its ops server-side, so writing them back would resurrect them on the next
-  // open and re-apply edits the server already has.
-  it("writes nothing back when the in-flight batch actually succeeded", async () => {
+  // The answer to a batch that lands after the editor left is never read, so the record
+  // cannot know it landed. It stays queued and goes again on the next open, which the
+  // server takes: an add is idempotent by id and an update sets an absolute value.
+  it("replays a batch that landed after the editor left on the next open", async () => {
     const c = await opened();
     c.setMeta({ title: "Renamed while leaving" });
 
     await awaitMutateInFlight();
     c.dispose();
     settleMutate.resolve({ snapshot: snapshotFor("Renamed while leaving", 2) });
+    await settled();
+    expect(queued()).toMatchObject([{ t: "setMeta", patch: { title: "Renamed while leaving" } }]);
 
-    // give the settled promise's continuation a chance to run before asserting a
-    // negative — otherwise this passes for the wrong reason
-    await new Promise((r) => setTimeout(r, 50));
-    expect(records.get(localKey(TOKEN))?.pending).toEqual([]);
+    listResponse = snapshotFor("Renamed while leaving", 2);
+    await c.load({ token: TOKEN });
+    await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
+    expect(mutates[1]!.ops).toMatchObject([{ t: "setMeta", patch: { title: "Renamed while leaving" } }]);
   });
 
-  // And the ordinary failure path — still on the same list — must keep behaving as it
-  // did: re-queued in memory for the retry, and persisted, not diverted to the
-  // recovery write.
-  it("re-queues normally when the failure happens on the list still open", async () => {
+  // An edit queued BEHIND the batch in flight. Leaving sends it on its own (the batch
+  // ahead of it is already out), and when both requests fail the record still holds
+  // both, in the order they were made.
+  it("keeps an edit queued behind the in-flight batch when both requests fail", async () => {
+    const c = await opened();
+    c.setMeta({ title: "T1" });
+    await awaitMutateInFlight();
+    c.setMeta({ description: "D2" });
+
+    c.dispose();
+    await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
+    expect(mutates[1]!.ops).toMatchObject([{ t: "setMeta", patch: { description: "D2" } }]);
+
+    mutates[1]!.reject(failed());
+    mutates[0]!.reject(failed());
+    await settled();
+    expect(queued()).toMatchObject([
+      { t: "setMeta", patch: { title: "T1" } },
+      { t: "setMeta", patch: { description: "D2" } },
+    ]);
+
+    // the server saw neither; the next open puts both back
+    await c.load({ token: TOKEN });
+    expect(c.snapshot.value).toMatchObject({ title: "T1", description: "D2" });
+  });
+
+  // No leaving at all: a later edit's write to the device, made while a batch is out,
+  // carries that batch too — a tab killed there has lost nothing. Once the batch is
+  // acknowledged it leaves the queue, and only the later edit goes in the next request.
+  it("writes the in-flight batch with a later edit, and drops it once acknowledged", async () => {
+    const c = await opened();
+    c.setMeta({ title: "T1" });
+    await awaitMutateInFlight();
+    c.setMeta({ description: "D2" });
+
+    await vi.waitFor(() =>
+      expect(records.get(localKey(TOKEN))?.snapshot.description).toBe("D2"),
+    );
+    expect(queued()).toMatchObject([
+      { t: "setMeta", patch: { title: "T1" } },
+      { t: "setMeta", patch: { description: "D2" } },
+    ]);
+
+    settleMutate.resolve({ snapshot: snapshotFor("T1", 2) });
+    await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
+    expect(mutates[1]!.ops).toMatchObject([{ t: "setMeta", patch: { description: "D2" } }]);
+    await vi.waitFor(() =>
+      expect(queued()).toMatchObject([{ t: "setMeta", patch: { description: "D2" } }]),
+    );
+    // the edit made mid-flight still stands on the adopted snapshot
+    expect(c.snapshot.value).toMatchObject({ title: "T1", description: "D2" });
+  });
+
+  // And the ordinary failure path — still on the same list: the batch stays queued in
+  // memory for the retry, and on the device.
+  it("retries the batch when the failure happens on the list still open", async () => {
     const c = await opened();
     c.setMeta({ title: "Renamed in place" });
 
@@ -346,8 +403,8 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
       expect(rec?.pending).toHaveLength(1);
       expect(rec?.pending[0]).toMatchObject({ t: "setMeta" });
     });
-    // The op went back into the in-memory queue, not down the recovery path: flush()
-    // only fires when `pending` is non-empty, so a second attempt is the proof.
+    // The op is still in the in-memory queue: flush() only fires when `pending` is
+    // non-empty, so a second attempt is the proof.
     // (Deliberately NOT asserting status === "error" here — the failure sets it, then
     // the retry sets "saving" a backoff later, so that assertion races the very retry
     // this behaviour is for.)
@@ -373,6 +430,19 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
     await awaitMutateInFlight();
     settleMutate.reject(createError({ statusCode: 404 }));
     await vi.waitFor(() => expect(c.status.value).toBe("missing"));
+  });
+});
+
+// The server applies an op after its trip through JSON, where a key holding undefined
+// is gone and NaN is null. The editor applies, queues and stores that same form, so
+// the list on screen is the one the server will answer with.
+describe("useGearList — an edit applies here as it will on the server", () => {
+  it("leaves a day's distance standing when the patch names it as undefined", async () => {
+    listResponse = { ...snapshotFor("Original"), days: [{ id: "d1", sortOrder: 0, distanceM: 12_000 }] };
+    const c = await opened();
+    expect(c.snapshot.value?.days?.[0]?.distanceM).toBe(12_000);
+    c.updateDay("d1", { distanceM: undefined });
+    expect(c.snapshot.value?.days?.[0]?.distanceM).toBe(12_000);
   });
 });
 

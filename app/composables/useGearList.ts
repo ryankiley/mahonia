@@ -87,7 +87,12 @@ function create() {
   // claimed open, and the keyless page offers the read view of this code
   const openedByCode = computed(() => access.value.kind === "claimed");
   const keylessCode = computed(() => (access.value.kind === "keyless" ? access.value.code : ""));
+  // Every op the server has not acknowledged, oldest first, and what writeLocal puts on
+  // the device. A batch out in a request stays at the head until its answer lands, so
+  // no write made meanwhile can leave it out.
   let pending: Op[] = [];
+  // How many ops at the head of `pending` are out in flush()'s request right now.
+  let inFlightOps = 0;
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
   // The failure path's own timer, kept apart from flushTimer so a backoff already
   // counting down can be cancelled on teardown rather than firing into a session that
@@ -541,6 +546,7 @@ function create() {
     stopPoll();
     pending = [];
     inFlight = false;
+    inFlightOps = 0;
     creating = undefined;
     isEditing = false;
     // the vault question is about THIS list — an unanswered one must not ride
@@ -885,8 +891,12 @@ function create() {
     }
   }
 
-  function dispatch(op: Op) {
+  function dispatch(sent: Op) {
     if (!snapshot.value) return;
+    // The op as the server will read it: JSON drops a key holding undefined and turns
+    // NaN into null. Applied, queued and stored in that form, so the list on screen
+    // cannot differ from the one the server answers with.
+    const op = JSON.parse(JSON.stringify(sent)) as Op;
     wakePoll(); // an edit here is the surest sign the list is live
     // optimistic: same reducer as the server. The in-place mutation through the
     // deep ref's proxy gives precise property-level reactivity — only the touched
@@ -938,16 +948,15 @@ function create() {
     // offline: leave the queue intact + persisted; the online watcher re-flushes
     if (!online.value) { setStatus("offline"); persistLocal(); return; }
     const myEpoch = epoch;
-    // Captured for the orphan-recovery write in the catch — by the time it runs,
-    // dispose() may already have cleared both of these.
-    const myKey = storeKey();
-    const snapAtFlush = snapshot.value;
     // One batch per request (FLUSH_BATCH_MAX). A longer queue (offline session)
     // drains across sequential flushes: the finally reschedules while pending is
     // non-empty, and the rebase below re-applies the remainder onto each merged
-    // snapshot.
-    const ops = pending.splice(0, FLUSH_BATCH_MAX);
+    // snapshot. The batch is COPIED out and stays queued until the server answers for
+    // it: anything written to the device while it is out (a later edit, dispose) still
+    // carries it, and a failure has nothing to put back.
+    const ops = pending.slice(0, FLUSH_BATCH_MAX);
     inFlight = true;
+    inFlightOps = ops.length;
     let failed = false;
     // DON'T ANNOUNCE A RETRY. Once the line reads "Not saved", flipping it to
     // "Syncing…" and back for every attempt is a strobe rather than information — the
@@ -964,7 +973,14 @@ function create() {
         headers: authHeaders(),
         body: { ops },
       });
-      if (myEpoch !== epoch) return; // controller moved to a different list
+      // The controller moved to a different list. This list's record still holds the
+      // batch (dispose wrote the whole queue), so the next open sends it again; the
+      // server takes a replay, and nothing here may write to a record that is no
+      // longer this session's.
+      if (myEpoch !== epoch) return;
+      // acknowledged: only now does the batch leave the queue. Edits made meanwhile
+      // were pushed behind it, so the head is still exactly these ops.
+      pending.splice(0, ops.length);
       if (!isEditing && snapshot.value) {
         // adopt the authoritative merged snapshot, then re-apply ops queued while
         // this request was in flight (rebase) so nothing is lost or clobbered.
@@ -981,30 +997,9 @@ function create() {
       syncRegistry();
       persistLocal(); // snapshot adopted + queue drained → update the on-device copy
     } catch (e: any) {
-      if (myEpoch !== epoch) {
-        // The controller moved to a different list (SPA nav out of the editor, or
-        // a switch between two of your lists) WHILE this batch was in flight — and
-        // the batch then failed, so these ops reached no server. They're also gone
-        // from `pending`: the splice above removed them, and `pending` now belongs
-        // to whatever list the controller moved on to, so re-queueing them here
-        // would graft them onto the wrong list.
-        //
-        // Worse, dispose() has already rewritten THIS list's on-device record with
-        // the post-splice (empty) queue — so without this they'd be lost outright,
-        // and the next open would paint the local snapshot with the edits and then
-        // replace it with the server's, making them visibly appear and vanish.
-        // Restore them into that record instead, so the next open replays them.
-        // (beforeunload doesn't cover this — SPA navigation never fires it.)
-        if (myKey !== DRAFT_KEY && snapAtFlush) {
-          store.set(myKey, {
-            snapshot: snapAtFlush,
-            pending: ops,
-            updatedAt: Date.now(),
-          });
-        }
-        return;
-      }
-      pending = ops.concat(pending); // re-queue (incl. 409 contention) and retry shortly
+      // moved on, as above: the batch is in that list's record and goes again from there
+      if (myEpoch !== epoch) return;
+      // The batch never left the queue, so it goes again (incl. 409 contention).
       // mutate's 404 is permanent (token deleted/rotated mid-session), never
       // transient — stop retrying; the queue stays persisted on device. Unless THIS
       // device replaced the link while the batch was out (rotate): the old link it went
@@ -1016,7 +1011,7 @@ function create() {
       }
       // offline surfaces honestly; a genuine server error keeps the "Not saved" cue
       setStatus(online.value ? "error" : "offline");
-      persistLocal(); // keep the re-queued ops on device until they land
+      persistLocal();
       failed = true;
       // BACK OFF, don't hammer. A server that just refused this batch is unlikely to
       // want it again in a second, and every open tab doing that turns a blip into
@@ -1026,11 +1021,12 @@ function create() {
     } finally {
       if (myEpoch === epoch) {
         inFlight = false;
+        inFlightOps = 0;
         // ONLY chase the queue when this attempt actually landed. This is what drains
-        // a backlog past FLUSH_BATCH_MAX across sequential flushes (see the splice above) — but on
-        // the failure path `pending` is never empty, because the catch just re-queued
-        // the batch, so it fired every time and replaced the backoff above with its
-        // own 450ms. That is what made a failing save retry ~1/second forever.
+        // a backlog past FLUSH_BATCH_MAX across sequential flushes — but on the failure
+        // path `pending` is never empty, because the failed batch is still in it, so
+        // chasing it there would replace the backoff above with its own 450ms and
+        // retry a failing save about once a second for as long as it failed.
         if (!failed && pending.length) scheduleFlush();
       }
     }
@@ -1351,10 +1347,13 @@ function create() {
     if (ownEpoch !== undefined && ownEpoch !== epoch) return;
     // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
     // queued ops aren't silently dropped on the way out. Capped at one batch
-    // (FLUSH_BATCH_MAX); the remainder is safe in the on-device copy below and drains
-    // on the next open. A dead token would only 404, so don't bother.
-    if (pending.length && holdsList() && !remoteMissing()) {
-      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, FLUSH_BATCH_MAX) } }).catch(() => {});
+    // (FLUSH_BATCH_MAX), and starting past the ops flush() already has out, so no
+    // batch is in two requests at once. Nothing reads the answer: every op stays in
+    // the on-device copy below and goes again on the next open. A dead token would
+    // only 404, so don't bother.
+    const unsent = pending.slice(inFlightOps, inFlightOps + FLUSH_BATCH_MAX);
+    if (unsent.length && holdsList() && !remoteMissing()) {
+      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: unsent } }).catch(() => {});
     }
     // capture the latest state on device before teardown — the debounced persist
     // may not have fired, and SPA nav / unmount must not drop the last edits
