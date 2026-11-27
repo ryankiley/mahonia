@@ -2,8 +2,8 @@ body {
   font-family: var(--font);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
-  color: var(--ink);
-  background: var(--paper);
+  color: var(--foreground-primary);
+  background: var(--background-primary);
 }
 
 // The whole type system: ONE family, 4 sizes (sm / base / title / display),
@@ -15,7 +15,7 @@ body {
 // The one heading style (folder names, page + section titles).
 .t-title {
   font-size: var(--text-title);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: var(--leading-tight);
   letter-spacing: var(--track-tight);
 }
@@ -45,8 +45,8 @@ body {
 // Small label — sentence case (no all-caps).
 .t-label {
   font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--ink-2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--foreground-secondary);
 }
 
 .t-sm {
@@ -61,7 +61,7 @@ body {
 
 // Secondary text color (the only de-emphasis level).
 .t-muted {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 
 // One-line clip — the overflow/ellipsis/nowrap triplet, once. A flex or grid child can
@@ -82,10 +82,10 @@ body {
 // variant text beside it — otherwise the eye stops on a mid-height dot on its way
 // along the name.
 //
-// Opacity rather than a new colour token: the dot has to recede from whatever ink
-// its neighbour carries (--ink-3 in a row, --paper on the inverted toast), and it
-// must not reach for --ink-ghost, which is spoken for by the list-title
-// placeholder and sits far below the AA floor on purpose.
+// Opacity rather than a new colour token: the dot has to recede from whatever foreground
+// its neighbour carries (--foreground-tertiary in a row, --background-primary on the
+// inverted toast), and it must not reach for --foreground-quaternary, which is spoken for
+// by the list-title placeholder and sits far below the AA floor on purpose.
 .sep {
   opacity: 0.55;
 }

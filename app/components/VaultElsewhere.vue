@@ -32,7 +32,7 @@ const emit = defineEmits<{ pick: [tab: VaultTab] }>();
 
 <style scoped lang="scss">
 /* a link in the sentence, not a control beside it: the sentence's own type, the site's
-   text-link ink and underline (.link), no box */
+   text-link foreground and underline (.link), no box */
 .elsewhere__go {
   position: relative; /* the touch target below hangs off it */
   text-decoration-line: underline;

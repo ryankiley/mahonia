@@ -15,10 +15,10 @@ import { ROOT, stripComments as strip, walkSources } from "./helpers/sources";
 // The trap is the shape of the scale: 1-7 then 9 makes --space-8 the natural thing to
 // write, and the next person will write it again.
 //
-// A reference WITH A FALLBACK is deliberate, not a typo — `var(--hov-ink, var(--ink))`
-// is how the travelling plate takes a row's own hue when a row has set one and the
-// neutral when it hasn't — so those are skipped. What's checked is the bare form, the
-// one that has nowhere to go when it's wrong.
+// A reference WITH A FALLBACK is deliberate, not a typo — `var(--hov-foreground,
+// var(--foreground-primary))` is how the travelling plate takes a row's own hue when a
+// row has set one and the neutral when it hasn't — so those are skipped. What's checked
+// is the bare form, the one that has nowhere to go when it's wrong.
 const files = walkSources(["app"], ["scss", "vue", "ts"]);
 
 // Comments come out first (stripComments). This codebase argues with itself in prose — a
@@ -29,7 +29,7 @@ const files = walkSources(["app"], ["scss", "vue", "ts"]);
 // A custom property is DEFINED by a `--name:` declaration anywhere — :root, a scoped
 // component rule, inside a media query — or by a component handing an element one at
 // runtime. Both runtime forms count, and both are in use: style.setProperty (--vault-span,
-// --drag-dy, --hov-ink) and a Vue :style binding, whose key is QUOTED — the elevation
+// --drag-dy, --hov-foreground) and a Vue :style binding, whose key is QUOTED — the elevation
 // profile positions its hover marker with `:style="{ '--at': ... }"`, and a rule that
 // only understood the bare form would call that live token dead.
 const defined = new Set<string>();

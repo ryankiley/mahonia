@@ -206,7 +206,7 @@ const isAppendTarget = computed(
    below theirs — it reads as the next row, not a separate block. (Was --space-3,
    4px too much, which floated it a touch clear of the list.) */
 .folder__add {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
   padding-top: var(--space-2);
 }
 /* when the folder is EMPTY the add row is the FIRST row, so it drops the rule line —

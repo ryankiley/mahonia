@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A labelled figure — a caption over a number, the unit a step back in ink. The .chip
+// A labelled figure — a caption over a number, the unit a step back in foreground. The .chip
 // atom (atoms/chip.scss) is the stacking; this is the three spans the totals bar, the
 // trip panel and the elevation profile had each written out, thirteen times between
 // them. Only the spans: what sets a chip apart from its neighbours (the totals bar's

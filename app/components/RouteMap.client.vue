@@ -455,7 +455,7 @@ function renderBounds() {
       // THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is
       // a camp, and a reader shouldn't have to know which of these the itinerary drew
       // and which somebody placed. It takes the inverted pin's recipe wholesale (see
-      // the CSS) — the itinerary talking, in ink rather than a category's hue — and
+      // the CSS) — the itinerary talking, in foreground rather than a category's hue — and
       // keeps its own name only as a hook.
       icon: pinIcon("camp", " routemap__pin--dark routemap__bound"),
     }).addTo(map);
@@ -605,7 +605,8 @@ function renderPins() {
  * outside the itinerary wears this. Grey rather than a category colour, for the reason the
  * elevation chart gives its unassigned tail the same token: it is precisely the part of
  * the route that has no day to belong to yet. It has its own map token because the
- * basemap stays light in both themes and a dark-theme --ink-3 would fade into it.
+ * basemap stays light in both themes and a dark-theme --foreground-tertiary would fade
+ * into it.
  */
 const GROUND = "var(--map-route-ground)";
 
@@ -1200,7 +1201,7 @@ onBeforeUnmount(() => {
            than it does for the estimates, because one of the gestures it explains is the
            press-and-hold, and touch is exactly where that one is worth knowing. -->
       <Tooltip v-else :text="gestures" preferred-placement="top">
-        <button type="button" class="btn btn--icon btn--ghost ink-quiet routemap__help" aria-label="How to use this map">
+        <button type="button" class="btn btn--icon btn--ghost foreground-quiet routemap__help" aria-label="How to use this map">
           <SvgIcon :icon="IconQuestionmarkCircle" size="sm" />
         </button>
       </Tooltip>
@@ -1220,10 +1221,10 @@ onBeforeUnmount(() => {
   // the honest thing is to treat it as a PICTURE of ground, the way a photograph isn't
   // dark-moded either. (Never `filter: invert()`; terrain goes radioactive.)
   //
-  // Which inverts the token rule for everything drawn on top: `--ink` is near-white in
-  // dark mode and would vanish here, and the category hues lighten enough to wash out.
-  // `color-scheme: light` makes every `light-dark()` below this node resolve to its light
-  // branch — so the route keeps the exact colours the elevation chart uses, one
+  // Which inverts the token rule for everything drawn on top: `--foreground-primary` is
+  // near-white in dark mode and would vanish here, and the category hues lighten enough
+  // to wash out. `color-scheme: light` makes every `light-dark()` below this node resolve
+  // to its light branch — so the route keeps the exact colours the elevation chart uses, one
   // declaration, no parallel `--map-*` token set to keep in sync. This is the single
   // thing most likely to look right in development and break for every dark-mode user.
   color-scheme: light;
@@ -1236,9 +1237,9 @@ onBeforeUnmount(() => {
   // container needs it too (below): the tile pane is transformed, and a transformed
   // descendant is not reliably clipped by an ancestor's rounded corners.
   border-radius: var(--radius-2);
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--border-strong);
   overflow: hidden;
-  background: var(--paper-2);
+  background: var(--background-secondary);
   // Leaflet's panes stack on z-index 400+; keep the whole thing under the app's own
   // popovers and dialogs rather than letting a tile pane sit over a menu.
   z-index: 0;
@@ -1267,7 +1268,7 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: var(--z-fullscreen);
   padding: var(--space-3);
-  background: var(--paper);
+  background: var(--background-primary);
 }
 .routemap.is-expanded .routemap__canvas {
   height: auto;
@@ -1288,22 +1289,22 @@ onBeforeUnmount(() => {
 }
 .routemap__wphead {
   font-size: var(--text-chrome);
-  color: var(--map-ink-4);
+  color: var(--map-foreground-quaternary);
 }
 .routemap__wpname {
   width: 100%;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--map-line);
+  border: 1px solid var(--map-border);
   border-radius: var(--radius-1);
   font-size: var(--text-input); // the iOS zoom floor, as .field has
-  color: var(--map-ink);
-  background: var(--map-paper);
+  color: var(--map-foreground-primary);
+  background: var(--map-background);
 }
 .routemap__wpdel {
   align-self: flex-start;
   font-size: var(--text-chrome);
-  // the one destructive control on the map, so it says so — every other mark here is ink
-  // or a category hue, and this is neither
+  // the one destructive control on the map, so it says so — every other mark here is
+  // foreground or a category hue, and this is neither
   color: var(--danger);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -1333,12 +1334,12 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: var(--control-compact);
   height: var(--control-compact);
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-1);
   // Leaflet's own controls are white-on-map in both themes because the basemap stays
   // light; this matches them rather than the app's dark chrome.
-  background: var(--map-paper);
-  color: var(--map-ink-2);
+  background: var(--map-background);
+  color: var(--map-foreground-secondary);
   box-shadow: var(--map-control-shadow);
 }
 // Pointer-gated — it paints (see the note on .btn:hover, controls.scss). The control
@@ -1346,7 +1347,7 @@ onBeforeUnmount(() => {
 // whole time you then spent panning around.
 @media (hover: hover) and (pointer: fine) {
   .routemap__expand:hover {
-    background: var(--map-paper-muted);
+    background: var(--map-background-muted);
   }
 }
 // A finger's size on touch, as every icon button is (--tap): at 32px the one control that
@@ -1376,11 +1377,11 @@ onBeforeUnmount(() => {
 .routemap__note {
   margin-top: var(--space-1);
   font-size: var(--text-chrome);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. Its
-   inks are .ink-quiet's (controls.scss), so it lifts under keyboard focus as well as
-   under the pointer. */
+   foregrounds are .foreground-quiet's (controls.scss), so it lifts under keyboard focus
+   as well as under the pointer. */
 
 // ARMED: one stretch of the route is the only thing worth aiming at, so the cursor says
 // so and everything else on the line stands down (see DIM). A deliberate mode rather than
@@ -1417,7 +1418,7 @@ onBeforeUnmount(() => {
   // drop is the same shape on every ground, so what you actually read is the symbol: a
   // droplet means water before you have decided which blue it was. The hue is still there,
   // in the mark, doing the job of telling two water sources from two camps at a glance.
-  background: var(--map-pin-paper);
+  background: var(--map-pin-background);
   color: var(--pin);
   position: relative;
   // round everywhere except the bottom-left, which the rotation below swings to the
@@ -1444,7 +1445,7 @@ onBeforeUnmount(() => {
   content: "";
   position: absolute;
   inset: 14%;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--map-pin-seat);
 }
 // the drop is rotated, so the mark inside it has to be turned back or every glyph sits at
@@ -1493,8 +1494,8 @@ onBeforeUnmount(() => {
    A white drop with a coloured glyph says "one of the things you will pass" — water, a
    landmark, a kind of place. These are not that. A camp is where the plan puts you and the
    ends are where the route begins and stops, and both are statements the ROUTE makes rather
-   than categories of thing. Solid ink says so at a glance and needs no further hue, which
-   matters on a sheet already carrying magenta paths and green woodland.
+   than categories of thing. Solid foreground says so at a glance and needs no further
+   hue, which matters on a sheet already carrying magenta paths and green woodland.
    The seat inverts with it — a step OFF the drop rather than a fixed grey, so the head
    still reads as round instead of as a black blob with a point on it.
    A DAY BOUNDARY wears exactly this (renderBounds gives it these two classes plus
@@ -1503,30 +1504,30 @@ onBeforeUnmount(() => {
    reader shouldn't have to know which of these the itinerary drew and which somebody
    placed. It used to carry a byte-for-byte copy of the recipe under its own name. */
 .routemap__pin--dark i {
-  background: var(--map-pin-ink);
-  color: var(--map-pin-paper);
+  background: var(--map-pin-foreground);
+  color: var(--map-pin-background);
 }
 .routemap__pin--dark i::before {
   background: var(--map-pin-seat-dark);
 }
 
 /* THE CHART'S CURSOR, ON THE GROUND.
-   The same mark the profile draws at the same moment — ink with a paper ring — because it
-   IS the same mark: one reading shown twice, once on the shape and once on the place. Made
-   of the light-theme values rather than tokens, like everything else drawn over this
-   basemap, which stays light in both themes.
+   The same mark the profile draws at the same moment — foreground with a background ring
+   — because it IS the same mark: one reading shown twice, once on the shape and once on
+   the place. Made of the light-theme values rather than tokens, like everything else
+   drawn over this basemap, which stays light in both themes.
    No transition. It follows a pointer, and easing a dot toward where the finger already is
    reads as lag rather than as polish. */
 .routemap__trace {
   /* Leaflet's divIcon ships a white ground and a grey border — cleared here as it is for
      the pins, or the dot renders inside a little card. */
   border: 0;
-  border-radius: 50%;
-  background: var(--map-pin-ink);
+  border-radius: var(--radius-round);
+  background: var(--map-pin-foreground);
   /* the ring separates it from the day colour it sits on; the shadow lifts it off the
      contours, the same two jobs the pins' own casing does */
   box-shadow:
-    0 0 0 2px var(--map-pin-paper),
+    0 0 0 2px var(--map-pin-background),
     var(--map-trace-shadow);
 }
 
@@ -1547,13 +1548,13 @@ onBeforeUnmount(() => {
 // purpose — it's a licence term, so it may be quiet but never hidden.
 .routemap .leaflet-container {
   font: inherit;
-  background: var(--paper-2);
+  background: var(--background-secondary);
   border-radius: var(--radius-2);
 }
 
 .routemap .leaflet-control-attribution {
   font-size: calc(10 * var(--tpx));
-  background: var(--map-paper-translucent);
+  background: var(--map-background-translucent);
 
   a {
     color: inherit;
@@ -1561,11 +1562,11 @@ onBeforeUnmount(() => {
 }
 
 .routemap .leaflet-bar {
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--border-strong);
   box-shadow: none;
 
   a {
-    color: var(--ink-2);
+    color: var(--foreground-secondary);
   }
 }
 

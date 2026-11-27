@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 25 November 2026</p>
+        <p class="t-sm t-muted">Last updated 27 November 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -282,7 +282,7 @@ useHead({
 .legal__break {
   margin-top: var(--space-7);
   padding-top: var(--space-5);
-  border-top: 1px solid var(--line-2);
+  border-top: 1px solid var(--border-strong);
   scroll-margin-top: var(--space-5);
 }
 /* Subsection headings are demoted from h2 so the section titles are the parent level;

@@ -810,7 +810,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 }
 .ac__input {
   width: 100%;
-  color: var(--ink);
+  color: var(--foreground-primary);
   /* long product names truncate with an ellipsis at rest; the full text scrolls
      into view while editing (focused) */
   text-overflow: ellipsis;
@@ -904,7 +904,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
      Width pressure is the rows' ellipses' job, never a scrollbar's. */
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: var(--line-2) transparent;
+  scrollbar-color: var(--border-strong) transparent;
   /* reaching the end of the list must not hand the swipe to the page */
   overscroll-behavior: contain;
 }
@@ -932,7 +932,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   border-radius: var(--popover-item-radius);
 }
 .ac__opt.is-active {
-  background: var(--popover-hover);
+  background: var(--background-hover);
 }
 .ac__name {
   display: flex;
@@ -945,7 +945,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
    ellipsis (.t-clip, on every part) so a matched prefix stays visible. */
 .ac__brand {
   flex: 0 100 auto;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 .ac__model {
   flex: 0 1 auto;
@@ -957,16 +957,16 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 .ac__variant {
   flex: 0 1000 auto;
   font-style: italic;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* A RUN OF SIZES (sizeRuns): the product heading names what the rows share, and each
    row leads with its size. The heading is set as a row's name would be — same padding,
-   same type, brand in ink-2 and model in ink — because it IS that name, said once; it
+   same type, brand in ink-2 and model in foreground — because it IS that name, said once; it
    just isn't a target (no hover, no active, nothing to press). The sizes under it step
    in by --space-3, which is what says "these belong to that" without a rule or a box.
    The size is the row's subject now, so it drops the trailing-qualifier dress (italic,
-   ink-3) a variant wears after a model name and takes the row's full ink, with the whole
-   width before the weight to itself. */
+   ink-3) a variant wears after a model name and takes the row's primary foreground, with
+   the whole width before the weight to itself. */
 .ac__product {
   padding: var(--space-2);
   cursor: default;
@@ -983,7 +983,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 .ac__section {
   padding: var(--space-2) var(--space-2) var(--space-1);
   margin-top: var(--space-2);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .ac__section:first-child {
   margin-top: 0;
@@ -995,25 +995,25 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   flex: none;
   align-self: center;
   margin-right: var(--space-1);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* community/unverified marker — quiet; these rows already rank below the cited spine */
 .ac__community {
   flex: 0 1 auto;
   white-space: nowrap;
   font-style: italic;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* (the characters that overlap what you've typed read bold, .ac__hl — the emphasis is
    shared with the My Gear pane's rows: atoms/gear.scss) */
 .ac__watericon {
   vertical-align: -2px;
   margin-right: var(--space-1);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* the weight never gives way to a long name (the name's own parts clip instead) */
 .ac__w {
   flex: none;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 </style>

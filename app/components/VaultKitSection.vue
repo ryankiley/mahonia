@@ -157,7 +157,7 @@ watch(
       <Tooltip v-if="isKit && !readonly" text="Remove">
         <button
           type="button"
-          class="btn btn--icon btn--ghost ink-quiet"
+          class="btn btn--icon btn--ghost foreground-quiet"
           :aria-label="`Remove ${name} from My Gear`"
           @click="emit('remove')"
         >
@@ -184,7 +184,7 @@ watch(
               <Tooltip text="One fewer">
                 <button
                   type="button"
-                  class="btn btn--icon btn--ghost ink-quiet"
+                  class="btn btn--icon btn--ghost foreground-quiet"
                   :disabled="busy || part.qty <= 1"
                   :aria-label="`One fewer ${part.name} in ${name}`"
                   @click="step(part.id, -1)"
@@ -197,7 +197,7 @@ watch(
               <Tooltip :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. To add another, edit this piece and raise “Number owned”.` : 'One more'">
                 <button
                   type="button"
-                  class="btn btn--icon btn--ghost ink-quiet"
+                  class="btn btn--icon btn--ghost foreground-quiet"
                   :disabled="busy || part.qty >= partMax(part.id)"
                   :aria-label="`One more ${part.name} in ${name}`"
                   @click="step(part.id, 1)"
@@ -211,7 +211,7 @@ watch(
             <Tooltip :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'">
               <button
                 type="button"
-                class="btn btn--icon btn--ghost ink-quiet"
+                class="btn btn--icon btn--ghost foreground-quiet"
                 :disabled="busy || !canDrop(part)"
                 :aria-label="`Take ${part.name} out of ${name}`"
                 @click="drop(part.id)"
@@ -227,7 +227,7 @@ watch(
           <Tooltip v-if="!readonly" :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'">
             <button
               type="button"
-              class="btn btn--icon btn--ghost ink-quiet"
+              class="btn btn--icon btn--ghost foreground-quiet"
               :disabled="busy || !canDrop(part)"
               :aria-label="`Take ${part.name} out of ${name}`"
               @click="drop(part.id)"
@@ -244,7 +244,7 @@ watch(
         <Tooltip v-if="!readonly" text="Remove its own weight">
           <button
             type="button"
-            class="btn btn--icon btn--ghost ink-quiet"
+            class="btn btn--icon btn--ghost foreground-quiet"
             :disabled="busy"
             :aria-label="`Remove ${name}’s own weight`"
             @click="send(kitPartRefs(parts), 0)"
@@ -301,13 +301,13 @@ watch(
   align-items: center;
   gap: var(--space-4);
   padding-inline-start: var(--gear-type-indent);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 .kitsec__name {
   flex: 1;
 }
 .kitsec__line--gone {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .kitsec__gone {
   font-style: italic;
@@ -322,24 +322,24 @@ watch(
 .kitsec__count {
   min-width: 2.5ch;
   text-align: center;
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 /* "Add an item", under the items' names, as a list folder's add row sits */
 .kitsec__add {
   padding: var(--space-2) 0 0 var(--gear-type-indent);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 .kitsec__none {
   margin: var(--space-1) 0 0;
 }
 .kitsec__choices {
   margin: var(--space-1) 0 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-primary);
   border-radius: var(--radius-2);
   overflow: hidden;
 }
 .kitsec__choices li + li {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 .kitsec__choice {
   display: flex;
@@ -348,15 +348,15 @@ watch(
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  color: var(--ink);
+  color: var(--foreground-primary);
   text-align: left;
 }
 .kitsec__choice:focus-visible {
-  background: var(--popover-hover);
+  background: var(--background-hover);
 }
 @media (hover: hover) and (pointer: fine) {
   .kitsec__choice:hover {
-    background: var(--popover-hover);
+    background: var(--background-hover);
   }
 }
 </style>

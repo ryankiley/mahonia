@@ -87,10 +87,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* the inks are .ink-quiet's (atoms/controls.scss), which NestChevron wears: the
-     lesser ink at rest, full ink under the pointer AND on keyboard focus. This rule
-     carried its own copy with the pointer half only, so the one control a read view
-     has gave a keyboard nothing but the ring. */
+  /* the foregrounds are .foreground-quiet's (atoms/controls.scss), which NestChevron
+     wears: the lesser foreground at rest, primary foreground under the pointer AND on
+     keyboard focus. This rule carried its own copy with the pointer half only, so the one
+     control a read view has gave a keyboard nothing but the ring. */
 }
 /* the row's chevron is the folder's size; -1px so it hugs the name at the same
    distance the folder chevron does (8px from the text, both) */
@@ -127,7 +127,7 @@
   /* a clipped line hangs nothing: the text forms (the read views, My Gear's headings)
      would cut a trailing ")" as the field does (reset.scss) */
   hanging-punctuation: none;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   font-size: var(--text-title);
   letter-spacing: var(--track-tight);
   /* …and as a FIELD (the editor's and My Gear's headers, below) it sizes to the typed
@@ -148,7 +148,7 @@
   padding-block: var(--space-2);
 }
 .folder__items > * + * {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 
 @media (max-width: t.$bp-stack) {
@@ -212,8 +212,8 @@
   display: none;
 }
 /* the add row's fold on a mode switch: modeswitch.scss */
-/* the delete and the grip rest at the lesser ink and lift under the pointer — the
-   .ink-quiet atom (controls.scss), on both */
+/* the delete and the grip rest at the lesser foreground and lift under the pointer — the
+   .foreground-quiet atom (controls.scss), on both */
 /* right-align both controls + pull the grip's layout box left so its gap matches
    the item rows below (the flush shift is otherwise invisible to layout) */
 .folder__actions .btn--icon {

@@ -141,8 +141,8 @@
   position: sticky;
   top: 0;
   z-index: var(--z-topbar);
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--border-primary);
 }
 
 /* The page-title step — a LIST's own name as the read view's <h1>: 700 where every
@@ -153,7 +153,7 @@
    helpers. Worn WITH .t-title, which it out-orders here. */
 .view__title {
   font-size: var(--text-page-title);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .prose {
@@ -175,7 +175,7 @@
    :first-child reset below reached only half the headings it names. */
 .prose :is(h2, h3) {
   font-size: var(--text-title);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
   margin-top: var(--space-4);
 }
@@ -184,7 +184,7 @@
 }
 .prose p,
 .prose li {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   max-width: 64ch;
 }
 
@@ -229,25 +229,25 @@
   top: calc(0.5lh + 0.02em);
   width: 0.36em;
   height: 0.36em;
-  border-radius: 50%;
-  background: var(--ink-3);
+  border-radius: var(--radius-round);
+  background: var(--foreground-tertiary);
   transform: translateY(-50%);
 }
 /* :not(.btn), because a link WEARING A BUTTON is not running text and must keep the
    button's own chrome. `.prose a` outranks `.btn--primary` (0,1,1 against 0,1,0), so a
    NuxtLink styled as the primary action inside a prose column had its label repainted
-   --ink — white on the white pill, i.e. an empty button — and took a stray hairline
-   under it as well. A prose page has no reason to restyle a control it contains. */
+   --foreground-primary — white on the white pill, i.e. an empty button — and took a stray
+   hairline under it as well. A prose page has no reason to restyle a control it contains. */
 .prose a:not(.btn) {
-  color: var(--ink);
-  border-bottom: 1px solid var(--line-2);
+  color: var(--foreground-primary);
+  border-bottom: 1px solid var(--border-strong);
   transition: border-color var(--spring-fade-dur) var(--spring-fade);
 }
-// deepen on hover, but never to full ink — keeps the underline soft (see --underline).
-// Pointer-gated like every hover (see .btn:hover, controls.scss).
+// deepen on hover, but never to primary foreground — keeps the underline soft (see
+// --underline). Pointer-gated like every hover (see .btn:hover, controls.scss).
 @media (hover: hover) and (pointer: fine) {
   .prose a:not(.btn):hover {
-    border-bottom-color: var(--ink-2);
+    border-bottom-color: var(--foreground-secondary);
   }
 }
 /* A token set in running text: an address to copy, a thing to type. The shortcuts sheet's
@@ -256,7 +256,7 @@
    text beside them, and a box at that size stands the line taller than its neighbours.
    One step down to --text-chrome brings the glyphs level and keeps the chip inside the
    24px line (14 × 1.4 + the padding = 22.4). The ground is the well's tint rather than
-   the keycap's edged paper: a keycap is a thing you press, and this is only a thing you
+   the keycap's edged background: a keycap is a thing you press, and this is only a thing you
    read. */
 .prose code {
   display: inline-block;
@@ -265,8 +265,8 @@
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: var(--text-chrome);
   line-height: 1.4;
-  color: var(--ink);
-  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  color: var(--foreground-primary);
+  background: color-mix(in oklab, var(--foreground-primary) 8%, transparent);
   border-radius: var(--radius-2);
   overflow-wrap: anywhere;
 }

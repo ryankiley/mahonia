@@ -1,4 +1,4 @@
-<!-- The Mahonia M (public/icon.svg), drawn in the ink of wherever it stands: black on
+<!-- The Mahonia M (public/icon.svg), drawn in the foreground of wherever it stands: black on
      the page, white in dark. Decoration beside a title that already says where you
      are, so it is hidden from the accessibility tree. No styles of its own: the fill is
      an attribute, and whoever places it sizes it. -->

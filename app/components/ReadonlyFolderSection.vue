@@ -71,7 +71,7 @@ const collapsed = ref(false);
   line-height: inherit;
 }
 .folder__empty {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 
 @media (max-width: $bp-stack) {

@@ -15,7 +15,7 @@ import type { WaypointKind } from "~~/shared/types";
  *
  * COLOUR: water, camp and landmark are CONTENT, so they take category hues. The route's
  * own two ends are properties of the route rather than categories of thing, so they take
- * ink and differ by their glyph — which also stops five pins exhausting the palette.
+ * foreground and differ by their glyph — which also stops five pins exhausting the palette.
  * All five avoid red, amber and orange: the elevation profile spends exactly those on
  * grade severity, and a waypoint will appear on that chart eventually.
  */
@@ -36,8 +36,8 @@ export const WAYPOINT_KIND_META: Record<WaypointKind, { label: string; icon: Ico
   // It also settles the LOOP, where the start and the finish are one coordinate: the map
   // draws the finish over the trailhead there (see RouteMap's finishM), and two marks with
   // the same glyph overlap invisibly instead of looking like a rendering fault.
-  trailhead: { label: "Trailhead", icon: IconRacingFlag, color: "var(--ink)" },
-  end: { label: "End", icon: IconRacingFlag, color: "var(--ink)" },
+  trailhead: { label: "Trailhead", icon: IconRacingFlag, color: "var(--foreground-primary)" },
+  end: { label: "End", icon: IconRacingFlag, color: "var(--foreground-primary)" },
 };
 
 /** Anything unrecognised reads as a landmark, so a pin always has a glyph and a name. */

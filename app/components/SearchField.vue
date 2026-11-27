@@ -6,7 +6,7 @@ import { SvgIcon } from "~/utils/icon";
 //
 // Our own clear, not the platform's: WebKit's cancel button is a filled BLUE circle-x,
 // the only colour in the chrome (suppressed in atoms/controls.scss). This is the same
-// glyph in the site's ink. Its own component because the pair — the field, the clear
+// glyph in the site's foreground. Its own component because the pair — the field, the clear
 // sitting ON it, the coarse-pointer tap target — existed twice, class for class, and
 // two copies of one control is how the two surfaces start to drift.
 //
@@ -41,7 +41,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
     <button
       v-if="query"
       type="button"
-      class="sf__clear ink-quiet"
+      class="sf__clear foreground-quiet"
       aria-label="Clear search"
       title="Clear search"
       @click="clear"

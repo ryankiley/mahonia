@@ -1516,7 +1516,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor > main {
   flex: 1 0 auto;
 }
-/* .topbar itself (sticky, paper, rule) is global — main.scss */
+/* .topbar itself (sticky, background, rule) is global — main.scss */
 .topbar__inner {
   display: flex;
   align-items: center;
@@ -1607,27 +1607,27 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* Toolbar actions recede until hovered, keyboard-focused, or open. Scope this to
    the editor so icon buttons elsewhere keep their existing emphasis. */
 .editor > .topbar :deep(.btn--icon) {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 @media (hover: hover) and (pointer: fine) {
   .editor > .topbar :deep(.btn--icon:hover) {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 .editor > .topbar :deep(.btn--icon:focus-visible),
 .editor > .topbar :deep(.btn--icon[aria-expanded="true"]) {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 
-/* on = the pane (or the sharing panel) is open: the icon takes full ink and a soft
+/* on = the pane (or the sharing panel) is open: the icon takes primary foreground and a soft
    ground, so the button reads as a held state rather than a hover. One rule for both,
-   so the two topbar popovers signal their state identically — and --lit for the ground,
-   the one tone the app uses for "on" (the mode tabs, the person filter, the row
-   toggles), where this used a second one, --paper-2. */
+   so the two topbar popovers signal their state identically — and --background-selected
+   for the ground, the one tone the app uses for "on" (the mode tabs, the person filter,
+   the row toggles), where this used a second one, --background-secondary. */
 .editor__vault.is-on,
 .editor__share.is-on {
-  color: var(--ink);
-  background: var(--lit);
+  color: var(--foreground-primary);
+  background: var(--background-selected);
 }
 /* The sharing panel hangs off a 32px button near the right end of the bar. `.menu`
    makes that button the containing block, so `right: 0` puts the panel's right edge at
@@ -1694,11 +1694,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* the first-run pointer moved out of the column and onto the list switcher it
    points at — it lives in ListMenu now, tethered to that control */
 /* the inline vault ask's affirmative — quiet like the rest of the banner, and
-   deepening to full ink on hover the way every under-link on the site does */
+   deepening to primary foreground on hover the way every under-link on the site does */
 .editor__vaultadd {
   flex: none;
-  color: var(--ink);
-  font-weight: 600;
+  color: var(--foreground-primary);
+  font-weight: var(--font-weight-semibold);
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link
@@ -1722,7 +1722,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* .packbar__clear kept as the print-hide hook (see print.scss); its button styling
    comes from the shared .btn--quiet */

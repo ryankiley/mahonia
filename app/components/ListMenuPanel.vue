@@ -113,9 +113,9 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 /* The GROUND, its placeholder and its focus step are the .well atom (controls.scss) —
    the app's contained input for a floating surface, which is exactly what this is. This
    had its own copy, and the copy carried the bug the atom has now been fixed for: a
-   --paper-2 fill on a --surface-float panel measured 1.108:1 in dark and 1.10:1 in
-   light, and focusing it swapped in --paper-3, which IS --surface-float in dark, so the
-   box vanished outright at 1.000:1 the moment you typed in it.
+   --background-secondary fill on a --surface-1 panel measured 1.108:1 in dark and 1.10:1 in
+   light, and focusing it swapped in --background-tertiary, which IS --surface-1 in dark,
+   so the box vanished outright at 1.000:1 the moment you typed in it.
    Only the geometry is local. The radius agrees with the atom's by construction —
    --popover-item-radius is pinned to the same `--radius-4 - --space-2` step — but it is
    named rather than repeated, because this box is concentric with THIS popover. */
@@ -162,18 +162,18 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
    .menu__item's own (atoms/controls.scss); the name clips with .t-clip (the row is
    already nowrap). */
 /* THE ONE YOU'RE IN IS A CHECK, not a ground — .menu__check, the shared mark.
-   It was a --paper-3 fill, which put two meanings on one property: the travelling
+   It was a --background-tertiary fill, which put two meanings on one property: the travelling
    plate marks where the POINTER is, and this marked where you ARE. Hovering the
-   current row stacked the plate's translucent ink over that fill and composited a
+   current row stacked the plate's translucent foreground over that fill and composited a
    third, darker tone — so the row you were already on read as more hovered than any
    other row could get, and the two states couldn't be told apart.
    One ground, one meaning: the plate owns every fill in this menu, and "current" is
    said with the same check the vault uses for gear that's already in your list. */
 .lm__empty {
   padding: var(--space-2) var(--space-3);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .lm__new {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 </style>

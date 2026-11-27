@@ -80,136 +80,147 @@
 // step by hand.
 $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions);
 
+/* THE NAMES. The colour tokens carry the names most codebases use. --foreground-* is
+   what is drawn: text, glyphs, rules. --background-primary, -secondary and -tertiary
+   are the page and its raised tones; --background-hover, -selected and -field are
+   states, each a tint of the foreground laid over whatever is under it, so they read on
+   any surface. --surface-* floats over the page, and --border-* is the hairlines. */
 :root {
   color-scheme: light dark;
 
   /* ---- surfaces: pure black & white, no off-whites.
-     main paper is true #fff / #000; raised surfaces use a hair of NEUTRAL grey
+     main background is true #fff / #000; raised surfaces use a hair of NEUTRAL grey
      (no warm tint) only where elevation needs to read. ---- */
-  --paper: light-dark(#ffffff, #000000);
-  --paper-2: light-dark(#f4f4f4, #151515); /* faintly raised */
-  --paper-3: light-dark(#eaeaea, #1f1f1f); /* quiet surfaces, not borders */
-  /* ---- the LIT ground: a control that is ON, held as a filled plate rather than as
-     darker ink (the classification chips, the waypoint kind toggles). Its own token and
-     NOT --paper-3, which is what it used to borrow, for two reasons.
-     A ROLE, not a surface: --paper-3 is sized for a panel you read ON TOP of, where the
-     tone is a hint at an edge. This is a 32px disc in an otherwise white row, and the
-     same tone that reads as a whisper under a paragraph reads as a mark at that area —
-     --paper-3 is the tone --line resolves to over paper, so the chip was carrying a
-     hairline's weight as solid fill.
+  --background-primary: light-dark(#ffffff, #000000);
+  --background-secondary: light-dark(#f4f4f4, #151515); /* faintly raised */
+  --background-tertiary: light-dark(#eaeaea, #1f1f1f); /* quiet surfaces, not borders */
+  /* ---- the SELECTED ground: a control that is ON, held as a filled plate rather than as
+     darker foreground (the classification chips, the waypoint kind toggles). Its own
+     token and NOT --background-tertiary, which is what it used to borrow, for two reasons.
+     A ROLE, not a surface: --background-tertiary is sized for a panel you read ON TOP of,
+     where the tone is a hint at an edge. This is a 32px disc in an otherwise white row,
+     and the same tone that reads as a whisper under a paragraph reads as a mark at that
+     area — --background-tertiary is the tone --border-primary resolves to over
+     background, so the chip was carrying a hairline's weight as solid fill.
      And the two modes are tuned apart, on purpose. They were first matched by WCAG
-     ratio — 6.5% / 8.5%, both 1.16:1 on paper — and the dark plate came out as #161616
+     ratio — 6.5% / 8.5%, both 1.16:1 on background — and the dark plate came out as #161616
      on #000, which the ratio calls equal to its light twin and the eye does not (Ryan,
      2026-11-25: "selected states look a little dim on dark mode"). The ratio's 0.05
      flare term flatters steps next to black; a real screen in a lit room crushes them.
-     So dark carries twice the ink, 13%: #212121 on the page (1.30:1), about the step
+     So dark carries twice the foreground, 13%: #212121 on the page (1.30:1), about the step
      #eeeeee makes on white once the room's glare is counted. Do not re-match the two by
      ratio.
      Light enough to quiet down, dark enough to still be the ONLY thing separating on
      from hover: .btn--icon clears its ground on hover (atoms/controls.scss), so hover
-     darkens ink alone and the plate is the whole of the on state. Do not take this
+     darkens foreground alone and the plate is the whole of the on state. Do not take this
      below ~1.1:1 or a lit toggle reads as merely pointed at.
-     AN AMOUNT OF INK, not a named tone, and that is the load-bearing part. A solid
-     light-dark() pair is only ever right on ONE ground, and this chip does leave --paper:
-     a row painting --paper-2 while it is dragged, and a nesting parent that keeps it.
-     Written as #161616 the dark chip measured 1.009:1 against a dragged row's --paper-2
-     — a 1/255 difference from the thing under it, i.e. gone. That is the same failure
-     the Worn/Consumable SWITCH shipped with (#216): it drew its off track in --paper-3,
-     which resolves to --surface-float's exact value in dark, so the track vanished into
-     the popover. Mixed from ink instead, the plate composites over whatever it lands on
-     — 1.16/1.30 on paper, 1.16/1.44 on --paper-2 — and cannot match its surface.
-     The two percentages differ because sRGB is not symmetric: one alpha does not buy
-     the same step on black as on white. ---- */
-  --lit: light-dark(
-    color-mix(in oklab, var(--ink) 6.5%, transparent),
-    color-mix(in oklab, var(--ink) 13%, transparent)
+     AN AMOUNT OF FOREGROUND, not a named tone, and that is the load-bearing part. A solid
+     light-dark() pair is only ever right on ONE ground, and this chip does leave
+     --background-primary: a row painting --background-secondary while it is dragged, and
+     a nesting parent that keeps it. Written as #161616 the dark chip measured 1.009:1
+     against a dragged row's --background-secondary — a 1/255 difference from the thing
+     under it, i.e. gone. That is the same failure the Worn/Consumable SWITCH shipped with
+     (#216): it drew its off track in --background-tertiary, which resolves to
+     --surface-1's exact value in dark, so the track vanished into the popover. Mixed from
+     foreground instead, the plate composites over whatever it lands on — 1.16/1.30 on
+     background, 1.16/1.44 on --background-secondary — and cannot match its surface. The
+     two percentages differ because sRGB is not symmetric: one alpha does not buy the same
+     step on black as on white. ---- */
+  --background-selected: light-dark(
+    color-mix(in oklab, var(--foreground-primary) 6.5%, transparent),
+    color-mix(in oklab, var(--foreground-primary) 13%, transparent)
   );
-  /* ---- --lit under the pointer. A selected control still answers a hover (Ryan,
-     2026-09-05): one step of ink up from its plate, so "on" and "on, and you're about
-     to press it" are two tones. The mode tabs, the person filter, the People swatches
-     and the row's Worn/Consumable mark all read this one token, the way they all read
-     --lit — one tone for "on", one for "on and hovered". Two percentages, for --lit's
-     reason. Pointer-gated wherever it's used, like every hover in the app. ---- */
-  --lit-hover: light-dark(
-    color-mix(in oklab, var(--ink) 10%, transparent),
-    color-mix(in oklab, var(--ink) 18%, transparent)
+  /* ---- --background-selected under the pointer. A selected control still answers a
+     hover (Ryan, 2026-09-05): one step of foreground up from its plate, so "on" and "on,
+     and you're about to press it" are two tones. The mode tabs, the person filter, the
+     People swatches and the row's Worn/Consumable mark all read this one token, the way
+     they all read --background-selected — one tone for "on", one for "on and hovered".
+     Two percentages, for --background-selected's reason. Pointer-gated wherever it's
+     used, like every hover in the app. ---- */
+  --background-selected-hover: light-dark(
+    color-mix(in oklab, var(--foreground-primary) 10%, transparent),
+    color-mix(in oklab, var(--foreground-primary) 18%, transparent)
   );
-  /* ---- the WELL: a control that is OFF, held as an empty track for its knob (the
-     Worn/Consumable switch). --lit's counterpart, and the same kind of token for the
-     same reason — an AMOUNT OF INK and not a named tone, because that switch's first
-     version drew this in --paper-3, which is --surface-float's exact value in dark, and
-     the off track vanished into the popover it sits on at 1.00:1.
-     Where --lit has a target, this has a FLOOR. It is the whole of what makes an off
-     switch a visible object, so it carries WCAG 1.4.11 by itself: 43%/35% is the least
-     ink that clears 3:1 on every ground in the app. The binding cases come from
-     opposite ends — --paper-3 in light, where a wash loses contrast against a ground
-     already tinted toward it, and --paper in dark, where black gives the ratio's
-     denominator nothing but its 0.05 floor to work with. Do not lower either number.
-     It REPLACED a 1px ring of 45% ink over a 10% track. That ring was three times the
-     weight of --line-2, the darkest hairline the app owns, so the one control in the
-     app that read as outlined was a switch that was off. A fill carrying the ring's
-     own 3:1 needs no edge drawn around it.
-     Two percentages, like --lit and for the same reason: sRGB is not symmetric, and
-     this pair lands at 3.14:1 light / 3.20:1 dark on the popover both states live on.
-     ---- */
-  --well: light-dark(
-    color-mix(in oklab, var(--ink) 43%, transparent),
-    color-mix(in oklab, var(--ink) 35%, transparent)
+  /* ---- the switch's OFF TRACK: a control that is OFF, held as an empty well for its
+     knob (the Worn/Consumable switch). --background-selected's counterpart, and the same
+     kind of token for the same reason — an AMOUNT OF FOREGROUND and not a named tone,
+     because that switch's first version drew this in --background-tertiary, which is
+     --surface-1's exact value in dark, and the off track vanished into the popover it
+     sits on at 1.00:1. Where --background-selected has a target, this has a FLOOR. It is
+     the whole of what makes an off switch a visible object, so it carries WCAG 1.4.11 by
+     itself: 43%/35% is the least foreground that clears 3:1 on every ground in the app.
+     The binding cases come from opposite ends — --background-tertiary in light, where a
+     wash loses contrast against a ground already tinted toward it, and
+     --background-primary in dark, where black gives the ratio's denominator nothing but
+     its 0.05 floor to work with. Do not lower either number. It REPLACED a 1px ring of
+     45% foreground over a 10% track. That ring was three times the weight of
+     --border-strong, the darkest hairline the app owns, so the one control in the app
+     that read as outlined was a switch that was off. A fill carrying the ring's own 3:1
+     needs no edge drawn around it. Two percentages, like --background-selected and for
+     the same reason: sRGB is not symmetric, and this pair lands at 3.14:1 light / 3.20:1
+     dark on the popover both states live on. ---- */
+  --switch-track-off: light-dark(
+    color-mix(in oklab, var(--foreground-primary) 43%, transparent),
+    color-mix(in oklab, var(--foreground-primary) 35%, transparent)
   );
-  /* ---- the WASH: the resting ground of a contained thing on a floating surface — the
-     typing well, a menu's callout, the worn stepper and its count chips. An amount of
-     ink for --lit's reason, and why it is these two amounts is argued at .well
-     (atoms/controls.scss), which had the pair first; the other three restated it.
-     --wash-deep is the same ground one step on: the well focused, a chip pointed at.
-     ONE percentage each, not a light-dark() pair: these measured out equal. ---- */
-  --wash: color-mix(in oklab, var(--ink) 7%, transparent);
-  --wash-deep: color-mix(in oklab, var(--ink) 10%, transparent);
+  /* ---- the FIELD ground: the resting ground of a contained thing on a floating surface —
+     the typing well, a menu's callout, the worn stepper and its count chips. An amount
+     of foreground for --background-selected's reason, and why it is these two amounts is
+     argued at .well (atoms/controls.scss), which had the pair first; the other three
+     restated it. --background-field-focus is the same ground one step on: the well
+     focused, a chip pointed at. ONE percentage each, not a light-dark() pair: these
+     measured out equal. ---- */
+  --background-field: color-mix(in oklab, var(--foreground-primary) 7%, transparent);
+  --background-field-focus: color-mix(in oklab, var(--foreground-primary) 10%, transparent);
 
-  /* ---- ink: neutral grey ramp; primary is true black / white ---- */
-  --ink: light-dark(#000000, #ffffff);
-  --ink-2: light-dark(#595959, #a8a8a8); /* secondary text */
+  /* ---- foreground: neutral grey ramp; primary is true black / white ---- */
+  --foreground-primary: light-dark(#000000, #ffffff);
+  --foreground-secondary: light-dark(#595959, #a8a8a8); /* secondary text */
   /* faint — tuned to clear WCAG AA 4.5:1, and tuned against the RAISED surface, not
-     just --paper. The dark value was #757575, which cleared 4.56:1 on the black page
-     and then fell to 3.58:1 wherever it sat on --surface-float (#1f1f1f) — the trail
+     just --background-primary. The dark value was #757575, which cleared 4.56:1 on the
+     black page and then fell to 3.58:1 wherever it sat on --surface-1 (#1f1f1f) — the trail
      card's URL line, and anything else on a lifted panel. #878787 clears 4.59:1 there
-     and 5.7:1 on the page, and keeps a visible step down from --ink-2. Light was
-     already fine on both (4.54:1 on white) and is left alone. */
-  --ink-3: light-dark(#767676, #878787);
-  /* Ghost: the unfilled LIST TITLE only, and deliberately far below --ink-3's AA floor.
+     and 5.7:1 on the page, and keeps a visible step down from --foreground-secondary.
+     Light was already fine on both (4.54:1 on white) and is left alone. */
+  --foreground-tertiary: light-dark(#767676, #878787);
+  /* Quaternary is NOT a fourth text tone. It is for a place where something is missing:
+     the unfilled LIST TITLE and an empty icon slot. Deliberately far below
+     --foreground-tertiary's AA floor.
      Two things make that legitimate here and nowhere else — the field carries a real
      aria-label ("List name"), so the placeholder is never the accessible name; and it's
      only ever set at --text-page-title, where 32px bold carries enough mass that
-     --ink-3 reads as a filled-in value rather than as an empty field. Do NOT reuse this
-     on body-size placeholders, where it would be unreadable and unlabelled. */
-  --ink-ghost: light-dark(#dedede, #333333);
+     --foreground-tertiary reads as a filled-in value rather than as an empty field. Do
+     NOT reuse this on body-size placeholders, where it would be unreadable and unlabelled. */
+  --foreground-quaternary: light-dark(#dedede, #333333);
 
   /* ---- hairlines: faint + rare. Whitespace + type do the separating, not boxes ----
-     The two modes are tuned apart here as the plates are (--lit, below), and for the same
-     reason: 8% of white on black is #141414, which a ratio calls the twin of 8% of black
-     on white and a screen in a lit room crushes to nothing. The gear list's row rules,
-     the only track the eye has down a long list, all but went (Ryan, 2026-11-25: "dark
-     mode hairlines are a little faint too"). Dark carries half as much again, 12%, the
-     step the plates took. --line-2 is left where it was: it is the outline on controls,
-     and nobody said those were faint. */
-  --line: light-dark(#00000014, #ffffff1f);
-  --line-2: light-dark(#00000026, #ffffff26);
+     The two modes are tuned apart here as the plates are (--background-selected, below),
+     and for the same reason: 8% of white on black is #141414, which a ratio calls the
+     twin of 8% of black on white and a screen in a lit room crushes to nothing. The gear
+     list's row rules, the only track the eye has down a long list, all but went (Ryan,
+     2026-11-25: "dark mode hairlines are a little faint too"). Dark carries half as much
+     again, 12%, the step the plates took. --border-strong is left where it was: it is the
+     outline on controls, and nobody said those were faint. */
+  --border-primary: light-dark(#00000014, #ffffff1f);
+  --border-strong: light-dark(#00000026, #ffffff26);
 
   /* ---- underline: ONE soft colour for text underlines (links). Legible but never
-     full-strength ink — interactive links may deepen to --ink-2, never to --ink ---- */
-  --underline: var(--ink-3);
+     primary foreground — interactive links may deepen to --foreground-secondary, never to
+     --foreground-primary ---- */
+  --underline: var(--foreground-tertiary);
   --underline-offset: 2px;
 
-  /* ---- chrome is MONOCHROME — controls/state/primary all read as ink; colour on
+  /* ---- chrome is MONOCHROME — controls/state/primary all read as foreground; colour on
      this site is the data viz (the category bar + dots, --cat-* below) and ONE
      exception, --danger just below. See wiki:
      concepts/monochrome-chrome-colour-from-content. The primary action is inverted
-     ink (ink ground, paper text). ---- */
-  --accent: var(--ink);
-  --accent-ink: var(--paper);
+     foreground (a foreground-coloured ground, background-coloured text). ---- */
+  --accent: var(--foreground-primary);
+  --accent-foreground: var(--background-primary);
 
   /* ---- the colour the chrome spends on DESTRUCTION, and the only thing it spends
      it on. Reading one of these wrong costs something you can't get back, and a
-     destructive control that merely steps back to secondary ink — which is what
+     destructive control that merely steps back to secondary foreground — which is what
      these were — looks the same as a quiet one.
      It was "the ONE coloured control", meaning account deletion alone. Deleting a
      LIST joined it (2026-08-07, the editor's ⋯ menu): the argument was never about
@@ -223,9 +234,9 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      and this is chrome, so renaming a category must never restyle a delete button.
      ---- */
   --danger: light-dark(oklch(0.55 0.22 25), oklch(0.62 0.21 25));
-  --danger-ink: #ffffff;
+  --danger-foreground: #ffffff;
   /* ITS SECOND USE, 2026-11-25: a form's error, said in a callout that points at the
-     field (.errtip, atoms/controls.scss). An error in plain ink under a field read as
+     field (.errtip, atoms/controls.scss). An error in plain foreground under a field read as
      one more line of the form's own copy, and nothing told a failed press from a
      press that did nothing. It keeps the test above honest by being as rare: it is
      on screen only while something has just gone wrong, never at rest.
@@ -255,32 +266,32 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      translucent fills need enough chroma to survive the wash, while text has to clear
      AA over the profile's raised surface. ---- */
   --grade-hard-fill: var(--cat-firstaid);
-  --grade-hard-ink: light-dark(oklch(0.5 0.22 25), oklch(0.68 0.25 25));
+  --grade-hard-foreground: light-dark(oklch(0.5 0.22 25), oklch(0.68 0.25 25));
   --grade-moderate-fill: oklch(0.72 0.17 62);
-  --grade-moderate-ink: light-dark(oklch(0.52 0.14 62), oklch(0.8 0.18 62));
+  --grade-moderate-foreground: light-dark(oklch(0.52 0.14 62), oklch(0.8 0.18 62));
 
   /* ---- map overlay — topographic tiles stay light in both colour schemes, so marks
      drawn over them need a fixed-light palette. These are roles, not a second app theme. ---- */
-  --map-paper: #ffffff;
-  --map-paper-muted: #f4f4f4;
-  --map-paper-translucent: #ffffffcc;
-  --map-ink: #111111;
-  --map-ink-2: #333333;
-  --map-ink-3: #555555;
-  --map-ink-4: #666666;
-  --map-line: #cccccc;
+  --map-background: #ffffff;
+  --map-background-muted: #f4f4f4;
+  --map-background-translucent: #ffffffcc;
+  --map-foreground-primary: #111111;
+  --map-foreground-secondary: #333333;
+  --map-foreground-tertiary: #555555;
+  --map-foreground-quaternary: #666666;
+  --map-border: #cccccc;
   --map-bare: oklch(0.95 0.01 250);
   --map-route-ground: #767676;
   --map-route-casing: #0b0b0b;
-  --map-route-fill: var(--map-paper);
+  --map-route-fill: var(--map-background);
   --map-unassigned: #9a9a9a;
   --map-control-hover: #0000000d;
   --map-control-selected: #00000014;
   --map-control-shadow: 0 1px 4px #0000001f;
-  --map-pin-paper: var(--map-paper);
+  --map-pin-background: var(--map-background);
   --map-pin-seat: #ececec;
-  --map-pin-ink: #1c1c1c;
-  --map-pin-seat-dark: var(--map-ink-2);
+  --map-pin-foreground: #1c1c1c;
+  --map-pin-seat-dark: var(--map-foreground-secondary);
   --map-pin-shadow: -1px 1px 3px #00000059;
   --map-pin-shadow-lifted: -2px 2px 8px #0000008c;
   --map-trace-shadow: 0 1px 3px #00000059;
@@ -337,6 +348,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      (atoms/item.scss, ItemRow) read one number */
   --leading-compact: 1.3;
   --leading-normal: 1.5; /* body prose, item names + notes — multi-line reading */
+  --leading-none: 1; /* a single glyph or figure centred in its own box: no line to lead */
 
   /* the type system's one non-default tracking (.t-title, .t-num, buttons) —
      tokenized so the tight track retunes in one place, not a dozen literals */
@@ -344,6 +356,12 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* display units sit halfway between tight and normal tracking so a bare `oz` stays
      visually attached to the number without looking pinched. */
   --track-unit: -0.01em;
+
+  /* ---- weight: the type system has two, regular and semibold. Bold is for the page
+     title (a list's own name) and the characters of a typed match, and nothing else. ---- */
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 
   /* ---- caption tuck — the negative top-margin that pulls an item's note up under
      its name so the two read as one unit. ONE token so the editor row (.reveal--note)
@@ -409,6 +427,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      page and in dialogs as well as in popovers. */
   --popover-item-radius: calc(var(--radius-4) - var(--space-2));
   --radius-pill: 999px; /* buttons + icon buttons */
+  --radius-round: 50%; /* a dot or a knob: a square box drawn as a circle */
   /* OUTSIDE the scale: a favicon or a link card's mark is another site's image, shown at
      14–16px, and it keeps a corner of its own rather than taking a step of ours — 4px
      would round a mark that small into a coin. */
@@ -421,7 +440,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      curve with a beat of its own choosing. The duration token is 1.5x the nominal so
      the tail settles; the move looks done at the nominal.
      Roles, not speeds:
-       --spring-fade  colour, opacity, shadow: the hover wash, a chip's ink, a face
+       --spring-fade  colour, opacity, shadow: the hover wash, a chip's foreground, a face
                       fading in. 200ms, no bounce, LAUNCHED (see spring-curve): a
                       colour change is a response and starts at full speed.
        --spring-step  small moves in the flow: a chevron turning, a row's second line
@@ -486,13 +505,17 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --stagger: 31ms; /* per-child cascade step — SPACE10's kinetic-type cadence */
   --blur-pop: 2px; /* enter blur for pop-ins (webkit-safe: rest at blur(0), never from none) */
+  /* press feedback: what a button, a menu row and the packing check dim to while held.
+     The reset gives it to <button>; the rest restate it for elements the reset can't
+     reach. */
+  --opacity-pressed: 0.7;
 
   /* ---- elevation: one floating-surface drop, shared so the lifted row + the toast
      read at the same height and can't drift apart ---- */
   --shadow-pop: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
   /* Soft float for anchored surfaces — the autocomplete, the kebab menus, the
      lists menu. No border, no ring: the shadow alone defines the edge in light
-     mode, the elevated --surface-float tone carries it in dark (a shadow on #000
+     mode, the elevated --surface-1 tone carries it in dark (a shadow on #000
      is invisible).
      ONE value across every size, deliberately.
      The obvious refinement is a pair scaled to the surface — a small drop for a
@@ -510,30 +533,30 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --shadow-soft: 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 24px rgba(0, 0, 0, 0.1);
   /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
      should read crisp, lifted off the page), a clearly-elevated grey in dark */
-  --surface-float: light-dark(#ffffff, #1f1f1f);
+  --surface-1: light-dark(#ffffff, #1f1f1f);
   /* a float over a float — a menu opened inside a dialog, or inside a popover like the
-     My Gear pane — one step higher still. Both would otherwise paint --surface-float,
+     My Gear pane — one step higher still. Both would otherwise paint --surface-1,
      and in dark it is the TONE that lifts a float (the shadow can't, see above), so the
      menu was the dialog's own colour with nothing between them. Light keeps white: the
      shadow draws that edge there. */
-  --surface-float-2: light-dark(#ffffff, #2c2c2c);
-  /* ---- the row wash on those surfaces: HOW MUCH INK a row takes to show it's the one
+  --surface-2: light-dark(#ffffff, #2c2c2c);
+  /* ---- the row wash on those surfaces: HOW MUCH FOREGROUND a row takes to show it's the one
      you're on (a menu row under the pointer, the travelling plate, the open "Add to"),
-     as an AMOUNT rather than a colour — so something that isn't drawn in plain ink can
+     as an AMOUNT rather than a colour — so something that isn't drawn in plain foreground can
      mix the same number with its own (the ⋯ menu's destructive row washes red from
-     --popover-wash). Lifted from the design system's --wash-* tokens, which make the
-     same split for the same reason.
+     --background-hover-opacity). Lifted from the design system's --wash-* tokens, which
+     make the same split for the same reason.
      HERE, on the root, and not on .popover where these two were first declared. A
      custom property that exists only inside one class is undefined everywhere else, and
-     a `background: var(--popover-hover)` out there is invalid at computed-value time:
+     a `background: var(--background-hover)` out there is invalid at computed-value time:
      the declaration is dropped in silence and the row simply never lights. That is what
      a kit's "add an item" choices did on /gear, a list drawn in the page's own flow and
      styled like a menu's rows — and the token test could not see it, since the name IS
      defined somewhere. The value every popover reads is unchanged: the var()s resolve to
-     the same --ink and the same 8% here as they did one level down, and the finished
-     mix still takes its theme from wherever it is used. ---- */
-  --popover-wash: 8%;
-  --popover-hover: color-mix(in oklab, var(--ink) var(--popover-wash), transparent);
+     the same --foreground-primary and the same 8% here as they did one level down, and
+     the finished mix still takes its theme from wherever it is used. ---- */
+  --background-hover-opacity: 8%;
+  --background-hover: color-mix(in oklab, var(--foreground-primary) var(--background-hover-opacity), transparent);
   /* dialog scrim — pure-black alphas so it stays on the neutral ramp (no warm
      tint, same rule as the surfaces above) */
   /* 10% light / 30% dark. 18% read as heavy over the white page (Ryan, 2026-10-17:
