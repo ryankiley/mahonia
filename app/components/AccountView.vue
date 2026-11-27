@@ -800,12 +800,12 @@ async function onSignOut() {
   flex-direction: column;
 }
 .acct__input:focus {
-  border-color: var(--ink-2);
+  border-color: var(--foreground-secondary);
 }
 
-/* the address in the sent line, in full ink and unbroken where it fits */
+/* the address in the sent line, in primary foreground and unbroken where it fits */
 .acct__sentto {
-  color: var(--ink);
+  color: var(--foreground-primary);
   overflow-wrap: anywhere;
 }
 /* The sent state keeps the form's two distances: the line stands one group off the
@@ -863,22 +863,22 @@ async function onSignOut() {
    going anywhere, so it is not an anchor (the reset already strips a button's chrome,
    so only the link's own look is said here). */
 .acct__switch {
-  color: var(--ink);
-  font-weight: 600;
-  /* the house underline: soft at rest, deepens to --ink-2 — never full ink
-     (tokens.scss, the --underline rule) */
+  color: var(--foreground-primary);
+  font-weight: var(--font-weight-semibold);
+  /* the house underline: soft at rest, deepens to --foreground-secondary — never primary
+     foreground (tokens.scss, the --underline rule) */
   text-decoration: underline;
   text-decoration-color: var(--underline);
   text-underline-offset: var(--underline-offset);
 }
 .acct__switch:focus-visible {
-  text-decoration-color: var(--ink-2);
+  text-decoration-color: var(--foreground-secondary);
 }
-/* pointer-gated, ink included: a tap latches :hover on touch, and the underline would
+/* pointer-gated, foreground included: a tap latches :hover on touch, and the underline would
    stay deepened on a switch nobody is pointing at */
 @media (hover: hover) and (pointer: fine) {
   .acct__switch:hover {
-    text-decoration-color: var(--ink-2);
+    text-decoration-color: var(--foreground-secondary);
   }
 }
 .acct__signup {
@@ -900,7 +900,7 @@ async function onSignOut() {
   padding-block: var(--space-4);
 }
 .acct__section + .acct__section {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 .acct__section:first-child {
   padding-top: 0;
@@ -917,10 +917,10 @@ async function onSignOut() {
    its own body text. The contrast this surface needs is structural rather than
    typographic: the sections are already separated by hairlines (see .acct__section). */
 .acct__label {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 .acct__value {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .acct__sectionhead {
   display: flex;
@@ -945,14 +945,15 @@ async function onSignOut() {
    On the signed-out screen the field sits over a full-width pill button, where a bare
    underline reads as a gap rather than a control: the same height, radius and padding
    as the button, so the two stack as one object, and the text starts on the left like
-   any other input, rather than centred with the prose. Its full width and placeholder ink are .field's (controls.scss). */
+   any other input, rather than centred with the prose. Its full width and placeholder
+   foreground are .field's (controls.scss). */
 .acct__input {
   flex: 1 1 auto;
   min-height: var(--control-h);
   padding: 0 var(--space-4);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-primary);
   border-radius: var(--radius-pill);
-  background: var(--paper);
+  background: var(--background-primary);
   text-align: left;
 }
 .acct__row .btn {
@@ -962,7 +963,7 @@ async function onSignOut() {
    pull it back to the left edge every other line sits on */
 /* The one destructive control in the app, and the one coloured one — see --danger in
    tokens.scss for why this is the single exception to monochrome chrome. It used to
-   step BACK to secondary ink, on the reasoning that the confirm dialog carried the
+   step BACK to secondary foreground, on the reasoning that the confirm dialog carried the
    gravity; the trouble is that a delete button rendered quieter than the Sign out
    above it reads as the less consequential of the two, which is exactly backwards. */
 /* Compound, so it beats .acct__btn's container fill — both are single-class rules and
@@ -970,7 +971,7 @@ async function onSignOut() {
 .acct__btn.acct__danger {
   background: var(--danger);
   border-color: transparent;
-  color: var(--danger-ink);
+  color: var(--danger-foreground);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). Still
    compound inside the query, so it keeps outranking .acct__btn:hover below. */
@@ -983,32 +984,32 @@ async function onSignOut() {
 }
 /* CONTAINED, by the same recipe as .acct__input above — one container language for
    every control on this surface.
-   It recedes to --paper with a hairline rather than sitting on a raised fill, and it
-   has to: --surface-float and --paper-3 are the SAME value (#1f1f1f) in dark, so the
-   .btn atom's resting/hover fill is literally invisible inside a dialog. Going darker
-   than the surface is the only fill that reads here, and the hairline carries light
-   mode, where --surface-float and --paper are both #fff.
+   It recedes to --background-primary with a hairline rather than sitting on a raised
+   fill, and it has to: --surface-1 and --background-tertiary are the SAME value (#1f1f1f)
+   in dark, so the .btn atom's resting/hover fill is literally invisible inside a dialog.
+   Going darker than the surface is the only fill that reads here, and the hairline
+   carries light mode, where --surface-1 and --background-primary are both #fff.
    flex-start because the section is a flex column: a stretched button centres its
    label away from the line every other row starts on. The pill corner is .btn's own. */
 .acct__btn {
   align-self: flex-start;
-  border: 1px solid var(--line);
-  background: var(--paper);
+  border: 1px solid var(--border-primary);
+  background: var(--background-primary);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .acct__btn:hover {
     /* a step TOWARD the surface, visible in both modes — see above for why the atom's
-       own --paper-3 hover can't be */
-    background: var(--paper-2);
-    border-color: var(--line-2);
+       own --background-tertiary hover can't be */
+    background: var(--background-secondary);
+    border-color: var(--border-strong);
   }
 }
 .acct__btn:disabled {
   background: transparent;
 }
 .acct__note {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .acct__list {
   display: flex;
@@ -1034,7 +1035,7 @@ async function onSignOut() {
   padding-block: var(--space-3);
 }
 .acct__item + .acct__item {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 .acct__name {
   overflow-wrap: anywhere;
@@ -1060,24 +1061,24 @@ async function onSignOut() {
 /* The picker's trigger, as the bordered pill the field and the button beside it are.
    Its classes arrive through triggerClass, so the global .btn and .btn--ghost land on
    it, but nothing scoped here did: the trigger is OptionMenu's own inner button, not its
-   root, and that component's bare-trigger rule (no padding, inherited ink) outranks
+   root, and that component's bare-trigger rule (no padding, inherited foreground) outranks
    .btn. It drew as a bare word between two pills. So the row's recipe is carried across
-   by hand: .btn's inline padding and .btn--ghost's ink put back, and .acct__btn's
+   by hand: .btn's inline padding and .btn--ghost's foreground put back, and .acct__btn's
    hairline, ground and hover, which "Make token" takes from that class. And its longer
    label never breaks inside the pill. */
 .acct__tokenrow :deep(.acct__scope) {
   padding: 0 var(--space-4);
-  border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink-2);
+  border: 1px solid var(--border-primary);
+  background: var(--background-primary);
+  color: var(--foreground-secondary);
   white-space: nowrap;
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .acct__tokenrow :deep(.acct__scope:hover) {
-    background: var(--paper-2);
-    border-color: var(--line-2);
-    color: var(--ink);
+    background: var(--background-secondary);
+    border-color: var(--border-strong);
+    color: var(--foreground-primary);
   }
 }
 .acct__fresh {
@@ -1092,9 +1093,9 @@ async function onSignOut() {
 .acct__secret {
   display: block;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-primary);
   border-radius: var(--radius-2);
-  background: var(--paper);
+  background: var(--background-primary);
   font-size: var(--text-chrome);
   overflow-wrap: anywhere;
   user-select: all;

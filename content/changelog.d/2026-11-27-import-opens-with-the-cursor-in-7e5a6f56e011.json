@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "Import opens with the cursor in the paste box, and a catalog fix with its number selected.",
+    "Tab goes from an item's quantity straight to its weight, past the − and + buttons."
+  ],
+  "fixed": [
+    "A dialog opened for the first time now takes the keyboard, so typing no longer lands on the page behind it."
+  ]
+}

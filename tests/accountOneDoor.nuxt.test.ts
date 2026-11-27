@@ -193,7 +193,7 @@ describe("when a link can't be sent", () => {
     const at = css.indexOf("\n.errtip {");
     const bubble = css.slice(at, css.indexOf("}", at));
     expect(bubble).toContain("background: var(--danger-solid)");
-    expect(bubble).toContain("color: var(--danger-ink)");
+    expect(bubble).toContain("color: var(--danger-foreground)");
     expect(css).toContain(".errtip::before {");
     // white on the light theme's red in BOTH themes: on dark's lighter red it is 4.0:1
     const tokens = readFileSync(resolve(__dirname, "../app/assets/styles/foundations/tokens.scss"), "utf8");

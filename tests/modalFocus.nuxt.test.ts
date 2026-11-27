@@ -5,7 +5,7 @@
 // the read view's and My Gear's menus). It goes to the menu's trigger now.
 import { afterEach, describe, expect, it } from "vitest";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
-import { defineComponent, nextTick, ref } from "vue";
+import { defineAsyncComponent, defineComponent, nextTick, ref } from "vue";
 import BaseModal from "~/components/BaseModal.vue";
 import KebabMenu from "~/components/KebabMenu.vue";
 
@@ -114,6 +114,44 @@ describe("focus after a dialog closes", () => {
     await press(w, "#inner");
     expect(w.find("#done").exists()).toBe(false);
     expect(w.get('[aria-label="Second"]').element.contains(document.activeElement)).toBe(true);
+  });
+});
+
+// Moving IN. The dialogs are Lazy: the first open of each mounts it already open, as an
+// async chunk inside the page's <Suspense>, and that mount lands later than a tick
+// after `open` is seen. BaseModal waited exactly a tick, found no card, and left focus
+// on the page behind the scrim, where the next thing typed went.
+describe("focus as a dialog opens", () => {
+  it("moves into the card", async () => {
+    const w = page();
+    await press(w, "#plain");
+    expect(document.activeElement).toBe(w.get('[aria-label="First"]').element);
+  });
+
+  it("moves in on a first open that arrives as a chunk inside <Suspense>", async () => {
+    const Late = defineAsyncComponent(
+      () =>
+        new Promise<ReturnType<typeof defineComponent>>((r) =>
+          setTimeout(() =>
+            r(
+              defineComponent({
+                components: { BaseModal },
+                template: `<BaseModal :open="true" label="Late"><button id="in" type="button">In</button></BaseModal>`,
+              }),
+            ),
+          ),
+        ),
+    );
+    const Host = defineComponent({
+      components: { Late },
+      setup: () => ({ on: ref(false) }),
+      template: `<Suspense><div><button id="open" type="button" @click="on = true">Open</button><Late v-if="on" /></div></Suspense>`,
+    });
+    const w = mount(Host, { attachTo: document.body });
+    await settle();
+    await press(w, "#open");
+    await settle();
+    expect(document.activeElement).toBe(w.get('[aria-label="Late"]').element);
   });
 });
 

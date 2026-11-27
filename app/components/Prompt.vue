@@ -44,7 +44,7 @@ const emit = defineEmits<{ dismiss: [] }>();
 </template>
 
 <style scoped>
-/* Inline: an aside in the column, so it borrows the page's ink rather than the
+/* Inline: an aside in the column, so it borrows the page's foreground rather than the
    toast's inverted surface, and a hairline + faint fill is the whole of its chrome.
    Quiet on purpose — it's a question you can ignore, not a warning. */
 .prompt {
@@ -58,7 +58,7 @@ const emit = defineEmits<{ dismiss: [] }>();
   width: max-content;
   max-width: 100%;
   padding: var(--space-3) var(--space-4);
-  background: var(--paper-2);
+  background: var(--background-secondary);
   /* --radius-4, not the in-flow --radius-2 this started with: the block hugs its
      sentence (width: max-content), so at one line it's a ~48px lozenge, and 8px on
      that reads as a rectangle someone forgot to round. Deliberately NOT --radius-pill
@@ -66,14 +66,14 @@ const emit = defineEmits<{ dismiss: [] }>();
      pill on a two-line box becomes a stadium with the text pinched in its middle.
      At one line 20px is within 2px of a true pill anyway; at two it stays a card. */
   border-radius: var(--radius-4);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 .prompt__text {
   display: flex;
   flex-direction: column;
   gap: var(--space-px);
 }
-/* leading mark: same box and ink as the dismiss at the other end, so the two read
+/* leading mark: same box and foreground as the dismiss at the other end, so the two read
    as a matched pair bracketing the message */
 .prompt__icon {
   flex: none;

@@ -658,7 +658,7 @@ async function add(p: VaultItemPatch) {
 }
 /* nothing to draw yet: the dashed square an empty row slot wears */
 .vitem__noicon {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* Brand and Gear type suggest from a native datalist, and Chrome and Safari draw their
    own triangle on such a field: a browser control in a dialog of borderless fields,
@@ -667,10 +667,10 @@ async function add(p: VaultItemPatch) {
 .dlg__field input::-webkit-list-button {
   display: none !important;
 }
-/* Plain ink, not --danger: the monochrome rule reserves colour for irreversible acts
+/* Plain foreground, not --danger: the monochrome rule reserves colour for irreversible acts
    and for the data viz (tokens.scss), and a save that didn't go through is neither.
    Matches /gear's own .vault__error. */
 .vitem__err {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 </style>

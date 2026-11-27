@@ -136,6 +136,14 @@ describe("design literals", () => {
     expect(stale).toEqual([]);
   });
 
+  it("font-weight uses the token when a token holds that value", () => {
+    const weights = new Set(tokenValues("--font-weight-").values());
+    expect(weights.size).toBeGreaterThan(0);
+    const { found, stale } = check((d) => d.prop === "font-weight" && weights.has(d.value), []);
+    expect(found).toEqual([]);
+    expect(stale).toEqual([]);
+  });
+
   it("a transition or animation takes its time from the motion table", () => {
     // 1ms and under is not a duration, it is "no motion" that still fires its end
     // event (the reduced-motion rules); 0s is a delay or a property that only switches

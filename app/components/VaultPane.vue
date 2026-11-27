@@ -683,7 +683,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 /* The SURFACE (lifted background, radius, soft shadow, forced-colors edge) comes
    from the shared .popover atom — the same one the autocomplete and kebab menus
    wear, so this panel can't drift from them. The rows below take the menus' row wash
-   (--popover-hover) and --popover-item-radius (the token derived from this surface's
+   (--background-hover) and --popover-item-radius (the token derived from this surface's
    corner), both in tokens.scss, so the concentric corner and the hover tint stay pinned
    to this surface's geometry.
    Everything here is position + size only.
@@ -780,7 +780,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   width: var(--space-1);
   height: calc(var(--space-4) + var(--space-1));
   border-radius: var(--radius-pill);
-  background: color-mix(in oklab, var(--ink) 20%, transparent);
+  background: color-mix(in oklab, var(--foreground-primary) 20%, transparent);
   opacity: 0;
   transition:
     height var(--spring-step-dur) var(--spring-step),
@@ -792,7 +792,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   .vp__resize:hover::after {
     opacity: 1;
     height: calc(var(--space-5) + var(--space-1));
-    background: color-mix(in oklab, var(--ink) 45%, transparent);
+    background: color-mix(in oklab, var(--foreground-primary) 45%, transparent);
   }
 }
 /* Focus and the drag are not hover: a keyboard has no pointer to hover with, and a bar
@@ -803,10 +803,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   height: var(--space-5);
 }
 .vp__resize:focus-visible::after {
-  background: var(--ink);
+  background: var(--foreground-primary);
 }
 .vp__resize.is-dragging::after {
-  background: color-mix(in oklab, var(--ink) 45%, transparent);
+  background: color-mix(in oklab, var(--foreground-primary) 45%, transparent);
 }
 .vp__resize:focus-visible {
   outline: none;
@@ -856,14 +856,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      search under these takes the same corner (SearchField). The rows keep the
      concentric one: they are menu rows, on the card's edge. */
   border-radius: var(--radius-2);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
 @media (hover: hover) and (pointer: fine) {
   .vp__tab:hover {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 /* A FINGER-SIZED TARGET for a chip drawn at text size. The tab is ~27px tall and sits
@@ -884,13 +884,13 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     translate: 0 -50%;
   }
 }
-/* --lit, the app's one tone for "on" (the mode tabs, the person filter, the row
-   toggles), and an amount of ink, so it composites over this card. It was --paper-3,
-   a page tone that IS --surface-float in dark: the chosen tab had no ground at all
-   there and was told from the others by its ink alone. */
+/* --background-selected, the app's one tone for "on" (the mode tabs, the person filter,
+   the row toggles), and an amount of foreground, so it composites over this card. It was
+   --background-tertiary, a page tone that IS --surface-1 in dark: the chosen tab had no
+   ground at all there and was told from the others by its foreground alone. */
 .vp__tab.is-active {
-  background: var(--lit);
-  color: var(--ink);
+  background: var(--background-selected);
+  color: var(--foreground-primary);
 }
 /* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
    this card's edge is its own. */
@@ -915,7 +915,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 /* A word beside Close, and a link rather than a button: it navigates to the full page.
    It wears this card's other word control, the "Add to" chip below: the same padding,
-   corner (the tabs' chip corner) and wash, a step under the title's ink until the
+   corner (the tabs' chip corner) and wash, a step under the title's foreground until the
    pointer or focus is on it. At the pane's own text size, as the tabs and "Add to" are:
    it was a step down (--text-chrome, 14px), and beside them it read as small print
    (Ryan: "too small compared to neighbors"). */
@@ -925,19 +925,19 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   align-items: center;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-2);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   white-space: nowrap;
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
 .vp__open:focus-visible {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
   .vp__open:hover {
-    background: var(--popover-hover);
-    color: var(--ink);
+    background: var(--background-hover);
+    color: var(--foreground-primary);
   }
 }
 /* the same page, named in the Kits tab's empty sentence: a link in the sentence, drawn
@@ -1000,15 +1000,15 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 .vp__select :deep(.optmenu__btn[aria-expanded="true"]) {
-  background: var(--popover-hover);
+  background: var(--background-hover);
 }
 @media (hover: hover) and (pointer: fine) {
   .vp__select :deep(.optmenu__btn:hover) {
-    background: var(--popover-hover);
+    background: var(--background-hover);
   }
 }
 /* the target's mark is the shared .chev (atoms/controls.scss). Its copy here set the
-   resting ink and nothing else — no .is-open rule at all — while the markup has always
+   resting foreground and nothing else — no .is-open rule at all — while the markup has always
    handed it `is-open`, so the one chevron that told you the picker was open never turned. */
 /* the offline line sits over the rows, not centred in their space as a note is */
 .vp__note,
@@ -1039,7 +1039,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   overflow-x: hidden;
   overscroll-behavior: contain; /* reaching the end must not scroll the list behind */
   scrollbar-width: thin;
-  scrollbar-color: var(--line-2) transparent;
+  scrollbar-color: var(--border-strong) transparent;
 }
 /* a kind's name over its rows, held at the top of the list while its rows scroll
    under it, so a long kind still says what it is */
@@ -1048,7 +1048,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   top: 0;
   z-index: 1;
   padding: var(--space-3) var(--space-2) var(--space-1);
-  background: var(--surface-float);
+  background: var(--surface-1);
 }
 .vp__kind:first-child {
   padding-top: var(--space-1);
@@ -1080,14 +1080,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   -webkit-touch-callout: none;
 }
 /* HELD: the touch hold has armed (see liftedId), so the row is picked up and the next
-   move carries it. --lit-hover, the step of ink past both the hover tint (8%) and the
-   plate the active tab wears, because this has to read as a different state from "under
-   your finger" — it is the moment a scroll became a drag. An amount of ink, not the
-   --paper-3 it was: that tone is this card's own colour in dark, so there the hold
-   showed nothing. No transition: it lands with the vibration tick, and feedback that a
-   hold registered is instant or it isn't feedback. */
+   move carries it. --background-selected-hover, the step of foreground past both the
+   hover tint (8%) and the plate the active tab wears, because this has to read as a
+   different state from "under your finger" — it is the moment a scroll became a drag. An
+   amount of foreground, not the --background-tertiary it was: that tone is this card's
+   own colour in dark, so there the hold showed nothing. No transition: it lands with the
+   vibration tick, and feedback that a hold registered is instant or it isn't feedback. */
 .vp__add.is-lifted {
-  background: var(--lit-hover);
+  background: var(--background-selected-hover);
 }
 /* Split from :hover, not merged with it: focus is not a pointer state and a keyboard
    driving a touch device still needs the highlight, while the hover twin paints only
@@ -1095,11 +1095,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    duplicated lines here because the pane STAYS OPEN as you add — an ungated tint sat
    on the last row you tapped while you went on picking the next one. */
 .vp__add:focus-visible {
-  background: var(--popover-hover);
+  background: var(--background-hover);
 }
 @media (hover: hover) and (pointer: fine) {
   .vp__add:hover:not(:disabled) {
-    background: var(--popover-hover);
+    background: var(--background-hover);
   }
 }
 /* Already in the list: the row recedes rather than disappearing — seeing that you
@@ -1115,7 +1115,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    these rules. The typed-match emphasis (.vp__hl: the characters that overlap what
    you've typed read bold) is there too, one rule with the autocomplete's rows'. */
 .vp__inlist {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* the kit's mark sits on the first line beside the name, like the row's check does
    on the trailing edge: a one-line-tall box centres the glyph on that line */
@@ -1125,15 +1125,15 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   align-items: center;
   align-self: flex-start;
   height: 1lh;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* as quiet as /gear's blank slot (.vault__typebtn.is-blank): a place, not a picture */
 .vp__noicon {
-  color: var(--ink-ghost);
+  color: var(--foreground-quaternary);
 }
 .vp__w {
   flex: none;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* The gap between the figure and its unit, the My Gear page row's (VaultGearRow's
    .vault__unitwrap). A margin, because a space written before the unit in the template

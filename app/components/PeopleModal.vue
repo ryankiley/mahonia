@@ -200,7 +200,7 @@ function remove(p: Person) {
   overscroll-behavior: contain;
 }
 .ppl__item + .ppl__item {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 .ppl__row {
   display: flex;
@@ -239,7 +239,7 @@ function remove(p: Person) {
    come back with a re-typed name) */
 .ppl__remove.is-arming {
   color: var(--danger);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .ppl__swatches {
   display: flex;
@@ -259,7 +259,7 @@ function remove(p: Person) {
 /* CHOSEN is a state, and it keeps its plate whatever the pointer is doing — this
    strip has to say which colour is this person's. */
 .ppl__swatchbtn.is-active {
-  background: var(--lit);
+  background: var(--background-selected);
 }
 /* …and the hover wears the SAME plate, so it has to be pointer-gated (it paints —
    see the note on .btn:hover, controls.scss). iOS latches :hover on the last thing
@@ -271,10 +271,10 @@ function remove(p: Person) {
    either), and a plate on it would offer an affordance the element doesn't have. */
 @media (hover: hover) and (pointer: fine) {
   button.ppl__swatchbtn:hover {
-    background: var(--lit);
+    background: var(--background-selected);
   }
   button.ppl__swatchbtn.is-active:hover {
-    background: var(--lit-hover); /* the chosen swatch answers the pointer too */
+    background: var(--background-selected-hover); /* the chosen swatch answers the pointer too */
   }
 }
 /* the reset's ring, drawn inward over the plate */
@@ -302,7 +302,7 @@ function remove(p: Person) {
   margin-top: calc(-1 * var(--space-3));
   padding-block: var(--space-2);
   padding-left: var(--ppl-namecol);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 .ppl__addfield {
   flex: 1;
@@ -318,8 +318,8 @@ function remove(p: Person) {
    WORD on the rule the way their icons sit on it (the row's own gap holds it off the
    field it follows), and min-height:0, so the row's height comes from that field
    exactly as a person row's comes from its name field.
-   It was .btn--ghost, whose hover paints a --paper-3 plate. Getting the word flush
-   meant killing the trailing padding, and the plate went lopsided around it — 12px
+   It was .btn--ghost, whose hover paints a --background-tertiary plate. Getting the word
+   flush meant killing the trailing padding, and the plate went lopsided around it — 12px
    of ground on one side and none on the other. A quiet control only darkens, so
    there is no plate to go crooked. Stretch keeps the full-height target without
    letting the button set the height. */

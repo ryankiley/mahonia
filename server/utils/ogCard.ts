@@ -12,8 +12,8 @@
 // The look transcribes the app's own type system (foundations/typography.scss +
 // TotalsBar): two weights (400/600), 700 for the page-title role, tight tracking
 // on numbers and titles, the unit smaller and muted beside the big figure, labels
-// sentence-case 600 in secondary ink. Colors are the light-theme tokens — the
-// card is always light, paper being the brand's ground. Faces are Inter (the
+// sentence-case 600 in secondary foreground. Colors are the light-theme tokens — the
+// card is always light, background being the brand's ground. Faces are Inter (the
 // closest OFL stand-in for the site's system-ui stack — a lambda has no system
 // fonts), with InterDisplay for the two display-size runs, subset into
 // server/assets/fonts (coverage rule: shared/ogCard.ts's DRAWABLE_RANGES).
@@ -55,10 +55,11 @@ import {
 import { setNoStore, setReadEdgeCache } from "./http";
 import { ogFonts } from "./ogFonts";
 
-// tokens.scss, light values: --paper / --ink / --ink-2
-const PAPER = "#ffffff";
-const INK = "#000000";
-const INK_2 = "#595959";
+// tokens.scss, light values: --background-primary / --foreground-primary /
+// --foreground-secondary
+const BACKGROUND = "#ffffff";
+const FOREGROUND = "#000000";
+const FOREGROUND_SECONDARY = "#595959";
 const TRACK_TIGHT = "-0.02em"; // --track-tight
 
 // The big figure's two sizes, named because the baseline correction below is a
@@ -85,7 +86,7 @@ const UNIT_BASELINE_LIFT = Math.round(BASELINE_BOTTOM_SHARE * (BIG_SIZE - UNIT_S
 // query) flattened to a plain fill: the card is always the light theme, and
 // resvg doesn't evaluate media queries anyway. Keep the path in sync with the
 // favicon if the mark is ever redrawn.
-const MARK_SVG = `<svg viewBox="0 0 367 367" xmlns="http://www.w3.org/2000/svg"><path fill="${INK}" transform="translate(26 0)" d="M215.25 367C231 304.086 225.75 209.714 199.5 209.714C183.75 209.714 178.5 246.414 194.25 288.357C173.25 272.629 141.75 272.629 120.75 288.357C136.5 246.414 131.25 209.714 115.5 209.714C89.25 209.714 84 304.086 99.75 367C78.75 346.029 26.25 346.029 5.25 367C21 330.3 47.25 288.357 0 241.171C63 193.986 26.25 89.1286 10.5 52.4286C52.5 52.4286 84 26.2143 99.75 0C110.25 83.8857 136.5 157.286 157.5 157.286C178.5 157.286 204.75 83.8857 215.25 0C231 26.2143 262.5 52.4286 304.5 52.4286C283.5 99.6143 267.75 141.557 315 188.743C262.5 235.929 288.75 309.329 309.75 367C288.75 346.029 236.25 346.029 215.25 367Z"/></svg>`;
+const MARK_SVG = `<svg viewBox="0 0 367 367" xmlns="http://www.w3.org/2000/svg"><path fill="${FOREGROUND}" transform="translate(26 0)" d="M215.25 367C231 304.086 225.75 209.714 199.5 209.714C183.75 209.714 178.5 246.414 194.25 288.357C173.25 272.629 141.75 272.629 120.75 288.357C136.5 246.414 131.25 209.714 115.5 209.714C89.25 209.714 84 304.086 99.75 367C78.75 346.029 26.25 346.029 5.25 367C21 330.3 47.25 288.357 0 241.171C63 193.986 26.25 89.1286 10.5 52.4286C52.5 52.4286 84 26.2143 99.75 0C110.25 83.8857 136.5 157.286 157.5 157.286C178.5 157.286 204.75 83.8857 215.25 0C231 26.2143 262.5 52.4286 304.5 52.4286C283.5 99.6143 267.75 141.557 315 188.743C262.5 235.929 288.75 309.329 309.75 367C288.75 346.029 236.25 346.029 215.25 367Z"/></svg>`;
 const MARK_SRC = `data:image/svg+xml,${encodeURIComponent(MARK_SVG)}`;
 const MARK_SIZE = 64;
 
@@ -123,9 +124,9 @@ const CHIP_GAP = 48;
 const CHIP_PAIR_GAP = 14;
 const CARD_INNER_W = 1200 - 72 * 2;
 // Inter's average advance across this row's label/figure mix, measured off the raster
-// (tests/ogCard.test.ts renders a tonne-scale breakdown and checks the ink stops inside
-// the padding). Erring high is the safe direction: it shrinks a shade early rather than
-// letting a heavy list run off the card.
+// (tests/ogCard.test.ts renders a tonne-scale breakdown and checks the foreground stops
+// inside the padding). Erring high is the safe direction: it shrinks a shade early rather
+// than letting a heavy list run off the card.
 const CHIP_ADVANCE_EM = 0.56;
 
 function cardVnode(m: OgCardModel): Vnode {
@@ -135,8 +136,8 @@ function cardVnode(m: OgCardModel): Vnode {
       width: "100%",
       height: "100%",
       padding: "64px 72px",
-      backgroundColor: PAPER,
-      color: INK,
+      backgroundColor: BACKGROUND,
+      color: FOREGROUND,
       fontFamily: "Inter",
     },
     [
@@ -187,7 +188,7 @@ function cardVnode(m: OgCardModel): Vnode {
             marginBottom: UNIT_BASELINE_LIFT,
             fontSize: UNIT_SIZE,
             lineHeight: 1,
-            color: INK_2,
+            color: FOREGROUND_SECONDARY,
             letterSpacing: "-0.01em",
           },
           m.big.unit,
@@ -221,7 +222,7 @@ function cardVnode(m: OgCardModel): Vnode {
               { flexDirection: "row", marginTop: 32 },
               m.chips.map((c, i) =>
                 el({ marginLeft: i ? Math.round(CHIP_GAP * scale) : 0, fontSize: size }, [
-                  el({ fontWeight: 600, color: INK_2 }, c.label),
+                  el({ fontWeight: 600, color: FOREGROUND_SECONDARY }, c.label),
                   el({ marginLeft: Math.round(CHIP_PAIR_GAP * scale) }, c.value),
                 ]),
               ),
@@ -248,14 +249,14 @@ function siteCardVnode(): Vnode {
       justifyContent: "center",
       width: "100%",
       height: "100%",
-      backgroundColor: PAPER,
-      color: INK,
+      backgroundColor: BACKGROUND,
+      color: FOREGROUND,
       fontFamily: "Inter",
     },
     [
       { type: "img", props: { src: MARK_SRC, width: SITE_MARK_SIZE, height: SITE_MARK_SIZE }, key: null },
       el({ marginTop: 48, fontWeight: 600, fontSize: 50 }, "Mahonia"),
-      el({ marginTop: 14, fontSize: 40, color: INK_2 }, "Pack lists, weighed."),
+      el({ marginTop: 14, fontSize: 40, color: FOREGROUND_SECONDARY }, "Pack lists, weighed."),
     ],
   );
 }

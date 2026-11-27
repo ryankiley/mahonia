@@ -294,7 +294,7 @@ export default defineNuxtConfig({
         // Resolve light-dark() to the right mode on first paint (no flash).
         { name: "color-scheme", content: "light dark" },
         // Browser/PWA chrome colour (address bar, installed-app title bar) tracks
-        // the page's --paper in each mode.
+        // the page's --background-primary in each mode.
         { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
         { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#000000" },
         { name: "description", content: SITE_DESCRIPTION },

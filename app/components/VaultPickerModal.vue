@@ -137,14 +137,14 @@ const groups = computed(() =>
   cursor: pointer;
 }
 .vpick__row + .vpick__row {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 /* checkbox — the ItemRow recipe (atoms would be better, but the two are far enough
    apart in markup that hoisting them isn't a clean win yet): invisible native input
    over a Square/SquareCheck pair */
 @media (hover: hover) and (pointer: fine) {
   .vpick__row:hover .check__icon {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 .vpick__name {

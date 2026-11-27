@@ -34,7 +34,7 @@
    this had its four declarations as a copy. */
 .gear__name {
   display: block;
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 
 /* The gaps are margins, not the whitespace between the tags: Vue's compiler
@@ -42,21 +42,21 @@
    brand into the name ("SmartwoolHike Classic…"). Same 0.4ch a flex `gap` gave. */
 .gear__brand {
   margin-right: 0.4ch;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 .gear__variant {
   margin-left: 0.4ch;
   font-style: italic;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 
 /* THE TYPED MATCH — wherever a gear name is listed against something you are typing,
-   the characters that overlap it read bold and in full ink, and the rest of the name
-   keeps its weight: the autocomplete's rows (ItemInput's .ac__hl) and the My Gear
+   the characters that overlap it read bold and in primary foreground, and the rest of the
+   name keeps its weight: the autocomplete's rows (ItemInput's .ac__hl) and the My Gear
    pane's (.vp__hl), cut by the same helper. Best-practice typeahead emphasis, and one
    rule so the two lists can't mark a match two ways. */
 .ac__hl,
 .vp__hl {
-  font-weight: 700;
-  color: var(--ink);
+  font-weight: var(--font-weight-bold);
+  color: var(--foreground-primary);
 }

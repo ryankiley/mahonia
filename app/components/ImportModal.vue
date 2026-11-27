@@ -52,6 +52,13 @@ watch(
     }
   },
 );
+// The box takes the caret as the dialog opens: a link or a CSV is on the clipboard by
+// the time anyone gets here, so the card is one paste and Import. Watched on the NODE,
+// post, not on `open` and a tick: the box is made anew on every open, and on the first
+// one (LazyImportModal) it reaches the page later than a tick after `open` is seen,
+// which is the wait BaseModal's own move-in had to stop relying on.
+const textBox = useTemplateRef<HTMLTextAreaElement>("textBox");
+watch(textBox, (el) => el?.focus(), { flush: "post" });
 
 // A JSON-backup restore arrives as the whole list — its meta (title, unit, the route
 // read off a GPX, the trip dates) around its content; CSV/LighterPack imports are
@@ -192,6 +199,7 @@ function importFile(text: string, file: File) {
     />
 
     <textarea
+      ref="textBox"
       v-model="text"
       class="field well import__text"
       rows="5"
@@ -209,7 +217,7 @@ function importFile(text: string, file: File) {
     <div class="import__pick">
       <FilePickButton @text="importFile" />
       <Tooltip :text="FORMATS" preferred-placement="top">
-        <button type="button" class="import__why ink-quiet" aria-label="Which files and columns can be imported">
+        <button type="button" class="import__why foreground-quiet" aria-label="Which files and columns can be imported">
           <SvgIcon :icon="IconQuestionmarkCircle" aria-hidden="true" />
         </button>
       </Tooltip>
@@ -263,9 +271,9 @@ function importFile(text: string, file: File) {
   align-items: center;
   gap: var(--space-2);
 }
-/* the header's (?) for map files, the same quiet treatment (.ink-quiet, in the markup),
-   at the icon scale's full step and not its small one: the small glyph is sized to sit
-   in a row of figures, and beside a 40px button it was a speck. The padding is its
+/* the header's (?) for map files, the same quiet treatment (.foreground-quiet, in the
+   markup), at the icon scale's full step and not its small one: the small glyph is sized
+   to sit in a row of figures, and beside a 40px button it was a speck. The padding is its
    press area, taken back by the margin so the row's spacing is the glyph's. */
 .import__why {
   display: inline-flex;
@@ -273,7 +281,11 @@ function importFile(text: string, file: File) {
   margin: calc(-1 * var(--space-2));
   cursor: help;
 }
+/* a round ring for a round glyph, on focus only (the Trip panel's (?) does the same) */
+.import__why:focus-visible {
+  border-radius: var(--radius-pill);
+}
 .import__err {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 </style>

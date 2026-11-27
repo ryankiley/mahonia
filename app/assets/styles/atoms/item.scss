@@ -118,7 +118,7 @@
        children in VIEW (shared/packing), which on a context row is exactly the
        matching child below it, so pressing it packs that child. The dimming is
        about the figures; the box beneath it still does what it says. Direct children only — the
-       matching nested rows live in the sibling .nestcollapse and keep full ink.
+       matching nested rows live in the sibling .nestcollapse and keep primary foreground.
        …and NOT while the row has a surface up: opacity composites onto every
        descendant and no child can undo it, so without the guard the row's own
        popovers (the person picker, the nest menu, the name autocomplete)
@@ -196,7 +196,7 @@
   gap: var(--space-2);
   margin: var(--space-2) 0 0 var(--space-4);
   padding-left: var(--space-4);
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--border-primary);
 }
 
 /* drag-to-reorder: the insertion line when a row drops at the END of a list — a folder's
@@ -205,7 +205,7 @@
 .folder__droptail,
 .item-nest__droptail {
   height: var(--space-px);
-  background: var(--ink);
+  background: var(--foreground-primary);
   margin: var(--space-1) 0;
 }
 
@@ -331,8 +331,9 @@
    grows to --tap and the overshoot is pulled back out of the line (--tap-pull), the way
    the row's icon buttons do it — the target grows, the row's height doesn't.
    And keyboard focus lights the mark as the row's hover does (each row's own rule):
-   --ink-2, not the --ink other chevrons lift to, because one of these sits on every
-   row and a column of full-ink marks would out-shout the weights. */
+   --foreground-secondary, not the --foreground-primary other chevrons lift to, because
+   one of these sits on every row and a column of full-ink marks would out-shout the
+   weights. */
 @media (pointer: coarse) {
   /* .optmenu named too: the wrap IS the OptionMenu's root, and the extra class keeps
      this ahead of the component's own trigger rule, which loads later at equal weight */
@@ -344,7 +345,7 @@
 }
 .item__unitwrap:focus-within .chev,
 .vault__unitwrap:focus-within .chev {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 
 /* A worn SPLIT spells its count out in the amount cell — "×12 · 11 worn" where the
@@ -361,12 +362,12 @@
 /* The CLASSIFICATION CHIP — the lit ground that says a row is worn or consumable.
    In the editor it is the ON state of a toggle button; in the share views it is a
    static mark. Same picture either way, so the paint lives here rather than in two
-   scoped blocks: a quiet grey chip (--lit, whose whole job is this) carrying the
-   state without an inverted ink chip's weight — these sit in a dense list, and a row
-   of black dots would out-shout the weights, which are what the page is for. Colour
-   would be the obvious signal, but this codebase reserves it for the data viz.
-   It used to take --paper-3 and read heavy for it; see that token for why a surface
-   tone is the wrong thing to borrow for a filled state.
+   scoped blocks: a quiet grey chip (--background-selected, whose whole job is this)
+   carrying the state without an inverted foreground chip's weight — these sit in a dense
+   list, and a row of black dots would out-shout the weights, which are what the page is
+   for. Colour would be the obvious signal, but this codebase reserves it for the data viz.
+   It used to take --background-tertiary and read heavy for it; see that token for why a
+   surface tone is the wrong thing to borrow for a filled state.
    background-clip pins the ground to the CONTENT box, which is how it stays
    --icon-btn across every pointer: a coarse one grows the editor's button to --tap
    for the thumb, and a 44px disc drawn in a ~25px text line reaches the rules above
@@ -377,17 +378,18 @@
    blink its state off. */
 .item__mark,
 .item__mark:hover {
-  background: var(--lit);
+  background: var(--background-selected);
   background-clip: content-box;
   border-radius: var(--radius-pill);
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
-/* The hold, plus an answer: under a fine pointer the lit toggle steps up to --lit-hover
-   rather than sitting inert at its plate — a selected control still hovers. Buttons
-   only: the share views' marks are facts (role="img"), and a fact doesn't hover. */
+/* The hold, plus an answer: under a fine pointer the lit toggle steps up to
+   --background-selected-hover rather than sitting inert at its plate — a selected control
+   still hovers. Buttons only: the share views' marks are facts (role="img"), and a fact
+   doesn't hover. */
 @media (hover: hover) and (pointer: fine) {
   button.item__mark:hover {
-    background-color: var(--lit-hover); /* longhand: the shorthand resets the clip above and the plate grew */
+    background-color: var(--background-selected-hover); /* longhand: the shorthand resets the clip above and the plate grew */
   }
 }
 
@@ -417,7 +419,7 @@
 /* The carrier tag — who takes this row, as a dot and a name riding the name line.
    ONE recipe for every face that draws it (the editor's edit + checklist faces and
    the share views' ReadonlyItemRow), per this file's own header rule: it existed
-   as two hand-mirrored scoped copies for exactly one review cycle. Quiet ink —
+   as two hand-mirrored scoped copies for exactly one review cycle. Quiet foreground —
    the dot is the identity, the name confirms it. */
 /* BASELINE, not centre — and the dot is what steps out of it (align-self below), which
    is the same two-part idiom .head__anchor uses for the trail link's favicon.
@@ -433,7 +435,7 @@
   align-items: baseline;
   gap: var(--space-1);
   margin-left: var(--space-2);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   white-space: nowrap;
 }
 /* Centred on the line the name sets — and OUT of the baseline group, which is the half
@@ -466,9 +468,9 @@
 /* The CAPTION FIELD — a line of live text under the thing it annotates, in the aside
    voice: an item's note, and its gear type and variant beside it (ItemRow's
    .item__note), and a day's note in the trip plan (.plan__daynote), which took the
-   item's recipe wholesale. No box and no handle; the lightest ink, italic, and the same
-   ink while typing as at rest, so nothing jumps between editing and reading. A static
-   16px, like .field, so focusing one on a phone never zooms the page. The caret
+   item's recipe wholesale. No box and no handle; the lightest foreground, italic, and the
+   same foreground while typing as at rest, so nothing jumps between editing and reading.
+   A static 16px, like .field, so focusing one on a phone never zooms the page. The caret
    carries focus.
    A NOTE is a textarea (a sentence wraps; a value doesn't), sized to its content where
    the engine can and by script where it can't, so it reads as a caption that grows
@@ -477,13 +479,13 @@
 .plan__daynote {
   width: 100%;
   min-height: 0;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   font-size: var(--text-input);
   font-style: italic;
 }
 .item__note::placeholder,
 .plan__daynote::placeholder {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .item__note:focus,
 .plan__daynote:focus {
@@ -514,7 +516,7 @@ textarea.plan__daynote {
      min-height floored the add row's packing fold at 36px (measured 2026-10-17). */
   min-height: 0;
   padding: calc((var(--field-h) - 1.5em) / 2) 0;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   /* padding-block on the step spring: the packing fold (atoms/modeswitch.scss) closes
      it with the track, or the row would stop 12px short */
   transition:
@@ -525,7 +527,7 @@ textarea.plan__daynote {
 @media (hover: hover) and (pointer: fine) {
   .folder__addbtn:hover,
   .item-nest__add:hover {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 

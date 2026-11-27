@@ -4,7 +4,7 @@ import { itemSearchName, itemSearchUrl } from "~~/shared/links";
 import { itemDisplayName } from "~~/shared/weights";
 
 // Renders a product like "Sea to Summit Trek TkII Down Sleeping Bag": brand + model
-// in normal ink, and nothing else. The VARIANT ("Long, 18F") used to trail it as a
+// in normal foreground, and nothing else. The VARIANT ("Long, 18F") used to trail it as a
 // dimmed suffix; it now lives on the sub-line under the name, on every face (the
 // editor's beside the gear type, the checklist's and the share row's on the same rule
 // as the editor: see shared/variantShown), so the name line reads the same everywhere.
@@ -51,11 +51,11 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
    place, so it reads as "not the name itself" ("Group" must not look like a product
    actually called that) */
 .iname__unnamed {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   font-style: italic;
 }
 /* read-only search link: a DOTTED underline marks the product NAME as a lookup link.
-   Soft colour, firming to --ink-2 on hover/focus, never full ink.
+   Soft colour, firming to --foreground-secondary on hover/focus, never primary foreground.
    The link text is otherwise indistinguishable from body copy (color: inherit), so
    the underline is the ONLY affordance — it can't just be dropped, and it can't be
    faded below text contrast either. But every row in a shared list is one of these,
@@ -99,13 +99,13 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
      firm-up never showed. */
   .iname__link:hover,
   .item-row .iname__link:hover {
-    text-decoration-color: var(--ink-2);
+    text-decoration-color: var(--foreground-secondary);
   }
 }
 /* keyboard tabbing firms it up at every pointer type — outside the media query so focus
    is never left without the cue, and row-qualified for the same specificity reason */
 .iname__link:focus-visible,
 .item-row .iname__link:focus-visible {
-  text-decoration-color: var(--ink-2);
+  text-decoration-color: var(--foreground-secondary);
 }
 </style>

@@ -1,6 +1,6 @@
 // Controls — de-outlined + monochrome. Whitespace + type carry the UI; borders
 // are rare. No colour in chrome (see tokens.scss): the primary action is inverted
-// ink, state reads as ink/weight, and colour lives only on the data viz.
+// foreground, state reads as foreground/weight, and colour lives only on the data viz.
 
 // No border and no ground of its own at rest, and none declared: the reset strips both
 // from every button (reset.scss), and a link wearing .btn never had either.
@@ -12,20 +12,20 @@
   min-height: var(--control-h);
   padding: 0 var(--space-4);
   border-radius: var(--radius-pill);
-  color: var(--ink);
+  color: var(--foreground-primary);
   font-size: var(--text-base);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade),
     opacity var(--spring-fade-dur) var(--spring-fade);
 }
-/* HOVER IS POINTER-GATED, HERE AND EVERYWHERE — ink included.
+/* HOVER IS POINTER-GATED, HERE AND EVERYWHERE — foreground included.
    iOS leaves :hover latched on the last thing you tapped until you tap something
    else, so an ungated fill parks a grey pill under the button you just pressed and
    leaves it there — the app's most-tapped affordance wearing a state nobody asked
-   for. Hovers that only deepen INK used to be left ungated, on the argument that a
+   for. Hovers that only deepen FOREGROUND used to be left ungated, on the argument that a
    shade darker doesn't announce itself; the rule now is every hover, and it is
    right — a link left a step darker after the finger has gone is still a false
    "you're on this". So a hover that shares a selector list with :focus-visible is
@@ -48,11 +48,11 @@
    an indirection in a stylesheet meant to be read straight through. */
 @media (hover: hover) and (pointer: fine) {
   .btn:hover {
-    background: var(--paper-3);
+    background: var(--background-tertiary);
   }
 }
 .btn:active {
-  opacity: 0.7;
+  opacity: var(--opacity-pressed);
 }
 .btn:disabled {
   opacity: 0.3;
@@ -62,7 +62,7 @@
 
 .btn--primary {
   background: var(--accent);
-  color: var(--accent-ink);
+  color: var(--accent-foreground);
 }
 @media (hover: hover) and (pointer: fine) {
   .btn--primary:hover {
@@ -75,26 +75,27 @@
 // "Create a list"): contained like the primary beside it, a step quieter. A ghost there
 // set a pill next to a bare word, and the two read as a button and a caption rather
 // than two things to press (Ryan: "it feels weird when one is contained and other is
-// not"). The ground is an AMOUNT OF INK (--lit, the grey the account disc rests on, and
-// --lit-hover under the pointer), so it holds on a page, a dialog and a popover alike.
+// not"). The ground is an AMOUNT OF FOREGROUND (--background-selected, the grey the
+// account disc rests on, and --background-selected-hover under the pointer), so it holds
+// on a page, a dialog and a popover alike.
 .btn--soft {
-  background: var(--lit);
-  color: var(--ink);
+  background: var(--background-selected);
+  color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
   .btn--soft:hover {
-    background: var(--lit-hover);
+    background: var(--background-selected-hover);
   }
 }
 
 // ghost === default (kept for intent at call sites): the hover fill is .btn's own,
-// and only the ink is this variant's
+// and only the foreground is this variant's
 .btn--ghost {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 @media (hover: hover) and (pointer: fine) {
   .btn--ghost:hover {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 
@@ -122,55 +123,57 @@
 
 // text-only button — reads as a plain link (no box, no fill): same size + weight
 // as the wordmark beside it, but a step lighter at rest so it's a calm link, and
-// the only hover affordance is darkening to full ink (matching the footer links —
+// the only hover affordance is darkening to primary foreground (matching the footer links —
 // --accent is monochrome here, so it can't carry the hover). Used for the
 // share-page "Make a list" CTA.
 .btn--link {
   min-height: 0;
   padding: 0;
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 @media (hover: hover) and (pointer: fine) {
   .btn--link:hover {
     background: transparent;
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 
 // Text link that goes somewhere off-site — the trail link, in the editor and in both
 // read views. Rests muted with a soft underline and DEEPENS on hover/focus: text to
-// full ink, underline one step to --ink-2, which is the floor the --underline token
-// sets (a link's rule may reach --ink-2, never --ink). Consumers add only their own
-// layout; the two trail links had been carrying byte-identical copies of this.
+// primary foreground, underline one step to --foreground-secondary, which is the floor
+// the --underline token sets (a link's rule may reach --foreground-secondary, never
+// --foreground-primary). Consumers add only their own layout; the two trail links had
+// been carrying byte-identical copies of this.
 .link {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   text-decoration-color: var(--underline);
   transition:
     color var(--spring-fade-dur) var(--spring-fade),
     text-decoration-color var(--spring-fade-dur) var(--spring-fade);
 }
 .link:focus-visible {
-  color: var(--ink);
-  text-decoration-color: var(--ink-2);
+  color: var(--foreground-primary);
+  text-decoration-color: var(--foreground-secondary);
 }
 @media (hover: hover) and (pointer: fine) {
   .link:hover {
-    color: var(--ink);
-    text-decoration-color: var(--ink-2);
+    color: var(--foreground-primary);
+    text-decoration-color: var(--foreground-secondary);
   }
 }
 // The trail link's two riders, the same in the editor (ListHead's .head__*) and the
 // read views (ReadonlyListView's .view__*) — the link's own look is shared above, and
 // these had stayed behind as a copy in each.
 // The globe that stands in for a site's own mark reads as a placeholder rather than as
-// that site's icon: a step lighter than the link text it sits beside, which is --ink-3
-// against the link's --ink-2. It was that AND 60% opaque, two steps down, which nothing
-// was there to show until the dates beside it got an icon of their own (#620): the same
-// glyph size, one line apart, at --ink-3 whole, and the globe read as a different grey
-// for no reason (Ryan, 2026-11-25: "why are these different tones").
+// that site's icon: a step lighter than the link text it sits beside, which is
+// --foreground-tertiary against the link's --foreground-secondary. It was that AND 60%
+// opaque, two steps down, which nothing was there to show until the dates beside it got
+// an icon of their own (#620): the same glyph size, one line apart, at
+// --foreground-tertiary whole, and the globe read as a different grey for no reason
+// (Ryan, 2026-11-25: "why are these different tones").
 .head__icon--fallback,
 .view__trailicon--fallback {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 // The distance rides after the name as a detail OF it, one step quieter, and never gives
 // way: a long trail name ellipsizes (.t-clip) before the number is squeezed — the name
@@ -178,31 +181,31 @@
 .head__dist,
 .view__dist {
   flex: none;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 
 // Quiet text button — bare like --link, one step calmer: regular weight, faint
-// ink, no chrome; darkens to full ink on hover. For tertiary/secondary text
+// foreground, no chrome; darkens to primary foreground on hover. For tertiary/secondary text
 // actions (the Your-lists row actions, the packing "Clear checks"). Composes .btn,
 // so it inherits the shared transition + disabled/active states.
 .btn--quiet {
   min-height: 0;
   padding: 0;
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
   letter-spacing: normal;
   white-space: nowrap;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* lifts for the keyboard as it does for the pointer: a quiet button whose only
-   affordance is a shade of ink owes focus the same shade. Focus at every pointer, the
+   affordance is a shade of foreground owes focus the same shade. Focus at every pointer, the
    hover only where it's real (see .btn:hover). */
 .btn--quiet:focus-visible {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
   .btn--quiet:hover {
     background: transparent;
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 // Icons render as blocks (centred by each button's flexbox). An inline SVG sits on
@@ -219,26 +222,27 @@ button svg {
 // pairing would put a second focus stop in a surface that holds one or two controls.
 //
 // MONOCHROME, like the rest of the chrome: both states are a FILLED TRACK, and what
-// separates them is how much ink is in it — --well off, --ink on, 3.1:1 and 21:1
-// against the popover they sit on. The reference this borrows from uses green for
-// "on"; colour here belongs to the data viz only (see tokens.scss), and two weights of
-// one ink carry the two states without spending the signal the category bar owns.
+// separates them is how much foreground is in it — --switch-track-off off,
+// --foreground-primary on, 3.1:1 and 21:1 against the popover they sit on. The reference
+// this borrows from uses green for "on"; colour here belongs to the data viz only (see
+// tokens.scss), and two weights of one foreground carry the two states without spending
+// the signal the category bar owns.
 //
-// Nothing is drawn in a paper token. Both track colours are amounts of ink, so they
-// composite over whatever surface the switch is dropped on — page, panel or popover —
+// Nothing is drawn in a background token. Both track colours are amounts of foreground,
+// so they composite over whatever surface the switch is dropped on — page, panel or popover —
 // instead of naming one and hoping. The first version named one: it painted the off
-// track --paper-3, and in dark mode --paper-3 and --surface-float are both #1f1f1f, so
-// the track disappeared into the card at 1.00:1 (light failed the same way more
-// quietly, at 1.20:1).
+// track --background-tertiary, and in dark mode --background-tertiary and --surface-1 are
+// both #1f1f1f, so the track disappeared into the card at 1.00:1 (light failed the same
+// way more quietly, at 1.20:1).
 //
 // AND NOTHING HAS AN EDGE. It used to: the off track was a 10% wash with a 1px inset
-// ring at 45% ink around it, because a 10% fill carries no contrast of its own and the
+// ring at 45% foreground around it, because a 10% fill carries no contrast of its own and the
 // ring was what gave the control a visible extent — the piece holding WCAG 1.4.11. But
-// 45% ink is three times the weight of --line-2, the darkest hairline in the app, so
-// the one thing in the whole UI that read as outlined was a switch that was off, in a
-// system where hairlines are faint and rare. Putting that same 3:1 into the fill (see
-// --well) retires the ring: a shape with enough contrast of its own needs no edge
-// drawn around it, and the control is down to one animated colour from two.
+// 45% foreground is three times the weight of --border-strong, the darkest hairline in
+// the app, so the one thing in the whole UI that read as outlined was a switch that was
+// off, in a system where hairlines are faint and rare. Putting that same 3:1 into the
+// fill (see --switch-track-off) retires the ring: a shape with enough contrast of its own
+// needs no edge drawn around it, and the control is down to one animated colour from two.
 // (No padding, border or cursor declared: it is always a <button>, and the reset
 // already zeroes the first two and sets the pointer.)
 .switch {
@@ -251,7 +255,7 @@ button svg {
   inline-size: calc(32 * var(--tpx));
   block-size: calc(18 * var(--tpx));
   border-radius: var(--radius-pill);
-  background: var(--well);
+  background: var(--switch-track-off);
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 // THE TARGET, which is a different object from the track. 32×18 is what a switch of
@@ -275,23 +279,23 @@ button svg {
   position: absolute;
   inset: -13px -6px;
 }
-// On, the track fills to full ink — the highest-contrast shape the surface can hold
+// On, the track fills to primary foreground — the highest-contrast shape the surface can hold
 // (21:1 on white, 16.5:1 on the dark popover), which is what makes "on" unmistakable
 // from across the row rather than something you check the knob's position for.
 .switch[aria-checked="true"] {
-  background: var(--ink);
+  background: var(--foreground-primary);
 }
 // the knob — inset by 2px at both ends, so its travel is the track minus its own
 // width; expressed in calc() rather than a literal so the track can be resized in
 // one place without re-deriving the offset.
 //
-// ONE COLOUR IN BOTH STATES, where it used to invert (--ink-2 off, --paper on). The
-// invert existed to survive a 10% off track too pale to read a paper knob against; on
-// a --well track the arithmetic runs the other way — --ink-2 measures 2.2:1 there and
-// the knob would be the part of the control that goes missing. --paper clears whatever
-// track it sits in (3.1:1 off, 21:1 on) and reads as a hole punched through it rather
-// than a second mark laid on top, which is how a 14px dot stays legible at both ends
-// of its travel.
+// ONE COLOUR IN BOTH STATES, where it used to invert (--foreground-secondary off,
+// --background-primary on). The invert existed to survive a 10% off track too pale to
+// read a background knob against; on a --switch-track-off track the arithmetic runs the
+// other way — --foreground-secondary measures 2.2:1 there and the knob would be the part
+// of the control that goes missing. --background-primary clears whatever track it sits in
+// (3.1:1 off, 21:1 on) and reads as a hole punched through it rather than a second mark
+// laid on top, which is how a 14px dot stays legible at both ends of its travel.
 .switch::after {
   content: "";
   position: absolute;
@@ -299,8 +303,8 @@ button svg {
   inset-inline-start: calc(2 * var(--tpx));
   inline-size: calc(14 * var(--tpx));
   block-size: calc(14 * var(--tpx));
-  border-radius: 50%;
-  background: var(--paper);
+  border-radius: var(--radius-round);
+  background: var(--background-primary);
   transition: translate var(--spring-track-dur) var(--spring-track); /* chases the pointer: the track spring */
 }
 .switch[aria-checked="true"]::after {
@@ -322,7 +326,7 @@ button svg {
   width: 100%;
   min-height: var(--field-h);
   padding: var(--space-1) 0;
-  color: var(--ink);
+  color: var(--foreground-primary);
   /* STATIC 16px, not var(--text-base) — iOS Safari zooms the page on focus when an
      input's font-size is < 16px, AND its zoom check mis-reads CSS math functions
      (max()/clamp()), zooming even though --text-base computes to 16px. A plain 1rem is
@@ -346,7 +350,7 @@ input[type="search"]::-webkit-search-decoration {
   appearance: none;
 }
 .field::placeholder {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 
 // The ERROR CALLOUT — what went wrong with a field, in a small red bubble whose point
@@ -363,7 +367,7 @@ input[type="search"]::-webkit-search-decoration {
   max-width: 100%;
   padding: var(--space-1) var(--space-3);
   background: var(--danger-solid);
-  color: var(--danger-ink);
+  color: var(--danger-foreground);
   border-radius: var(--radius-2);
   font-size: var(--text-chrome);
   font-weight: 500;
@@ -385,12 +389,12 @@ input[type="search"]::-webkit-search-decoration {
   border-start-start-radius: 2px;
   transform: translateX(-50%) rotate(45deg);
 }
-// A NOTE, not an error: the same bubble in the tooltip's own inverted ink, for a
+// A NOTE, not an error: the same bubble in the tooltip's own inverted foreground, for a
 // condition that is nobody's mistake and has not failed anything yet (offline, before a
 // press). Red stays for "that went wrong".
 .errtip--note {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--foreground-primary);
+  color: var(--background-primary);
 }
 // where the error is about no one field (a card's own action failing), the bubble
 // without its point
@@ -448,7 +452,7 @@ input[type="search"]::-webkit-search-decoration {
    filter's chip and the row picker's clear entry). Hollow, so it reads as the
    absence the filled dots fill. */
 .swatch--hollow {
-  border: 1.5px solid var(--ink-3);
+  border: 1.5px solid var(--foreground-tertiary);
 }
 /* A legend of swatch-led entries that WRAP AS TEXT — the category bar's folders and
    the trip panel's day key (which had "lifted this wholesale"). Each entry is inline
@@ -472,9 +476,9 @@ input[type="search"]::-webkit-search-decoration {
 // .panel — a quiet hairline in-page surface (the ungrouped-items section).
 // Floating things (menus, dialogs) wear .popover / .dlg instead.
 .panel {
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-2);
-  background: var(--paper-2);
+  background: var(--background-secondary);
 }
 
 // .popover — the ONE floating-menu surface (autocomplete + kebab share it, so the
@@ -487,7 +491,7 @@ input[type="search"]::-webkit-search-decoration {
 // short of the visual edge, a hairline surface ledge around every sliced row —
 // and nudged the 8px concentric-tint inset to 9. Outlines follow the radius,
 // draw outside, and take no space.
-// Items inside consume the row wash (--popover-wash / --popover-hover) and the
+// Items inside consume the row wash (--background-hover-opacity / --background-hover) and the
 // concentric --popover-item-radius, both in tokens.scss: the radius is derived from this
 // surface's --radius-4, so it stays pinned to this surface's geometry, and the wash is
 // declared on the root so a row drawn like a menu's outside a popover lights too.
@@ -501,14 +505,14 @@ input[type="search"]::-webkit-search-decoration {
 .dlg {
   outline: 1px solid transparent;
   border-radius: var(--radius-4);
-  background: var(--surface-float);
+  background: var(--surface-1);
   box-shadow: var(--shadow-soft);
 }
 // A popover opened over another float — a dialog, or a popover such as the My Gear
-// pane — takes the next tone up (--surface-float-2), or in dark mode it would be the
+// pane — takes the next tone up (--surface-2), or in dark mode it would be the
 // exact colour of what it opened over.
 :is(.dlg, .popover) .popover {
-  background: var(--surface-float-2);
+  background: var(--surface-2);
 }
 
 // Popover menu — a kebab/⋯ trigger with a floating list of actions, anchored under
@@ -521,7 +525,8 @@ input[type="search"]::-webkit-search-decoration {
   display: inline-flex;
 }
 // (.menu__btn, the trigger's class, has no rule: every trigger also wears .btn--ghost,
-// whose --ink-2 is the resting ink it wants. The class stays in the markup as a hook.)
+// whose --foreground-secondary is the resting foreground it wants. The class stays in the
+// markup as a hook.)
 .menu__list {
   position: absolute;
   top: calc(100% + var(--space-1));
@@ -607,7 +612,7 @@ input[type="search"]::-webkit-search-decoration {
    the reset's rule reaches buttons only, and a menu where some rows dim and some
    don't reads as half of them being broken. */
 .menu__item:active {
-  opacity: 0.7;
+  opacity: var(--opacity-pressed);
 }
 .menu__item {
   display: flex;
@@ -620,7 +625,7 @@ input[type="search"]::-webkit-search-decoration {
   // concentric with the .popover container (the token is derived from its corner in
   // tokens.scss, shared with .ac__opt)
   border-radius: var(--popover-item-radius);
-  color: var(--ink);
+  color: var(--foreground-primary);
   font-size: var(--text-base);
   text-align: left;
   white-space: nowrap;
@@ -651,7 +656,7 @@ input[type="search"]::-webkit-search-decoration {
 .menu__check {
   flex: none;
   margin-left: auto;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   visibility: hidden;
 }
 .menu__check.is-on {
@@ -667,7 +672,7 @@ input[type="search"]::-webkit-search-decoration {
 .menu__foot {
   margin-top: var(--space-1);
   padding-top: var(--space-1);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-primary);
 }
 // ── a CALLOUT inside a menu's card ───────────────────────────────────────────
 // The one thing a card has to SAY before its rows: the Export tab's "send the link
@@ -675,11 +680,12 @@ input[type="search"]::-webkit-search-decoration {
 // in the glyph column (the callout's inset is a row's), its words where a row's label
 // starts, so it reads as part of the same list rather than a box dropped on top of it.
 // Shaped like the plate (the item radius), since it sits where a row would.
-// Its ground is AN AMOUNT OF INK, the well's 7% (.well, in this file, has the measurements:
-// 1.17:1 on the light popover, 1.23 on the dark), because a menu is a floating surface;
-// a page tone (--paper-2) sat at 1.10:1 on the card in either theme, a box you had to
-// look for. Not a [data-row]: nothing here is pressed, so the plate passes it by.
-// SharePanel carried this alone as .share__nudge; lifted on the second consumer.
+// Its ground is AN AMOUNT OF FOREGROUND, the well's 7% (.well, in this file, has the
+// measurements: 1.17:1 on the light popover, 1.23 on the dark), because a menu is a
+// floating surface; a page tone (--background-secondary) sat at 1.10:1 on the card in
+// either theme, a box you had to look for. Not a [data-row]: nothing here is pressed, so
+// the plate passes it by. SharePanel carried this alone as .share__nudge; lifted on the
+// second consumer.
 .menu__callout {
   display: flex;
   align-items: start;
@@ -689,7 +695,7 @@ input[type="search"]::-webkit-search-decoration {
   // where a first row would put its own
   padding: var(--space-2) var(--space-3) var(--space-3);
   border-radius: var(--popover-item-radius);
-  background: var(--wash);
+  background: var(--background-field);
   white-space: normal;
 }
 // Alone in its card (the signed-out offline card) there are no rows to stand off from
@@ -702,7 +708,7 @@ input[type="search"]::-webkit-search-decoration {
 .menu__callout > svg {
   flex: none;
   margin-block: calc((1lh - var(--icon)) / 2);
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 .menu__callout-body {
   display: grid;
@@ -710,10 +716,10 @@ input[type="search"]::-webkit-search-decoration {
   gap: var(--space-1);
 }
 .menu__callout-title {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 .menu__callout-text {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
   font-size: var(--text-chrome);
 }
 // ── a section INSIDE a menu ──────────────────────────────────────────────────
@@ -758,7 +764,7 @@ input[type="search"]::-webkit-search-decoration {
 // opens a SECOND glyph column a step in from the first, and one glyph column down the
 // whole card is the thing the menus were rebuilt around. Two of them read as a ragged
 // edge, not as nesting. What says "group" instead is what already did the rest of
-// that job: the quieter ink under a header whose chevron has turned over.
+// that job: the quieter foreground under a header whose chevron has turned over.
 // It also settles a jump. The card is sized to its widest row (`width: max-content`),
 // so an indent that only exists while the section is OPEN widened the card on
 // opening — the width twin of the flinch the .reveal slide was added to stop.
@@ -768,17 +774,17 @@ input[type="search"]::-webkit-search-decoration {
 // identical value today and silently disagrees the moment that shorthand is retuned —
 // which is the ragged column this comment exists to prevent, rebuilt by the rule meant
 // to prevent it. Inheriting the row inset is what "takes the same inset every other row
-// takes" actually means. The quieter ink is all that's left, and all that was ever the
+// takes" actually means. The quieter foreground is all that's left, and all that was ever the
 // section's own.
 .menu__sectitem {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 
 // ── THE DISCLOSURE MARK ──────────────────────────────────────────────────────
 // The ⌄ that says a control opens something, and turns over while it's open. One rule,
 // because it was six: .menu__sectchev here, plus .totals__chev, .headline__chev,
 // .vault__chev, .vp__targetchev and .item__unitchev, each restating `flex: none` and
-// the quiet --ink-3 resting ink under its own name.
+// the quiet --foreground-tertiary resting foreground under its own name.
 //
 // Six copies bought six chances to disagree, and two had already taken them:
 //   · the TOTALS chevron listed only `color` in its transition while still setting
@@ -796,7 +802,7 @@ input[type="search"]::-webkit-search-decoration {
 // COLLAPSED, a different motion for a different idea (a tree twisty, not a disclosure).
 .chev {
   flex: none;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   transition:
     color var(--spring-fade-dur) var(--spring-fade),
     rotate var(--spring-step-dur) var(--spring-step);
@@ -823,12 +829,12 @@ input[type="search"]::-webkit-search-decoration {
   z-index: 0;
   height: 0;
   border-radius: var(--popover-item-radius);
-  // NOT var(--popover-hover), though it resolves to the same thing by default.
+  // NOT var(--background-hover), though it resolves to the same thing by default.
   // That property is declared on the root (tokens.scss), so the var() inside it is
-  // substituted THERE and the finished colour inherits down — an inline --hov-ink on this
-  // element could never reach it. Mixing here is what lets the plate take a hue
-  // the row hands it (useMenuPlate); unset, it is plain ink at the same amount.
-  background: color-mix(in oklab, var(--hov-ink, var(--ink)) var(--popover-wash), transparent);
+  // substituted THERE and the finished colour inherits down — an inline --hov-foreground
+  // on this element could never reach it. Mixing here is what lets the plate take a hue
+  // the row hands it (useMenuPlate); unset, it is plain foreground at the same amount.
+  background: color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity), transparent);
   opacity: 0;
   pointer-events: none;
   // The travel is on the TRACK role, the one tokens.scss names this plate under: it
@@ -872,12 +878,12 @@ input[type="search"]::-webkit-search-decoration {
    Only the focus rule clears the outline: a ring is only ever drawn on :focus-visible
    (reset.scss), and this clears it there at every pointer, hovered or not. */
 .menu__item:focus-visible {
-  background: var(--popover-hover);
+  background: var(--background-hover);
   outline: none;
 }
 @media (hover: hover) and (pointer: fine) {
   .menu__item:hover {
-    background: var(--popover-hover);
+    background: var(--background-hover);
   }
   // ...and in a menu with a plate the rows give up their own hover tint, or two washes
   // argue about which row is "on". :has() scopes this to menus that actually opted
@@ -896,7 +902,7 @@ input[type="search"]::-webkit-search-decoration {
   background: none;
 }
 .menu__item:disabled {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   cursor: default;
 }
 // ── MOTION: three families, one vocabulary ───────────────────────────────────
@@ -987,8 +993,8 @@ input[type="search"]::-webkit-search-decoration {
   width: max-content;
   max-width: calc(100% - 2 * var(--space-4));
   padding: var(--space-2) var(--space-4);
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--foreground-primary);
+  color: var(--background-primary);
   // Rounder than the in-flow surfaces it used to share --radius-2 with, and that is
   // the point: a lifted drag row is a ROW that came off the page and keeps a row's
   // corner, while this is a small object that was never in the flow. --radius-3 is
@@ -1031,13 +1037,14 @@ input[type="search"]::-webkit-search-decoration {
   gap: var(--space-4);
 }
 .undobar__btn {
-  color: var(--paper);
-  font-weight: 600;
+  color: var(--background-primary);
+  font-weight: var(--font-weight-semibold);
   /* soft underline, matching the site's --underline house style — but the toast is
-     inverted (paper text on ink), so soften the PAPER rather than using --ink-3
-     (which would vanish on the dark toast). Translucent paper stays legible + quiet. */
+     inverted (background text on foreground), so soften the BACKGROUND rather than using
+     --foreground-tertiary (which would vanish on the dark toast). Translucent background
+     stays legible + quiet. */
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--paper) 55%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--background-primary) 55%, transparent);
   text-underline-offset: var(--underline-offset);
 }
 // THE TARGET, drawn apart from the word — the .switch::before pattern (above). "Undo"
@@ -1105,46 +1112,48 @@ input[type="search"]::-webkit-search-decoration {
 // the reset has already taken the control's border off). Focus deepens the ground a step — house
 // style carries focus on the caret, not a ring. Compose with .field; keep width,
 // padding and font local to the surface.
-// AN AMOUNT OF INK, not a named surface — and that is the load-bearing part, for the
-// third time in this file (see --lit and --well in tokens.scss, which both learned it
-// the same way). This drew its ground in --paper-2, a PAGE surface, while most of the
-// things that wear it float: the import dialog's paste box and the feedback box sit on
-// --surface-float, and only /gear's search sits on --paper. A solid light-dark() pair is
-// only ever right on ONE ground, so on the floating one the well was gone —
-//   light  --paper-2 #f4f4f4 on --surface-float #ffffff → 1.10:1
-//   dark   --paper-2 #151515 on --surface-float #1f1f1f → 1.108:1
+// AN AMOUNT OF FOREGROUND, not a named surface — and that is the load-bearing part, for the
+// third time in this file (see --background-selected and --switch-track-off in
+// tokens.scss, which both learned it the same way). This drew its ground in
+// --background-secondary, a PAGE surface, while most of the things that wear it float:
+// the import dialog's paste box and the feedback box sit on --surface-1, and only /gear's
+// search sits on --background-primary. A solid light-dark() pair is only ever right on
+// ONE ground, so on the floating one the well was gone —
+//   light  --background-secondary #f4f4f4 on --surface-1 #ffffff → 1.10:1
+//   dark   --background-secondary #151515 on --surface-1 #1f1f1f → 1.108:1
 // — a container you could not see you were about to type into. Focus made it worse
-// rather than better: --paper-3 IS --surface-float's exact value in dark, so focusing
+// rather than better: --background-tertiary IS --surface-1's exact value in dark, so focusing
 // the field composited to 1.000:1 and the box disappeared completely at the moment it
 // became the thing you were using. That is the Worn/Consumable switch's bug (#216)
 // exactly, in the atom the switch's fix was written next to.
-// Mixed from ink, the fill composites over whatever it lands on and cannot match its
+// Mixed from foreground, the fill composites over whatever it lands on and cannot match its
 // surface. At 7% it reads 1.169 light and 1.226 dark on a popover, 1.120 dark on the
 // page — all clear of the 1.10 that vanished — and focus lifts to 10%: 1.254 / 1.352 /
 // 1.200. It was 10% and 15% until 2026-11-07, which read as a dark grey slab on a white
 // popover (the lists menu's search is focused the moment it opens, so that was the only
 // state anyone saw); 6% would put the dark page under 1.10. ONE percentage, not a
-// light-dark() pair: var(--ink) already flips with the theme, and these two measured out
-// equal. Do not read that as a rule — sRGB is not symmetric and --lit needed 6.5/8.5 for
-// the same job; it is just what this amount does on these grounds.
+// light-dark() pair: var(--foreground-primary) already flips with the theme, and these
+// two measured out equal. Do not read that as a rule — sRGB is not symmetric and
+// --background-selected needed 6.5/8.5 for the same job; it is just what this amount does
+// on these grounds.
 .well {
   /* the text's inset from the tint, which every well had restated as --space-3; a
      box that wants another (the feedback box) sets its own */
   padding-inline: var(--space-3);
-  background: var(--wash);
+  background: var(--background-field);
   border-radius: var(--popover-item-radius);
-  color: var(--ink);
+  color: var(--foreground-primary);
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 .well::placeholder {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 // Focus DEEPENS the ground — house style carries focus on the caret, not a ring — so it
 // has to deepen from the same substance, or the state that matters most is the one that
 // vanishes.
 .well:focus {
   outline: none;
-  background: var(--wash-deep);
+  background: var(--background-field-focus);
 }
 
 // Disclosure slide — a grid whose single row animates 1fr↔0fr.
@@ -1201,13 +1210,13 @@ input[type="search"]::-webkit-search-decoration {
 // belongs to the data viz).
 //
 // Lifted out of VaultPickerModal when the delete-account dialog needed the same
-// thing. The ink is inherited, so a row can darken its own box on hover by setting
+// thing. The foreground is inherited, so a row can darken its own box on hover by setting
 // `color` on an ancestor rule.
 // Press feedback, the way every button has it (reset.scss): the box is an <input>, so
 // the reset's button rule doesn't reach it. A label press activates its control, so
 // this fires from anywhere on the packing row, which is the whole row's tap target.
 .check:has(.check__box:not(:disabled):active) {
-  opacity: 0.7;
+  opacity: var(--opacity-pressed);
 }
 .check {
   position: relative;
@@ -1241,12 +1250,12 @@ input[type="search"]::-webkit-search-decoration {
 .check__icon {
   grid-area: 1 / 1;
   pointer-events: none;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .check__icon--check {
   opacity: 0;
-  color: var(--ink);
+  color: var(--foreground-primary);
   transform: scale(0.5);
   transition:
     transform var(--spring-pop-dur) var(--spring-pop),
@@ -1276,7 +1285,7 @@ input[type="search"]::-webkit-search-decoration {
 // it, where mixed arrives from a tick on some OTHER row.
 .check__icon--mixed {
   opacity: 0;
-  color: var(--ink);
+  color: var(--foreground-primary);
   transition: opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 .check__box:indeterminate ~ .check__icon--mixed {
@@ -1296,7 +1305,7 @@ input[type="search"]::-webkit-search-decoration {
 
 /* "Add folder" — the quiet label that becomes an inline field, worn by the editor's
    list body and the /gear page. Label + input share the folder-name type, label
-   dimmer, hover to full ink like every quiet add affordance (.folder__addbtn,
+   dimmer, hover to primary foreground like every quiet add affordance (.folder__addbtn,
    .item-nest__add). Where it sits (the gap above it) is each surface's own. */
 .addfolder {
   display: inline-flex;
@@ -1305,32 +1314,32 @@ input[type="search"]::-webkit-search-decoration {
 .addfolder__btn,
 .addfolder__input {
   font-size: var(--text-title);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
 }
 .addfolder__btn {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 /* lifts for the keyboard as it does for the pointer (see .btn--quiet): focus at every
    pointer, the hover only where hovering is real */
 .addfolder__btn:focus-visible {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
   .addfolder__btn:hover {
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 .addfolder__input {
-  color: var(--ink);
+  color: var(--foreground-primary);
   min-width: 12rem;
 }
 .addfolder__input:focus {
   outline: none;
 }
 .addfolder__input::placeholder {
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 
 /* The reorder grip — the last icon in a row's or a folder's trailing cluster. Sizing
@@ -1356,8 +1365,9 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 /* THE PANEL HEADER — title left, flush-end X right — worn by the vault pane and the
-   account dialog (every dialog wears the title alone, for its full ink). Each surface keeps only the offset that puts it on its
-   own container's edge (a negative top nudge, a padding-block-start). */
+   account dialog (every dialog wears the title alone, for its primary foreground). Each
+   surface keeps only the offset that puts it on its own container's edge (a negative top
+   nudge, a padding-block-start). */
 .panel__head {
   display: flex;
   align-items: center;
@@ -1365,30 +1375,30 @@ input[type="search"]::-webkit-search-decoration {
   gap: var(--space-2);
 }
 .panel__title {
-  color: var(--ink);
+  color: var(--foreground-primary);
 }
 
 // ---- Quiet glyph ------------------------------------------------------------
-// A glyph that rests at the lesser ink and lifts to full ink under the pointer or
-// keyboard focus: a row's trailing cluster (grip, duplicate, remove, the qty ± and
+// A glyph that rests at the lesser foreground and lifts to primary foreground under the
+// pointer or keyboard focus: a row's trailing cluster (grip, duplicate, remove, the qty ± and
 // the vault tick), its three menu triggers, the folder header's delete and grip, the
 // calendar's month arrows, the search field's clear, the vault's folder picker and
 // "Open" link, the plan's (?) marks. Ten scoped blocks said this; one class does.
 // Composes with .btn--icon.btn--ghost and .menu__btn, and stands alone on a span or
-// a link. LAST IN THE FILE on purpose: equal specificity with every resting ink above
-// it (.btn's --ink, .btn--ghost's --ink-2), so order is what lets it
-// win, which is its whole job. The hover is pointer-gated even though it's ink-only,
-// like every hover now (see .btn:hover); focus lifts it at every pointer.
+// a link. LAST IN THE FILE on purpose: equal specificity with every resting foreground above
+// it (.btn's --foreground-primary, .btn--ghost's --foreground-secondary), so order is
+// what lets it win, which is its whole job. The hover is pointer-gated even though it's
+// ink-only, like every hover now (see .btn:hover); focus lifts it at every pointer.
 // The transition names colour alone, as every site's own copy did.
-.ink-quiet {
-  color: var(--ink-3);
+.foreground-quiet {
+  color: var(--foreground-tertiary);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-.ink-quiet:focus-visible {
-  color: var(--ink);
+.foreground-quiet:focus-visible {
+  color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
-  .ink-quiet:hover {
-    color: var(--ink);
+  .foreground-quiet:hover {
+    color: var(--foreground-primary);
   }
 }

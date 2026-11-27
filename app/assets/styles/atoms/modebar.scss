@@ -4,12 +4,13 @@
 // stylesheet of its own on the editor's first load (452 B for these rules alone,
 // against ~160 B in the shared entry CSS). The rules are unchanged.
 // PORTED FROM THE DESIGN SYSTEM's menubar (.ds-menubar / .ds-menubar__item), not
-// re-derived. Its rules, verbatim, with only the token names mapped onto this app's:
+// re-derived. Its rules, verbatim, with only the token names mapped onto this app's.
+// (Left: the design system's names. Right: this app's.)
 //
-//   --foreground-primary   → --ink
-//   --foreground-secondary → --ink-3
-//   --wash-hover    5%     → the same 5%
-//   --wash-selected 8%     → the same 8%
+//   --foreground-primary   → the same name
+//   --foreground-secondary → --foreground-tertiary
+//   --background-hover    5%     → the same 5%
+//   --background-selected 8%     → the same 8%
 //   --control-1     24px   → the same 24px
 //   --radius-2             → --radius-2 (both are the 8px step)
 //   --t-caption-*          → --text-chrome, the app's one chrome size
@@ -30,7 +31,7 @@
   gap: var(--space-px);
   padding: var(--space-1);
   border-radius: var(--radius-3);
-  color: var(--ink);
+  color: var(--foreground-primary);
   // the row's own padding would otherwise indent it past the title beneath it
   margin-left: calc((var(--space-1) + var(--space-2)) * -1);
 }
@@ -51,7 +52,7 @@
   padding: 0 var(--space-2);
   border-radius: var(--radius-2);
   font-size: var(--text-chrome);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   white-space: nowrap;
   transition:
     background-color var(--spring-fade-dur) var(--spring-fade),
@@ -75,19 +76,19 @@
 }
 
 // The wash matters: without a plate, a pointer crossing the bar changes the word's colour
-// and leaves no target under it. It has to sit clearly UNDER the selected state's --lit,
-// so pointing and choosing stay two steps rather than one.
-// Two amounts, matching --lit's own split and for the same reason: sRGB is not
-// symmetric, so one percentage does not buy one step in both themes. A flat 5% used to
-// read 1.12:1 on white and 1.08:1 on black — and once --lit quieted the selected state
-// to 1.16, the light-mode gap fell to 0.039 while dark's stayed at 0.078, i.e. the bar
-// lost half its hierarchy in one theme only. 3.5/5 put the step back, by ratio.
-// Dark is 7.5% now: --lit's dark plate went to 13% (2026-11-25, tokens.scss says why
-// ratios mislead next to black), and the wash keeps its place a little over halfway
-// up to it, as 3.5 is to 6.5 — at 5% it was #0d0d0d on #000, a hover nobody saw.
-// Kept as a color-mix and NOT a token: this is a transient tint that has to work on
-// whatever the bar sits on. (An earlier comment here named a `--wash-hover` token; no
-// such token was ever declared — the value has always been a literal.)
+// and leaves no target under it. It has to sit clearly UNDER the selected state's
+// --background-selected, so pointing and choosing stay two steps rather than one.
+// Two amounts, matching --background-selected's own split and for the same reason: sRGB
+// is not symmetric, so one percentage does not buy one step in both themes. A flat 5% used to
+// read 1.12:1 on white and 1.08:1 on black — and once --background-selected quieted the
+// selected state to 1.16, the light-mode gap fell to 0.039 while dark's stayed at 0.078,
+// i.e. the bar lost half its hierarchy in one theme only. 3.5/5 put the step back, by ratio.
+// Dark is 7.5% now: --background-selected's dark plate went to 13% (2026-11-25,
+// tokens.scss says why ratios mislead next to black), and the wash keeps its place a
+// little over halfway up to it, as 3.5 is to 6.5 — at 5% it was #0d0d0d on #000, a hover
+// nobody saw. Kept as a color-mix and NOT a token: this is a transient tint that has to
+// work on whatever the bar sits on. (Not --background-hover either: that is the menus'
+// row wash, 8% in both themes, and this bar's is its own pair.)
 // Pointer-gated — it paints (see the note on .btn:hover, controls.scss). This bar is
 // the one every mode change goes through, so an ungated wash left the option you
 // last tapped lit next to the one actually selected — two "on" states at once, in the
@@ -95,10 +96,10 @@
 @media (hover: hover) and (pointer: fine) {
   .modebar__opt:hover {
     background: light-dark(
-      color-mix(in oklab, var(--ink) 3.5%, transparent),
-      color-mix(in oklab, var(--ink) 7.5%, transparent)
+      color-mix(in oklab, var(--foreground-primary) 3.5%, transparent),
+      color-mix(in oklab, var(--foreground-primary) 7.5%, transparent)
     );
-    color: var(--ink);
+    color: var(--foreground-primary);
   }
 }
 
@@ -110,20 +111,21 @@
 
 // SELECTED IS A STATE, not a hover that happens to be stuck — it keeps its plate whether
 // the pointer is on it or not, because the bar has to say which view you are in.
-// --lit, the same plate the classification chips wear, so the app has ONE tone meaning
-// "this control is on" rather than a chip at one weight and a mode tab at another. It
-// was an 8% ink wash, which measured 1.19:1 against paper and left this the heaviest
-// small plate on the page.
+// --background-selected, the same plate the classification chips wear, so the app has ONE
+// tone meaning "this control is on" rather than a chip at one weight and a mode tab at
+// another. It was an 8% foreground wash, which measured 1.19:1 against background and
+// left this the heaviest small plate on the page.
 .modebar__opt.is-active {
-  background: var(--lit);
-  color: var(--ink);
+  background: var(--background-selected);
+  color: var(--foreground-primary);
 }
 // …and the selected tab still answers the pointer: its plate rule above outranks the
 // hover wash by cascade order, which left the one tab you're on the one that never
-// reacted. One step up from --lit (the token's own note), gated like the wash.
+// reacted. One step up from --background-selected (the token's own note), gated like the
+// wash.
 @media (hover: hover) and (pointer: fine) {
   .modebar__opt.is-active:hover {
-    background: var(--lit-hover);
+    background: var(--background-selected-hover);
   }
 }
 

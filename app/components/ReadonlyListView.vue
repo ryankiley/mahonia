@@ -346,18 +346,18 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
-/* One step up from the rest of the line's ink: a name is content, where "edited 3m ago"
-   is status. Still quiet enough to sit under the title without competing with it. */
+/* One step up from the rest of the line's foreground: a name is content, where "edited 3m
+   ago" is status. Still quiet enough to sit under the title without competing with it. */
 .view__byline {
-  color: var(--ink-2);
+  color: var(--foreground-secondary);
 }
 /* the separator is its own flex child (aria-hidden) so it isn't announced/copied. A
    bullet (•) reads bigger than a middle-dot at the same size; a small negative inline
    margin pulls the time a touch closer than the meta's flex gap. */
 .view__dot {
-  line-height: 1;
+  line-height: var(--leading-none);
   margin-inline: -2px;
 }
 /* route + dates on one row. The column gap is wide enough (--space-4, the gap between a
@@ -399,7 +399,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   gap: var(--space-1);
   /* a fact, not a target — never squeezed to make room for a long trail name */
   flex: none;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 /* (the distance after the name, .view__dist, and the stand-in globe,
    .view__trailicon--fallback, are drawn with the editor's own — beside .link in
@@ -448,9 +448,9 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 .view__triph {
   margin: 0 0 var(--space-2);
   font-size: var(--text-base);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--track-tight);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
 }
 .view__days {
   margin: var(--space-3) 0 0;
@@ -478,7 +478,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-1);
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   font-variant-numeric: tabular-nums;
 }
 .view__dayfig > svg {
@@ -488,7 +488,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 /* a whole line of the wrapping row, so it always lands under the name and figures */
 .view__daynote {
   flex: 1 0 100%;
-  color: var(--ink-3);
+  color: var(--foreground-tertiary);
   font-style: italic;
 }
 .view__folders {

@@ -290,7 +290,7 @@ const planTip = computed(() => {
   position: absolute;
   inset-block: 0;
   inset-inline-start: calc(-1 * var(--space-5));
-  border-inline-start: 1px solid var(--line);
+  border-inline-start: 1px solid var(--border-primary);
 }
 
 /* The breakdown stands down in packing: that mode's header is the list's name, the
