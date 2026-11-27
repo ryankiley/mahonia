@@ -898,7 +898,7 @@ onClickOutside(trailEl, closeTrail);
      workaround (controls.scss) doesn't apply here. */
   font-size: var(--text-page-title);
   font-weight: var(--font-weight-bold);
-  line-height: var(--leading-control);
+  line-height: var(--leading-tight);
   letter-spacing: var(--track-tight);
   /* textarea defaults that have to go for it to read as a title rather than a control:
      no drag handle, no scrollbar (it's sized to its content, so there's nothing to
@@ -1032,7 +1032,7 @@ onClickOutside(trailEl, closeTrail);
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
      1.5 alone pushed it past the 32px that squares it with the row's icon buttons */
-  line-height: var(--leading-control);
+  line-height: var(--leading-tight);
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
@@ -1183,7 +1183,7 @@ onClickOutside(trailEl, closeTrail);
   color: var(--foreground-tertiary);
   font-size: var(--text-micro);
   font-weight: var(--font-weight-semibold); /* the type system's one strong weight — no 500 (typography.scss) */
-  line-height: var(--leading-control); /* 14.4px — a tight box, so the label reads as attached to its field */
+  line-height: var(--leading-tight); /* 14.4px — a tight box, so the label reads as attached to its field */
 }
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel
    there's no surrounding structure to imply where the input begins, so the fill IS the
@@ -1318,7 +1318,7 @@ onClickOutside(trailEl, closeTrail);
      the words' 20. Now on the two the rest of the panel keeps (see .head__panellabel). */
   padding: var(--space-2);
   font-size: var(--text-chrome);
-  line-height: var(--leading-control);
+  line-height: var(--leading-tight);
 }
 
 /* dates — a sibling of the trail affordance in the same meta row, so it needs its

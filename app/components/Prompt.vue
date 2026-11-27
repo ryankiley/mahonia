@@ -105,8 +105,10 @@ const emit = defineEmits<{ dismiss: [] }>();
   .prompt__close {
     min-width: var(--tap);
     min-height: var(--tap);
-    margin-block: calc((var(--tap) - 24 * var(--tpx)) / -2);
-    margin-inline-end: calc((var(--tap) - 24 * var(--tpx)) / -2);
+    /* the button at rest is its glyph and a --space-1 of padding either side */
+    --prompt-close: calc(var(--icon) + 2 * var(--space-1));
+    margin-block: calc((var(--tap) - var(--prompt-close)) / -2);
+    margin-inline-end: calc((var(--tap) - var(--prompt-close)) / -2);
   }
 }
 </style>

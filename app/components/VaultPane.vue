@@ -886,7 +886,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 /* --background-selected, the app's one tone for "on" (the mode tabs, the person filter,
    the row toggles), and an amount of foreground, so it composites over this card. It was
-   --background-tertiary, a page tone that IS --surface-1 in dark: the chosen tab had no
+   --background-tertiary, a page tone that WAS --surface-1 in dark: the chosen tab had no
    ground at all there and was told from the others by its foreground alone. */
 .vp__tab.is-active {
   background: var(--background-selected);
@@ -944,7 +944,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    as the pane's other one is (VaultElsewhere's .elsewhere__go) */
 .vp__pagelink {
   text-decoration-line: underline;
-  text-underline-offset: 0.2em;
+  text-underline-offset: var(--underline-offset);
 }
 /* a finger gets the row's height to land on, as the Close box beside it has */
 @media (pointer: coarse) {
@@ -1054,7 +1054,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   padding-top: var(--space-1);
 }
 .vp__kindname {
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
 }
 /* the whole row is the button — a small "+" target would be a poor tap area on the
    one surface built for adding many things quickly, and the row is also the drag
@@ -1108,7 +1108,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    a live row with a greyed label; no hover tint and no grab cursor to match. */
 .vp__add:disabled {
   cursor: default;
-  opacity: 0.45;
+  opacity: var(--opacity-disabled);
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with /vault's rows, which used to hand-mirror

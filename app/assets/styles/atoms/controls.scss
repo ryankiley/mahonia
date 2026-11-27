@@ -48,14 +48,14 @@
    an indirection in a stylesheet meant to be read straight through. */
 @media (hover: hover) and (pointer: fine) {
   .btn:hover {
-    background: var(--background-tertiary);
+    background: var(--background-hover);
   }
 }
 .btn:active {
   opacity: var(--opacity-pressed);
 }
 .btn:disabled {
-  opacity: 0.3;
+  opacity: var(--opacity-disabled);
   cursor: default;
   pointer-events: none;
 }
@@ -231,7 +231,7 @@ button svg {
 // Nothing is drawn in a background token. Both track colours are amounts of foreground,
 // so they composite over whatever surface the switch is dropped on — page, panel or popover —
 // instead of naming one and hoping. The first version named one: it painted the off
-// track --background-tertiary, and in dark mode --background-tertiary and --surface-1 are
+// track --background-tertiary, and in dark mode --background-tertiary and --surface-1 were
 // both #1f1f1f, so the track disappeared into the card at 1.00:1 (light failed the same
 // way more quietly, at 1.20:1).
 //
@@ -370,7 +370,7 @@ input[type="search"]::-webkit-search-decoration {
   color: var(--danger-foreground);
   border-radius: var(--radius-2);
   font-size: var(--text-chrome);
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
   text-align: center;
   text-wrap: balance;
   // out of the field, the way a tooltip leaves its trigger; replayed whenever the
@@ -680,7 +680,7 @@ input[type="search"]::-webkit-search-decoration {
 // in the glyph column (the callout's inset is a row's), its words where a row's label
 // starts, so it reads as part of the same list rather than a box dropped on top of it.
 // Shaped like the plate (the item radius), since it sits where a row would.
-// Its ground is AN AMOUNT OF FOREGROUND, the well's 7% (.well, in this file, has the
+// Its ground is AN AMOUNT OF FOREGROUND, the well's (.well, in this file, has the
 // measurements: 1.17:1 on the light popover, 1.23 on the dark), because a menu is a
 // floating surface; a page tone (--background-secondary) sat at 1.10:1 on the card in
 // either theme, a box you had to look for. Not a [data-row]: nothing here is pressed, so
@@ -833,8 +833,12 @@ input[type="search"]::-webkit-search-decoration {
   // That property is declared on the root (tokens.scss), so the var() inside it is
   // substituted THERE and the finished colour inherits down — an inline --hov-foreground
   // on this element could never reach it. Mixing here is what lets the plate take a hue
-  // the row hands it (useMenuPlate); unset, it is plain foreground at the same amount.
-  background: color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity), transparent);
+  // the row hands it (useMenuPlate); unset, it is plain foreground at the same amounts,
+  // one for each theme as --background-hover has.
+  background: light-dark(
+    color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity), transparent),
+    color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity-dark), transparent)
+  );
   opacity: 0;
   pointer-events: none;
   // The travel is on the TRACK role, the one tokens.scss names this plate under: it
@@ -1122,20 +1126,21 @@ input[type="search"]::-webkit-search-decoration {
 //   light  --background-secondary #f4f4f4 on --surface-1 #ffffff → 1.10:1
 //   dark   --background-secondary #151515 on --surface-1 #1f1f1f → 1.108:1
 // — a container you could not see you were about to type into. Focus made it worse
-// rather than better: --background-tertiary IS --surface-1's exact value in dark, so focusing
-// the field composited to 1.000:1 and the box disappeared completely at the moment it
-// became the thing you were using. That is the Worn/Consumable switch's bug (#216)
+// rather than better: --background-tertiary WAS --surface-1's exact value in dark, so
+// focusing the field composited to 1.000:1 and the box disappeared completely at the
+// moment it became the thing you were using. That is the Worn/Consumable switch's bug (#216)
 // exactly, in the atom the switch's fix was written next to.
 // Mixed from foreground, the fill composites over whatever it lands on and cannot match its
-// surface. At 7% it reads 1.169 light and 1.226 dark on a popover, 1.120 dark on the
-// page — all clear of the 1.10 that vanished — and focus lifts to 10%: 1.254 / 1.352 /
-// 1.200. It was 10% and 15% until 2026-11-07, which read as a dark grey slab on a white
-// popover (the lists menu's search is focused the moment it opens, so that was the only
-// state anyone saw); 6% would put the dark page under 1.10. ONE percentage, not a
-// light-dark() pair: var(--foreground-primary) already flips with the theme, and these
-// two measured out equal. Do not read that as a rule — sRGB is not symmetric and
-// --background-selected needed 6.5/8.5 for the same job; it is just what this amount does
-// on these grounds.
+// surface. (It is the hover tint's light amount, 8%, since 2026-11-27, one number for the menus'
+// row tint and this; the figures here were measured a point lower.) At 7% it reads 1.169
+// light and 1.226 dark on a popover, 1.120 dark on the page — all clear of the 1.10 that
+// vanished — and focus lifts to 10%: 1.254 / 1.352 / 1.200. It was 10% and 15% until
+// 2026-11-07, which read as a dark grey slab on a white popover (the lists menu's search
+// is focused the moment it opens, so that was the only state anyone saw); 6% would put
+// the dark page under 1.10. ONE percentage, not a light-dark() pair:
+// var(--foreground-primary) already flips with the theme, and these two measured out
+// equal. Do not read that as a rule — sRGB is not symmetric and --background-selected
+// needed 6.5/8.5 for the same job; it is just what this amount does on these grounds.
 .well {
   /* the text's inset from the tint, which every well had restated as --space-3; a
      box that wants another (the feedback box) sets its own */
@@ -1245,7 +1250,7 @@ input[type="search"]::-webkit-search-decoration {
   cursor: default;
 }
 .check__box:disabled ~ .check__icon--empty {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
 }
 .check__icon {
   grid-area: 1 / 1;

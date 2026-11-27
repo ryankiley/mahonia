@@ -366,8 +366,8 @@
    carrying the state without an inverted foreground chip's weight — these sit in a dense
    list, and a row of black dots would out-shout the weights, which are what the page is
    for. Colour would be the obvious signal, but this codebase reserves it for the data viz.
-   It used to take --background-tertiary and read heavy for it; see that token for why a
-   surface tone is the wrong thing to borrow for a filled state.
+   It used to take --background-tertiary and read heavy for it; see --background-selected
+   for why a surface tone is the wrong thing to borrow for a filled state.
    background-clip pins the ground to the CONTENT box, which is how it stays
    --icon-btn across every pointer: a coarse one grows the editor's button to --tap
    for the thumb, and a 44px disc drawn in a ~25px text line reaches the rules above
@@ -540,7 +540,7 @@ textarea.plan__daynote {
   .item__roqty,
   .item__roweight {
     padding-block: var(--space-px);
-    line-height: var(--leading-compact);
+    line-height: var(--leading-snug);
     display: inline-flex;
     align-items: center;
   }
@@ -550,7 +550,7 @@ textarea.plan__daynote {
   .folder__addbtn,
   .item-nest__add {
     padding-block: var(--space-px);
-    line-height: var(--leading-compact);
+    line-height: var(--leading-snug);
   }
 }
 

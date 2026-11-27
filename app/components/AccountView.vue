@@ -985,8 +985,9 @@ async function onSignOut() {
 /* CONTAINED, by the same recipe as .acct__input above — one container language for
    every control on this surface.
    It recedes to --background-primary with a hairline rather than sitting on a raised
-   fill, and it has to: --surface-1 and --background-tertiary are the SAME value (#1f1f1f)
-   in dark, so the .btn atom's resting/hover fill is literally invisible inside a dialog.
+   fill, and when this was written it had to: --surface-1 and the --background-tertiary
+   the .btn atom hovered in were the SAME value (#1f1f1f) in dark, so that fill was
+   literally invisible inside a dialog (the atom hovers in a tint now, which shows).
    Going darker than the surface is the only fill that reads here, and the hairline
    carries light mode, where --surface-1 and --background-primary are both #fff.
    flex-start because the section is a flex column: a stretched button centres its
@@ -1000,7 +1001,7 @@ async function onSignOut() {
 @media (hover: hover) and (pointer: fine) {
   .acct__btn:hover {
     /* a step TOWARD the surface, visible in both modes — see above for why the atom's
-       own --background-tertiary hover can't be */
+       own hover wasn't */
     background: var(--background-secondary);
     border-color: var(--border-strong);
   }

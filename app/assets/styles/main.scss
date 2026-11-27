@@ -266,7 +266,7 @@
   font-size: var(--text-chrome);
   line-height: 1.4;
   color: var(--foreground-primary);
-  background: color-mix(in oklab, var(--foreground-primary) 8%, transparent);
+  background: var(--background-field);
   border-radius: var(--radius-2);
   overflow-wrap: anywhere;
 }
