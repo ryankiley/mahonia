@@ -44,6 +44,7 @@ const kv = new Map<string, unknown>();
 vi.stubGlobal("useStorage", () => ({
   getItem: async (key: string) => kv.get(key) ?? null,
   setItem: async (key: string, value: unknown) => void kv.set(key, value),
+  removeItem: async (key: string) => void kv.delete(key),
 }));
 
 const SECRET = "cron-secret-for-tests";

@@ -16,6 +16,7 @@ function fakeKv(): KvStorage {
     setItem: async <T>(key: string, value: T) => {
       map.set(key, value);
     },
+    removeItem: async (key: string) => void map.delete(key),
   };
 }
 
@@ -87,6 +88,7 @@ describe("consumeRateLimit — shared-store fixed-window counter", () => {
       setItem: async <T>(_k: string, _v: T, opts?: { ttl?: number }) => {
         if (opts?.ttl !== undefined) ttls.push(opts.ttl);
       },
+      removeItem: async () => {},
     };
     await consumeRateLimit(kv, "k", 5, 60_000, 0);
     expect(ttls[0]).toBe(60); // ceil(60000 / 1000)

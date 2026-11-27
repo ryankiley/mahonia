@@ -39,7 +39,7 @@ vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mo
 vi.mock("../server/utils/rateLimit", () => ({
   rateLimit: async () => {},
   rateLimitSubject: async () => {},
-  useKv: () => ({ getItem: async () => null, setItem: async () => {} }),
+  useKv: () => ({ getItem: async () => null, setItem: async () => {}, removeItem: async () => {} }),
 }));
 // the metadata document's host resolves to a public address; the private one is the
 // SSRF case

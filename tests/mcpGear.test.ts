@@ -26,7 +26,6 @@ import { applyVaultItemOp } from "../server/utils/vaultRepo";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
 import { makeEvent } from "./helpers/http";
-import { expectResultConforms } from "./helpers/mcpSchema";
 
 // The account side of the connector, driven through the real endpoint against a real
 // (in-memory) database: tokens are minted for two accounts, and requests carrying one
@@ -50,6 +49,10 @@ vi.mock("../server/utils/rateLimit", () => ({
       kv.set(key, value);
       ttls.set(key, opts?.ttl);
     },
+    removeItem: async (key: string) => {
+      kv.delete(key);
+      ttls.delete(key);
+    },
   }),
 }));
 afterEach(() => {
@@ -72,9 +75,6 @@ async function tool(name: string, args: unknown, token?: string) {
   const { status, reply } = await post({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, token);
   const result = reply.result;
   if (!result) throw new Error(`${name} was refused at the door (${status}: ${reply.error_description ?? reply.error})`);
-  // every structured answer is checked against the tool's declared shape, as a
-  // validating client would check it
-  expectResultConforms(name, result);
   return {
     status,
     data: result.structuredContent as Record<string, unknown>,
@@ -1106,5 +1106,57 @@ describe("My Gear answers that say what happened", () => {
     expect(bar!.item).toMatchObject({ weight_g: 68, catalog_id: 2 });
     // a page offset sent as text is refused, not read as the first page again
     expect((await tool("get_my_gear", { offset: "300" }, write)).refused).toBe(true);
+  });
+});
+
+// The field set of each account tool's answer, held exactly, as mcp.test.ts holds the
+// list tools': a producer that grows or loses a field fails here. An account of its
+// own, so the page holds only these pieces.
+describe("the fields each account tool answers with", () => {
+  const keys = (value: unknown) => Object.keys(value as object).sort();
+  type Fields = Record<string, unknown>;
+  // everything a piece can carry at once, short of being in a kit or being one
+  const PIECE = ["brand", "catalog_id", "classification", "currency", "display_name", "gear_type", "id", "kcal", "kind", "last_used", "name", "owned", "price", "product_url", "variant", "weight_g"];
+  let write = "";
+  let made: Awaited<ReturnType<typeof tool>>;
+  let barId = 0;
+  beforeAll(async () => {
+    const [owner] = (await db.insert(schema.users).values([{ email: "fields@example.com" }]).returning()).map((u) => u.id);
+    write = (await mintAccessToken(db, owner!, { scope: "write", unproven: false }))!.token;
+    const bar = { name: "Builders Bar", brand: "Clif", variant: "Chocolate", gear_type: "Energy bar", weight_g: 68, owned: 3, classification: "consumable", kcal: 290, catalog_id: 2, product_url: "https://clifbar.example/builders", price: 2.5, currency: "USD" };
+    made = await tool("edit_my_gear", { add: [bar] }, write);
+    barId = (made.data.results as { item: { id: number } }[])[0]!.item.id;
+    await tool("edit_my_gear", { add: [{ name: "Snack kit", kit: { items: [{ id: barId, count: 2 }], own_weight_g: 20 } }] }, write);
+  });
+
+  it("edit_my_gear: the answer, an entry of each part, and a piece", async () => {
+    expect(keys(made.data)).toEqual(["added", "removed", "results", "updated"]);
+    const [added] = made.data.results as (Fields & { item: Fields })[];
+    expect(keys(added)).toEqual(["index", "item", "status"]);
+    expect(keys(added!.item)).toEqual(PIECE);
+    const changed = await tool("edit_my_gear", { update: [{ id: barId, product_url: "https://clifbar.example/bar" }], remove: [barId], restore: [barId] }, write);
+    const [updated] = changed.data.updated as (Fields & { item: Fields })[];
+    expect(keys(updated)).toEqual(["id", "item", "status"]);
+    expect(keys(updated!.item)).toEqual([...PIECE, "in_kits"].sort());
+    expect((changed.data.removed as Fields[]).map(keys)).toEqual([["id", "status"], ["id", "status"]]);
+  });
+
+  it("get_my_gear: the page, a piece in a kit, and a kit with an item", async () => {
+    const page = await tool("get_my_gear", {}, write);
+    expect(keys(page.data)).toEqual(["gear", "offset", "total"]);
+    const gear = page.data.gear as Fields[];
+    expect(keys(gear.find((g) => g.id === barId))).toEqual([...PIECE, "in_kits"].sort());
+    const kit = gear.find((g) => g.name === "Snack kit") as Fields & { kit: Fields & { items: Fields[] } };
+    expect(keys(kit)).toEqual(["display_name", "id", "kind", "kit", "last_used", "name", "owned", "weight_g"]);
+    expect(keys(kit.kit)).toEqual(["items", "own_weight_g"]);
+    expect(keys(kit.kit.items[0])).toEqual(["count", "display_name", "id", "put_away", "weight_g"]);
+  });
+
+  it("get_list with no share_code: the account's lists", async () => {
+    const filed = await tool("create_list", { title: "Filed", items: [{ name: "Tent", weight_g: 900 }] }, write);
+    expect(filed.data.saved_to_account).toBe(true);
+    const mine = await tool("get_list", {}, write);
+    expect(keys(mine.data)).toEqual(["lists"]);
+    expect(keys((mine.data.lists as Fields[])[0])).toEqual(["share_code", "share_link", "title", "total_g", "unit", "updated_at"]);
   });
 });

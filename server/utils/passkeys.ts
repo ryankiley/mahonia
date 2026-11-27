@@ -219,8 +219,8 @@ export async function takeChallenge(flowId: unknown): Promise<StoredChallenge | 
   const kv = useKv();
   const found = await kv.getItem<StoredChallenge>(key);
   if (!found) return null;
-  // burn it immediately — a 1-second TTL is how this KV surface expresses a delete
-  await kv.setItem(key, null, { ttl: 1 });
+  // burn it immediately
+  await kv.removeItem(key);
   return found;
 }
 

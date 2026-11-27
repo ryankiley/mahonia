@@ -35,12 +35,11 @@ vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mo
 
 // The challenge store and the rate limiter both live in Nitro's `useStorage("kv")`
 // auto-import, which doesn't exist under plain vitest — a Map plays the part.
-// takeChallenge "deletes" by writing null with a 1s TTL, so a Map read of null is
-// exactly the burned-entry answer the real driver gives.
 const kv = new Map<string, unknown>();
 vi.stubGlobal("useStorage", () => ({
   getItem: async (key: string) => kv.get(key) ?? null,
   setItem: async (key: string, value: unknown) => void kv.set(key, value),
+  removeItem: async (key: string) => void kv.delete(key),
 }));
 
 // Stub the signature verification, not the gates around it. Tests that must

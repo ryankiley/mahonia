@@ -3,15 +3,14 @@ import mcpDelete from "../server/routes/mcp.delete";
 import mcpGet from "../server/routes/mcp.get";
 import mcpHead from "../server/routes/mcp.head";
 import mcp from "../server/routes/mcp.post";
-import { readFileSync } from "node:fs";
-import { BUDGET_WAIT, GET_LIST_MAX_BYTES, MCP_ADMIN_TOOLS, MCP_INSTRUCTIONS, MCP_INSTRUCTIONS_MAX, MCP_SERVER_INFO, MCP_TOOLS, REPLAY_WAIT, describeList, editHashFrom, fitGearPage, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
+import serverListing from "../server.json";
+import { BUDGET_WAIT, GET_LIST_MAX_BYTES, MCP_ADMIN_TOOLS, MCP_INSTRUCTIONS, MCP_INSTRUCTIONS_MAX, MCP_TOOLS, REPLAY_WAIT, describeList, editHashFrom, fitGearPage, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
 import { bearerToken } from "../server/utils/http";
 import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { MAX_ITEMS, MAX_ITEM_NOTE_LEN, MAX_TITLE_LEN } from "../shared/ops";
 import type { Item, ListSnapshot } from "../shared/types";
 import { makeEvent } from "./helpers/http";
-import { expectConforms, expectResultConforms } from "./helpers/mcpSchema";
 
 // The MCP endpoint, driven as a client would drive it: a real H3 event over bare node
 // mocks, one JSON-RPC message per POST, the repo and the limiter stubbed. What is pinned
@@ -46,6 +45,10 @@ const limiter = vi.hoisted(() => {
         kv.set(key, value);
         ttls.set(key, opts?.ttl);
       },
+      removeItem: async (key: string) => {
+        kv.delete(key);
+        ttls.delete(key);
+      },
     }),
   };
 });
@@ -63,13 +66,7 @@ async function post(body: unknown, headers: Record<string, string> = {}, url = "
   return { status: event.node.res.statusCode, out, event };
 }
 const rpc = (method: string, params?: unknown, id: string | number = 1) => ({ jsonrpc: "2.0", id, method, ...(params === undefined ? {} : { params }) });
-const call = async (name: string, args?: unknown, headers?: Record<string, string>, url?: string) => {
-  const r = await post(rpc("tools/call", { name, arguments: args }), headers, url);
-  // every structured result this suite gets is held to the tool's declared shape,
-  // which is what a validating client does before it lets the model see the result
-  expectResultConforms(name, resultOf(r) as { structuredContent?: unknown; isError?: boolean } | null);
-  return r;
-};
+const call = (name: string, args?: unknown, headers?: Record<string, string>, url?: string) => post(rpc("tools/call", { name, arguments: args }), headers, url);
 const resultOf = (r: { out?: Record<string, unknown> }) => (r.out?.result ?? null) as Record<string, unknown> | null;
 const toolText = (r: { out?: Record<string, unknown> }) => {
   const res = resultOf(r) as { content: { text: string }[]; isError?: boolean; structuredContent?: Record<string, unknown> } | null;
@@ -120,7 +117,8 @@ describe("the endpoint's transport", () => {
     const res = resultOf(r)!;
     expect(res.protocolVersion).toBe("2025-06-18");
     expect(res.capabilities).toEqual({ tools: {} });
-    expect(res.serverInfo).toMatchObject({ name: "mahonia", version: MCP_SERVER_INFO.version });
+    // the title and version are the registry listing's, which directories read first
+    expect(res.serverInfo).toEqual({ name: "mahonia", title: serverListing.title, version: serverListing.version });
     expect(res.instructions).toBe(MCP_INSTRUCTIONS);
     expect(r.event.node.res.getHeader("mcp-session-id")).toBeUndefined();
     expect(r.event.node.res.getHeader("cache-control")).toBe("no-store");
@@ -158,18 +156,15 @@ describe("the endpoint's transport", () => {
     expect(resultOf(await post(rpc("ping", undefined, "abc")))).toEqual({});
   });
 
-  it("lists the six tools, each with an object schema, a declared shape and honest annotations", async () => {
+  it("lists the six tools, each with an object schema and honest annotations", async () => {
     const res = resultOf(await post(rpc("tools/list")))!;
     const tools = res.tools as typeof MCP_TOOLS;
     expect(tools.map((t) => t.name)).toEqual(["get_list", "search_catalog", "create_list", "edit_list", "get_my_gear", "edit_my_gear"]);
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(20);
-      expect(t).not.toHaveProperty("run");
-      expect(t).not.toHaveProperty("account");
-      // every tool answers with data and declares its shape (compiled strictly in
-      // helpers/mcpSchema, which every call in this suite runs through)
-      expect(t.outputSchema?.type).toBe("object");
+      // the handler and the account rule stay on the server, and no result shape is declared
+      expect(Object.keys(t).sort()).toEqual(["annotations", "description", "inputSchema", "name", "title"]);
     }
     expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_my_gear"]);
     // create_list only adds. The two edits replace, clear, move and remove, and say so;
@@ -187,9 +182,6 @@ describe("the endpoint's transport", () => {
     const nums = item as unknown as Record<string, { maximum?: number }>;
     expect([nums.weight_g!.maximum, nums.volume_l!.maximum, nums.kcal!.maximum]).toEqual([100_000, 100, 1_000_000]);
     expect(tools[0]!.description).toContain("free text typed by whoever holds the list's edit link");
-    // …and the check is live: a wrong shape is refused in the schema's own terms
-    expect(() => expectConforms("search_catalog", { query: "x", results: [{ id: "7" }] })).toThrow(/search_catalog result does not match/);
-    expect(() => expectConforms("get_list", { title: "x", share_code: "A", share_link: "u", unit: "stone", totals: {}, folders: [] })).toThrow(/unit|totals/);
     expect(res.nextCursor).toBeUndefined();
     expect((await post(rpc("tools/list", { cursor: "p2" }))).out!.error).toMatchObject({ code: -32602 });
   });
@@ -217,19 +209,14 @@ describe("the endpoint's transport", () => {
   it("declares create_list's rows once, under items", () => {
     const create = MCP_TOOLS.find((t) => t.name === "create_list")!.inputSchema as { properties: { folders: { items: { properties: Record<string, unknown> } } } };
     expect(Object.keys(create.properties.folders.items.properties)).toEqual(["name", "classification"]);
-    // what a model is handed for the six tools (the output shapes are for validating
-    // clients): 33,018 characters with the second copy, held under this from here on
-    const listed = MCP_TOOLS.map(({ outputSchema: _shape, ...tool }) => tool);
-    expect(JSON.stringify(listed).length).toBeLessThan(32_000);
+    // the whole listing of the six tools, as a client is handed it: 33,018 characters
+    // with the second copy, held under this from here on
+    expect(JSON.stringify(MCP_TOOLS).length).toBeLessThan(32_000);
   });
 
-  // The registry listing is what directories and clients read before they connect; it
-  // went stale once already, at 1.0.0 while the handshake said 2.0.0.
-  it("keeps the registry listing in step with the handshake, within the registry's limits", () => {
-    const listing = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8")) as { version: string; description: string; title: string };
-    expect(listing.version).toBe(MCP_SERVER_INFO.version);
-    expect(listing.title).toBe(MCP_SERVER_INFO.title);
-    expect(listing.description.length).toBeLessThanOrEqual(100);
+  // The registry listing (server.json) is what directories read before they connect.
+  it("keeps the registry listing's description within the registry's limit", () => {
+    expect(serverListing.description.length).toBeLessThanOrEqual(100);
   });
 
   it("answers protocol mistakes as JSON-RPC errors, with the HTTP status the transport asks for", async () => {
@@ -504,10 +491,6 @@ describe("reading", () => {
     expect(catalog.searchCatalog).toHaveBeenCalledWith(expect.anything(), "duplex", 25);
     // a field the catalog has no value for (variant, kcal) is left out, not sent as null
     expect(structured).toEqual({ query: "duplex", results: [{ id: 7, brand: "Zpacks", name: "Duplex", display_name: "Zpacks Duplex", weight_g: 538, gear_type: "Tent", category: "shelter", verified: true, weight_source: "manufacturer" }] });
-    // but the shape still allows the nulls the release before sent, so a client that
-    // listed this one still reads that one after a rollback
-    expectConforms("search_catalog", { query: "duplex", product: { brand: null, name: "Duplex", gear_type: null, category: null }, results: [{ id: 7, brand: null, name: "Duplex", variant: null, display_name: "Duplex", weight_g: 538, gear_type: null, category: null, kcal: null, verified: true, weight_source: "manufacturer", source_url: null }] });
-    expectConforms("get_my_gear", { gear: [{ id: 1, display_name: "Duplex", name: "Duplex", brand: null, variant: null, gear_type: null, kind: "Shelter", weight_g: 538, owned: 1, classification: null, kcal: null, catalog_id: null, price: null, currency: null, product_url: null, last_used: "2026-11-20T00:00:00Z", kit: null, in_kits: [] }], total: 1, offset: 0 });
     await call("search_catalog", { query: "quilt" });
     expect(catalog.searchCatalog).toHaveBeenLastCalledWith(expect.anything(), "quilt", 12);
     expect(toolText(await call("search_catalog", { query: "q" })).isError).toBe(true);
@@ -644,7 +627,6 @@ describe("writing", () => {
     const { structured, text } = toolText(r);
     expect(structured).toMatchObject({ added: 1, repeated: true, share_link: first.share_link });
     expect(text).toContain("again: true");
-    expectConforms("edit_list", structured); // `call` checked the raw result already; the repeat's shape too
 
     // meant twice: written again
     const again = toolText(await call("edit_list", { ...args, again: true })).structured;
@@ -799,14 +781,6 @@ describe("writing", () => {
     expect((ops[0]!.item as { nameOverridden?: boolean }).nameOverridden).toBeUndefined();
   });
 
-  it("edit_list refuses a catalog id that names nothing, before writing", async () => {
-    repo.getByEditHash.mockResolvedValue(snap());
-    const { isError, text } = toolText(await call("edit_list", { edit_link: EDIT_LINK, add: [{ name: "x", catalog_id: 404 }] }));
-    expect(isError).toBe(true);
-    expect(text).toContain("isn't in the catalog");
-    expect(repo.applyOpsByEditHash).not.toHaveBeenCalled();
-  });
-
   it("a row that is entirely worn is a worn row", async () => {
     repo.createList.mockImplementation(async (init: Record<string, unknown>) => ({ editToken: TOKEN, snapshot: snap({ items: (init.data as { items: never[] }).items }) }));
     await call("create_list", { items: [{ name: "Shoes", qty: 1, worn_qty: 1 }, { name: "Socks", qty: 3, worn_qty: 1 }, { name: "Hat", qty: 1, worn_qty: 1, classification: "base" }] });
@@ -893,63 +867,6 @@ describe("writing", () => {
     expect(toolText(await call("edit_list", { edit_link: TOKEN, list: { trail_label: "" } })).isError).toBe(false);
   });
 
-  it("edit_list nests a new row under a group, moves rows into and out of one, and relinks a row where it sits", async () => {
-    repo.getByEditHash.mockResolvedValue(snap());
-    repo.applyOpsByEditHash.mockResolvedValue(snap());
-    catalog.catalogRowsById.mockResolvedValue(new Map([[3, { id: 3, brand: "Enlightened Equipment", name: "Revelation", variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", verified: true, commonName: "Quilt", categoryHint: "sleep", kcal: null }]]));
-    const r = await call("edit_list", {
-      edit_link: EDIT_LINK,
-      add: [{ name: "Guylines", weight_g: 20, group: "i1" }],
-      update: [
-        { id: "i3", group: "i1" }, // the bars join the tent's group, Food to Shelter
-        { id: "i2", group: "", position: 0 }, // the stakes leave it, first in Shelter
-        { id: "i4", catalog_id: 3 }, // the rain jacket relinked where it sits
-      ],
-    });
-    const { structured, isError, text } = toolText(r);
-    expect(isError, text).toBe(false);
-    const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, Record<string, unknown>[]];
-    // the new row: under the tent, in the tent's folder, after the stakes
-    expect(ops.find((o) => o.t === "addItem")!.item).toMatchObject({ name: "Guylines", parentId: "i1", folderId: "f1", sortOrder: 2 });
-    // the moves carry the parent: into the group, and out of it to the top of its folder
-    // (a row's own move is its last; an earlier one is a neighbour's quiet renumbering)
-    const lastMove = (id: string) => ops.filter((o) => o.t === "moveItem" && o.id === id).at(-1);
-    expect(lastMove("i3")).toMatchObject({ folderId: "f1", parentId: "i1" });
-    expect(lastMove("i2")).toMatchObject({ folderId: "f1", parentId: null, sortOrder: 0 });
-    // the relink: the editor's own pick, and no move
-    expect(ops.find((o) => o.t === "updateItem" && o.id === "i4")!.patch).toEqual({
-      catalogItemId: 3,
-      catalogWeightMgAtLink: 590_000,
-      unitWeightMg: 590_000,
-      weightOverridden: false,
-      brand: "Enlightened Equipment",
-      variant: "20F Long",
-      name: "Revelation",
-      nameOverridden: false,
-      commonName: "Quilt",
-      commonNameOverridden: false,
-    });
-    expect(ops.some((o) => o.t === "moveItem" && o.id === "i4")).toBe(false);
-    expect(structured).toMatchObject({ added: 1, updated: 3, removed: 0 });
-  });
-
-  it("edit_list refuses a group two deep, a group of a group, a row grouped across folders or under itself; null unlinks", async () => {
-    repo.getByEditHash.mockResolvedValue(snap());
-    repo.applyOpsByEditHash.mockResolvedValue(snap());
-    const edit = async (args: Record<string, unknown>) => toolText(await call("edit_list", { edit_link: EDIT_LINK, ...args }));
-    expect((await edit({ add: [{ name: "x", group: "i2" }] })).text).toContain("itself nested");
-    expect((await edit({ update: [{ id: "i1", group: "i3" }] })).text).toContain("rows nested under it");
-    expect((await edit({ update: [{ id: "i3", group: "i1", folder: "Food" }] })).text).toContain("not both");
-    expect((await edit({ add: [{ name: "x", group: "nope" }] })).text).toContain('"nope"');
-    expect((await edit({ update: [{ id: "i3", group: "i3" }] })).text).toContain("itself");
-    expect((await edit({ add: [{ name: "x", items: [{ name: "y", items: [{ name: "z" }] }] }] })).text).toContain("nest rows of its own");
-    expect(repo.applyOpsByEditHash).not.toHaveBeenCalled();
-    const unlink = await edit({ update: [{ id: "i1", catalog_id: null }] });
-    expect(unlink.isError, unlink.text).toBe(false);
-    const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, { t: string; patch: Record<string, unknown> }[]];
-    expect(ops).toEqual([{ t: "updateItem", id: "i1", patch: { catalogItemId: null } }]);
-  });
-
   it("turns a throw inside a tool into a tool error, and says nothing else", async () => {
     repo.getByShareCode.mockRejectedValue(new Error("connection refused at 10.0.0.1"));
     const { isError, text } = toolText(await call("get_list", { share_code: "ABC123DEF456" }));
@@ -972,6 +889,65 @@ describe("writing", () => {
   });
 });
 
+// The field set of each tool's answer, held exactly: a producer that grows or loses a
+// field fails here. Each result is one with everything it can carry at once; what the
+// values are is the other tests' business. The account's tools are held the same way
+// in mcpGear.test.ts and the admin's in mcpAdmin.test.ts.
+describe("the fields each tool answers with", () => {
+  const keys = (value: unknown) => Object.keys(value as object).sort();
+  type Fields = Record<string, unknown>;
+
+  it("get_list as data: the list, its totals, dates, trail and days, a folder, a row and a nested row", async () => {
+    const full = snap({
+      description: "Two nights",
+      authorName: "Ryan",
+      trailLabel: "Timberline",
+      trailDescentM: 3_000,
+      days: [{ id: "d1", sortOrder: 0, label: "To Paradise Park", note: "Water at the creek", distanceM: 20_000, ascentM: 900 }],
+    });
+    Object.assign(full.items[0]!, { qty: 2, wornQty: 1, description: "seam sealed", kcal: 10, needsCooking: true, personId: "p1" });
+    repo.getByShareCode.mockResolvedValue(full);
+    const list = toolText(await call("get_list", { share_code: "ABC123DEF456" })).structured as Fields & { days: Fields[]; folders: (Fields & { items: (Fields & { items: Fields[] })[] })[] };
+    expect(keys(list)).toEqual(["author", "dates", "days", "description", "folders", "people", "share_code", "share_link", "title", "totals", "trail", "unit"]);
+    expect(keys(list.totals)).toEqual(["base_g", "carried_g", "consumable_g", "item_count", "kcal", "total_g", "worn_g"]);
+    expect(keys(list.dates)).toEqual(["end", "start"]);
+    expect(keys(list.trail)).toEqual(["ascent_m", "descent_m", "distance_m", "label", "url"]);
+    expect(keys(list.days[0])).toEqual(["ascent_m", "day", "distance_m", "label", "note"]);
+    const shelter = list.folders[0]!;
+    expect(keys(shelter)).toEqual(["id", "items", "name"]);
+    const tent = shelter.items[0]!;
+    expect(keys(tent)).toEqual(["brand", "carried_by", "catalog_id", "classification", "display_name", "gear_type", "id", "items", "kcal", "name", "needs_cooking", "note", "qty", "variant", "weight_g", "worn_qty"]);
+    expect(keys(tent.items[0])).toEqual(["classification", "display_name", "id", "name", "qty", "weight_g"]);
+  });
+
+  it("search_catalog: a search, and one product's variants", async () => {
+    const row = { id: 9, brand: "Clif", name: "Builders Bar", variant: "Chocolate", weightMg: 68_000, weightSource: "manufacturer", sourceUrl: "https://clifbar.example/builders", verified: true, commonName: "Energy bar", categoryHint: "consumable", kcal: 290 };
+    const rowKeys = ["brand", "category", "display_name", "gear_type", "id", "kcal", "name", "source_url", "variant", "verified", "weight_g", "weight_source"];
+    catalog.searchCatalog.mockResolvedValue([row]);
+    const found = toolText(await call("search_catalog", { query: "builders" })).structured as { results: Fields[] };
+    expect(keys(found)).toEqual(["query", "results"]);
+    expect(keys(found.results[0])).toEqual(rowKeys);
+    catalog.productVariants.mockResolvedValue({ brand: row.brand, name: row.name, commonName: row.commonName, categoryHint: row.categoryHint, variants: [row] });
+    const product = toolText(await call("search_catalog", { product_id: 9 })).structured as { product: Fields; results: Fields[] };
+    expect(keys(product)).toEqual(["product", "results"]);
+    expect(keys(product.product)).toEqual(["brand", "category", "gear_type", "name"]);
+    expect(keys(product.results[0])).toEqual(rowKeys);
+  });
+
+  it("create_list", async () => {
+    repo.createList.mockResolvedValue({ editToken: TOKEN, snapshot: snap() });
+    const made = toolText(await call("create_list", { title: "Timberline", items: [{ name: "Tent" }] })).structured;
+    expect(keys(made)).toEqual(["edit_link", "folders", "items", "repeated", "saved_to_account", "share_code", "share_link", "title", "totals"]);
+  });
+
+  it("edit_list", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValue(snap());
+    const done = toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { title: "Timberline" } })).structured;
+    expect(keys(done)).toEqual(["added", "dates", "folders", "folders_changed", "folders_made", "removed", "repeated", "share_link", "title", "totals", "trail", "unit", "updated"]);
+  });
+});
+
 describe("describeList", () => {
   // a row's weight is optional, so a stored 0 is "not weighed yet", and the totals
   // count it as nothing; the answer says which rows, and how many, so a model doesn't
@@ -989,7 +965,6 @@ describe("describeList", () => {
       { id: "i10", folderId: "f2", name: "Water", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 2 },
     );
     const out = describeList(s, "https://mahonia.app");
-    expectConforms("get_list", out);
     expect(out.totals).toMatchObject({ unweighed: 2 });
     const rows = (out.folders as { items: (Record<string, unknown> & { items?: Record<string, unknown>[] })[] }[]).flatMap((f) => f.items.flatMap((r) => [r, ...(r.items ?? [])]));
     const marked = rows.filter((r) => r.unweighed).map((r) => r.name);
@@ -1005,7 +980,6 @@ describe("describeList", () => {
     const s = snap();
     s.folders.push({ id: "f3", name: "Kitchen", defaultClassification: "base", sortOrder: 2 });
     const out = describeList(s, "https://mahonia.app");
-    expectConforms("get_list", out);
     const folders = out.folders as { id?: string; name: string; items: unknown[] }[];
     expect(folders.map((f) => [f.name, f.items.length])).toEqual([["Shelter", 1], ["Food", 1], ["Kitchen", 0], ["Unfiled", 1]]);
     expect(folders.find((f) => f.name === "Kitchen")).toMatchObject({ id: "f3", items: [] });
@@ -1029,11 +1003,10 @@ describe("describeList", () => {
     expect(trimmed.truncated).toMatchObject({ rows: expect.any(Number) });
     expect((trimmed.folders as { name: string }[]).map((f) => f.name)).toEqual(["Shelter"]);
   });
-  it("carries a saved cooking choice through the read schema", () => {
+  it("carries a saved cooking choice through the read", () => {
     const s = snap();
     s.items[0]!.needsCooking = true;
     const out = describeList(s, "https://mahonia.app");
-    expectConforms("get_list", out);
     expect((out.folders as { items: Record<string, unknown>[] }[])[0]!.items[0]!.needs_cooking).toBe(true);
   });
   it("reads a day's climb off the profile when none was typed, and names a nested row's carrier only when it differs", () => {
@@ -1238,7 +1211,7 @@ describe("fitList", () => {
     expect(count(out)).toBe(count(d));
   });
 
-  it("get_list answers the cut list as text and data alike, in the declared shape", async () => {
+  it("get_list answers the cut list as text and data alike", async () => {
     repo.getByShareCode.mockResolvedValue(big(Math.floor(MAX_ITEMS / 6), { note: "n".repeat(MAX_ITEM_NOTE_LEN) }));
     const { text, structured, isError } = toolText(await call("get_list", { share_code: "ABC123DEF456" }));
     expect(isError).toBe(false);

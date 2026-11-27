@@ -74,6 +74,7 @@ type Bucket = { count: number; resetAt: number };
 export interface KvStorage {
   getItem: <T>(key: string) => Promise<T | null>;
   setItem: <T>(key: string, value: T, opts?: { ttl?: number }) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
 }
 
 /**
