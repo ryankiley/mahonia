@@ -13,7 +13,6 @@ import type { ComputedRef, Ref } from "vue";
  * readable and keeps the panel responsible for laying the answer out.
  */
 interface TrailPlanRouteController {
-  ensureRouteEnds: () => void;
   updateDay: (id: string, patch: DayPatch) => void;
 }
 
@@ -94,15 +93,6 @@ export function useTrailPlanRoute({ snapshot, stored, days, controller }: TrailP
       a === "rest" ? !hasRest.value : !(dayDistancesM.value[a]! > 0) || (days.value[a]?.id ?? null) !== armedDayId;
     if (gone) arming.value = null;
   });
-
-  // Routes written before end pins existed gain them once, when their geometry arrives.
-  watch(
-    () => snapshot.value.routeGeometry,
-    (geometry) => {
-      if (geometry) controller.ensureRouteEnds();
-    },
-    { immediate: true },
-  );
 
   const armedRange = computed(() => {
     if (arming.value === null) return null;

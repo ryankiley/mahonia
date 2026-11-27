@@ -222,6 +222,15 @@ describe("fitRoute — the track", () => {
     expect(fitRoute(file).points[0]!.ele).toBe(1800);
   });
 
+  // A position is semicircles in a sint32. A number read out of any other base type would
+  // be scaled as if it were semicircles, and 45° as a float comes out a few metres from
+  // 0°, 0°: a point, in the wrong ocean.
+  it("has no position for a record that declares its position in another base type", () => {
+    const floats: Field[] = [{ num: 0, base: "float32" }, { num: 1, base: "float32" }, { num: 2, base: "uint16" }];
+    const file = fitFile([definition(0, 20, floats), data(0, floats, [45.33, -121.71, alt16(1800)])]);
+    expect(fitRoute(file).points).toEqual([]);
+  });
+
   it("reads a 12-byte header, the older form with no header CRC", () => {
     const file = fitFile([definition(0, 20, RECORD_FIELDS), ...HOOD.map(([la, lo, e], i) => record(la, lo, e, 1000 + i))], { headerSize: 12 });
     closeTo(fitRoute(file).points, HOOD);

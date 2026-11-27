@@ -55,15 +55,13 @@ const props = defineProps<{
    */
   traceM?: number | null;
   /**
-   * Where the walk ENDS, when the itinerary actually reaches the end of the route — the
-   * same derived fact the last day's row carries (see finishOf in TrailPlanPanel), not a
-   * stored pin.
+   * Where the walk ENDS, when the itinerary reaches the end of the route and no end pin
+   * is standing there — the same derived fact the last day's row carries (dayEnds in
+   * shared/tripPlan), not a stored pin. Null whenever the end pin marks the spot itself.
    *
-   * Drawn here rather than seeded as a waypoint because on a LOOP the finish is the
-   * trailhead: one coordinate, and two stored pins on it would be two markers stacked on
-   * the same spot. Painted after the pins, so in that case the chequered flag simply sits
-   * over the plain one and the reader sees the one mark that is true of that place — it is
-   * where you start AND where you stop.
+   * So the flag this draws is for a route whose end pin was moved somewhere else. On a
+   * LOOP it draws nothing: the finish is the trailhead, one coordinate, and the pin
+   * already there is the one mark that place needs (see renderFinish).
    */
   finishM?: number | null;
 }>();
@@ -943,6 +941,15 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
     if (e.key === "Enter") map?.closePopup();
   });
 
+  root.append(head, input);
+  // The route's own trailhead and finish have no Remove, as their rows have none
+  // (WaypointRow's `removable`, the same rule): they come with the route and only a new
+  // route seeds them again, so a removed end would be gone for good. A SPARE one can go,
+  // which is how a list that was copied into two of each gets back to one. They still
+  // move, by the hold every pin answers to.
+  const isRouteEnd = w.kind === "trailhead" || w.kind === "end";
+  if (isRouteEnd && (props.waypoints ?? []).filter((p) => p.kind === w.kind).length < 2) return root;
+
   const del = document.createElement("button");
   del.type = "button";
   del.className = "routemap__wpdel";
@@ -951,8 +958,7 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
     map?.closePopup();
     emit("remove", w.id);
   });
-
-  root.append(head, input, del);
+  root.append(del);
   return root;
 }
 
@@ -1033,7 +1039,7 @@ async function draw() {
 
   renderLegs();
   renderPins();
-  // AFTER the pins — on a loop it paints over the trailhead it shares a spot with
+  // AFTER the pins, so a pin standing on the route's last metre can't cover the flag
   renderFinish();
   // in case the pointer was already on the chart while the map was still loading
   renderTrace();
@@ -1084,8 +1090,8 @@ onMounted(draw);
 // that belongs to the person looking at it.
 watch(() => props.traceM, renderTrace);
 watch(() => props.finishM, renderFinish);
-// The finish redraws with them, so it stays on top of a trailhead it may be sharing a spot
-// with — a re-added pin would otherwise paint over it.
+// The finish redraws with them: whether it draws at all is read off the pins (a loop has
+// a trailhead and no end), and redrawn after them it stays on top of any pin at its spot.
 //
 // Keyed on what a MARKER is made of — id, kind, position — and not on the array, nor
 // deeply on its objects. The reducer edits a waypoint in place (ops.ts's updateWaypoint

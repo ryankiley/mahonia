@@ -4,9 +4,12 @@
 // affected adjacent days.
 import { computed, nextTick, ref } from "vue";
 import { describe, expect, it, vi } from "vitest";
+import { createEdits } from "~/composables/useGearListEdits";
 import { useTrailPlanRoute } from "~/composables/useTrailPlanRoute";
+import { cloneListData } from "~~/shared/clone";
 import { applyOps, type DayPatch } from "~~/shared/ops";
-import type { ListSnapshot, TripDay } from "~~/shared/types";
+import { encodePolyline } from "~~/shared/polyline";
+import { pickListMeta, type ListSnapshot, type TripDay } from "~~/shared/types";
 import { snapshotFor } from "./helpers/list";
 
 function snapshot(): ListSnapshot {
@@ -27,7 +30,7 @@ function snapshot(): ListSnapshot {
 function open(days: TripDay[]) {
   const live = ref({ ...snapshot(), days });
   const stored = computed(() => live.value.days);
-  const controller = { ensureRouteEnds: vi.fn(), updateDay: vi.fn<(id: string, patch: DayPatch) => void>() };
+  const controller = { updateDay: vi.fn<(id: string, patch: DayPatch) => void>() };
   const plan = useTrailPlanRoute({
     snapshot: live,
     stored,
@@ -127,9 +130,35 @@ describe("useTrailPlanRoute", () => {
     expect(controller.updateDay).toHaveBeenNthCalledWith(2, "d2", { distanceM: 1_750 });
   });
 
-  it("seeds route ends when geometry is present", () => {
-    const { controller } = open([]);
-    expect(controller.ensureRouteEnds).toHaveBeenCalledTimes(1);
+  // A copy's pins arrive with fresh ids, its route's two ends among them, and the plan
+  // opens on the list as it is stored. Driven through the editor's own edits and the
+  // reducer, so anything the plan dispatches on opening lands in the list it shows.
+  it("opens a duplicated route with the one trailhead and the one finish it was copied with", () => {
+    const source = applyOps(snapshotFor(), [
+      {
+        t: "setMeta",
+        patch: {
+          routeGeometry: encodePolyline([
+            { lat: 45.33, lon: -121.71 },
+            { lat: 45.36, lon: -121.68 },
+            { lat: 45.4, lon: -121.6 },
+          ]),
+        },
+      },
+      { t: "addWaypoint", waypoint: { id: "spring", kind: "water", alongM: 1_500 } },
+    ]);
+    const live = ref<ListSnapshot>({ ...snapshotFor(), ...pickListMeta(source), ...cloneListData(source) });
+    const stored = computed(() => live.value.days ?? []);
+    const controller = createEdits({
+      snapshot: live,
+      dispatch: (op) => void applyOps(live.value, [op]),
+      offerUndo: () => {},
+      pendingBlankId: ref(null),
+    });
+
+    const plan = useTrailPlanRoute({ snapshot: live, stored, days: stored, controller });
+
+    expect(plan.waypoints.value.map((waypoint) => waypoint.kind)).toEqual(["trailhead", "water", "end"]);
   });
 
   it("preserves the itinerary length when each boundary update applies synchronously", () => {

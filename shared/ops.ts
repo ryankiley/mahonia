@@ -504,21 +504,20 @@ function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
 }
 
 /**
- * The two ids seedRouteEnds hands out, in route order: start, then finish.
- *
- * Exported because they are an IDENTITY and not an implementation detail — anything that
- * has to recognise the route's own ends among a list of pins (ensureRouteEnds, the JSON
- * importer) matches on these, so they cannot be spelled out twice and drift apart.
+ * The two ids seedRouteEnds hands out, in route order: start, then finish. Nothing reads
+ * a pin as a route end by these: a copy or a restored backup re-mints them like any other
+ * id, and a route end is recognised by its kind.
  */
-export const ROUTE_END_IDS = ["wp-start", "wp-end"] as const;
+const ROUTE_END_IDS = ["wp-start", "wp-end"] as const;
 
 /**
  * The pins a route arrives with: where it starts, and where it finishes.
  *
  * A track's first and last points ARE these, so nobody should have to drop them by hand —
- * they appear with the route. They are ordinary waypoints afterwards, movable and
- * deletable, because a trailhead is often not where the track starts: you parked somewhere
- * else, or the recording begins mid-approach.
+ * they appear with the route, and this is the only place that makes them. They stay
+ * movable afterwards, because a trailhead is often not where the track starts: you parked
+ * somewhere else, or the recording begins mid-approach. Neither the plan nor the map
+ * offers to remove one, since only a new route would bring it back.
  *
  * FIXED IDS, and that is not laziness. This reducer runs on the client and again on the
  * server, and both must produce the same list — a generated id would give the same pin two

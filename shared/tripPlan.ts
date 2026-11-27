@@ -53,16 +53,12 @@
 // Outside that we are extrapolating, which is the caller's problem to disclose.
 
 /**
- * Terrain multipliers on the energy cost. Only the first two are from the source
- * (asphalt 1.0, grass 1.08, measured at 1.3–1.6 m/s); the rougher ones are the
- * conventional load-carriage figures and are cited as such rather than as measured.
+ * The terrain multiplier on the energy cost. Every walk here is costed as a trail, at
+ * the source's figure for grass: it measured asphalt at 1.0 and grass at 1.08, at
+ * 1.3–1.6 m/s. Exported so a check against figures published for a paved surface can
+ * take it back out.
  */
-const TERRAIN_FACTORS = {
-  paved: 1.0,
-  trail: 1.08,
-  rough: 1.2,
-} as const;
-export type Terrain = keyof typeof TERRAIN_FACTORS;
+export const TRAIL_FACTOR = 1.08;
 
 // Tobler's hiking function: v = 6·exp(−3.5·|slope + 0.05|) km/h, slope as rise/run.
 // 5 km/h on the flat, peaking at 6 km/h on a gentle −5% grade — the small downhill that
@@ -122,11 +118,10 @@ export function walkingVo2(opts: {
   gradePct: number;
   bodyKg: number;
   loadKg?: number;
-  terrain?: Terrain;
 }): number {
   const { speedMs, gradePct, bodyKg } = opts;
   const loadKg = Math.max(0, opts.loadKg ?? 0);
-  const wt = TERRAIN_FACTORS[opts.terrain ?? "trail"];
+  const wt = TRAIL_FACTOR;
   if (!(bodyKg > 0) || !(speedMs > 0)) return 0;
 
   const gravitational = (bodyKg + loadKg) / bodyKg;

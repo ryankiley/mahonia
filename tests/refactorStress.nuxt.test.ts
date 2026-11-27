@@ -138,7 +138,6 @@ describe("extracted models under sustained edits", () => {
     snapshot.value.waypoints = Array.from({ length: MAX_WAYPOINTS }, (_, i) => ({ id: `w${i}`, kind: "water", alongM: i * 500 }));
     const days = computed(() => snapshot.value.days!);
     const plan = scope.run(() => useTrailPlanRoute({ snapshot, stored: days, days, controller: {
-      ensureRouteEnds: vi.fn(),
       updateDay: (id, patch) => { applyOps(snapshot.value, [{ t: "updateDay", id, patch }]); },
     } }))!;
     const geometry = useRouteMapGeometry({ geometry: computed(() => snapshot.value.routeGeometry!), dayDistancesM: plan.dayDistancesM });

@@ -200,13 +200,10 @@ export function useGpxImport(c: GpxTarget) {
         trailDescentM: stats.descentM,
       });
       // The ends come with the route, and NOTHING HERE PLACES THEM. The reducer's setMeta
-      // reseeds them from the geometry whenever it changes (see seedRouteEnds), with fixed
-      // ids, which is what makes a repeat import idempotent. This used to add them a
-      // second time straight after the setMeta above; because addWaypoint mints a fresh id
-      // and the reducer dedupes on id alone, that produced two trailheads and two finishes
-      // stacked on the same two metres — in the plan's list and on the map — and another
-      // pair on every re-import of the same file. If a call is ever needed here again it is
-      // c.ensureRouteEnds(), which dedupes on those fixed ids.
+      // reseeds them from the geometry whenever it changes (see seedRouteEnds), and it is
+      // the only thing that does: an addWaypoint here would mint a second trailhead and a
+      // second finish on the same two metres, in the plan's list and on the map, and
+      // another pair on every re-import of the same file.
       // Everything else the file offered is an OFFER. A track can carry thousands of pins;
       // fifty is not glanceable and undoing them is fifty taps, so it waits for a yes.
       // Offered only as many as the list can still hold — after the ends the setMeta

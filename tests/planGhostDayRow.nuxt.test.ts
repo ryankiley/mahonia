@@ -11,15 +11,23 @@ import TrailPlanPanel from "~/components/TrailPlanPanel.vue";
 import type { ListSnapshot, TripDay } from "~~/shared/types";
 import { blankList } from "./helpers/list";
 
-// the controller's two verbs a day's field calls, applied to the mounted panel's list
-// the way the editor's are: the snapshot the panel is handed is replaced
+// The controller's two verbs a day's field calls. As in the editor, an edit has applied
+// by the time its verb returns, and addDay hands back the id it minted, so a second verb
+// in the same handler works on the first one's result. The panel is then handed the list.
 let wrapper: VueWrapper;
-const days = () => [...((wrapper.props() as { snapshot: ListSnapshot }).snapshot.days ?? [])];
-const setDays = (next: TripDay[]) =>
-  wrapper.setProps({ snapshot: { ...(wrapper.props() as { snapshot: ListSnapshot }).snapshot, days: next } });
+let stored: TripDay[] = [];
+const days = () => [...stored];
+const setDays = (next: TripDay[]) => {
+  stored = next;
+  return wrapper.setProps({ snapshot: { ...(wrapper.props() as { snapshot: ListSnapshot }).snapshot, days: next } });
+};
 let made = 0;
 const controller = {
-  addDay: vi.fn(() => void setDays([...days(), { id: `new${++made}`, sortOrder: days().length }])),
+  addDay: vi.fn(() => {
+    const id = `new${++made}`;
+    void setDays([...days(), { id, sortOrder: days().length }]);
+    return id;
+  }),
   updateDay: vi.fn((id: string, patch: Partial<TripDay>) =>
     void setDays(days().map((d) => (d.id === id ? ({ ...d, ...patch } as TripDay) : d))),
   ),
@@ -34,13 +42,10 @@ afterEach(() => {
 
 /** three days by the calendar, the first of them stored */
 function mountPlan() {
+  stored = [{ id: "d1", sortOrder: 0, distanceM: 8000 }];
   wrapper = mount(TrailPlanPanel, {
     props: {
-      snapshot: blankList({
-        startDate: "2026-07-01",
-        endDate: "2026-07-03",
-        days: [{ id: "d1", sortOrder: 0, distanceM: 8000 }],
-      }),
+      snapshot: blankList({ startDate: "2026-07-01", endDate: "2026-07-03", days: stored }),
       personFilter: null,
     },
     attachTo: document.body,

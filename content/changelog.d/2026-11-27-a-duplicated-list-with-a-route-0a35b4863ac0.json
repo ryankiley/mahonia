@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "The map no longer offers Remove on a route's only trailhead or finish."
+  ],
+  "fixed": [
+    "A duplicated list with a route no longer shows two trailheads and two finishes."
+  ]
+}
