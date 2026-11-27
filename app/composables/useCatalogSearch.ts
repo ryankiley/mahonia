@@ -27,6 +27,11 @@ export interface NameCommit extends VaultPick {
   // so the handler marks them overridden instead of letting the catalog's
   // live-resolve keep them "fresh". See ItemRow's onNameCommit.
   fromVault?: boolean;
+  // A size the catalog doesn't list, typed onto a catalog product (ItemInput's version
+  // step). The same authority as a vault row's, for the opposite reason: no catalog row
+  // is this size, so the brand, model, size and gear type are the person's own, with no
+  // link and no weight until they type one.
+  own?: boolean;
 }
 
 // The cache module's ONE load, shared by every instance. This composable is
@@ -60,7 +65,9 @@ export function useCatalogSearch() {
   return useDebouncedSearch<CatalogResult>(
     async (q, signal) => {
       const res = await $fetch<{ results: CatalogResult[] }>("/api/catalog/search", {
-        query: { q },
+        // whole products: each match with every version it is sold in, together
+        // (rankProducts), which is what the menu's version step lists
+        query: { q, by: "product" },
         signal,
       });
       return res.results || [];

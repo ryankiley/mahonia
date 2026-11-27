@@ -14,7 +14,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { ref, type Ref } from "vue";
+import { nextTick, ref, type Ref } from "vue";
 import ItemName from "~/components/ItemName.vue";
 import ReadonlyItemRow, { READ_ROWS } from "~/components/ReadonlyItemRow.vue";
 import { useEditorMode } from "~/composables/useEditorMode";
@@ -234,6 +234,31 @@ describe("the editor's row", () => {
       unitWeightMg: 560_000,
       weightOverridden: true,
     });
+  });
+
+  // A size the catalog doesn't list, typed in the menu's version step (ItemInput's
+  // selectOther): the product's brand, model and gear type with the person's size, and
+  // nothing of the catalog's behind it, replacing whatever the row was.
+  it("takes a size of the person's own on a catalog product: no link, no cited weight, the weight next", async () => {
+    const w = mountRow(longQuilt({ entryUnit: "oz" }));
+    w.findComponent({ name: "ItemInput" }).vm.$emit("commit", {
+      name: "Ghost Whisperer Hoody",
+      brand: "Mountain Hardwear",
+      variant: "Large",
+      commonName: "Down jacket",
+      own: true,
+    });
+    await nextTick();
+    const row = snapshot.value.items[0]!;
+    expect(row).toMatchObject({ name: "Ghost Whisperer Hoody", brand: "Mountain Hardwear", variant: "Large", commonName: "Down jacket", nameOverridden: true });
+    // the quilt's link went with the quilt: no row is this size, so nothing is cited
+    expect(row.catalogItemId).toBeUndefined();
+    expect(row.catalogWeightMgAtLink).toBeUndefined();
+    // and not the quilt's 560 g: nobody has weighed this one yet
+    expect(row.unitWeightMg).toBe(0);
+    expect(row.entryUnit).toBeUndefined();
+    await nextTick();
+    expect(document.activeElement).toBe(w.find(".item__weight .field").element);
   });
 
   it("keeps the link when the same size is typed again", async () => {

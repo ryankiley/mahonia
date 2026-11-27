@@ -469,8 +469,9 @@ function onAdvance() {
 }
 function onNameCommit(p: NameCommit) {
   const patch: ItemPatch = { name: p.name };
-  if (p.fromVault) {
-    // Pulled from your own vault. It may carry a catalog link (it does when the
+  if (p.fromVault || p.own) {
+    // Pulled from your own vault (or a size of your own on a catalog product, which
+    // lands the same way: see NameCommit.own). It may carry a catalog link (it does when the
     // gear first arrived as a catalog pick), and that link is kept for provenance
     // — but every VALUE here is yours, not the catalog's, so each is marked
     // overridden. Without that, live-resolve would quietly rewrite your measured
@@ -486,6 +487,14 @@ function onNameCommit(p: NameCommit) {
     if (props.item.commonNameOverridden) {
       delete patch.commonName;
       delete patch.commonNameOverridden;
+    }
+    // A size of your own has no weight anyone has cited, and the one the row held belongs
+    // to what it was before (another product, or another size of this one): left in
+    // place, a quilt's 560 g would sit on the jacket that replaced it. Not weighed yet
+    // is 0, the state the weight field asks to fill (focus goes there, below).
+    if (p.own) {
+      patch.unitWeightMg = 0;
+      patch.entryUnit = null;
     }
     // catalogWeightMgAtLink is deliberately NOT set: it's the baseline for the
     // "the catalog's weight changed" nudge, and your own weight is not that
@@ -567,6 +576,9 @@ function onNameCommit(p: NameCommit) {
     delete patch.entryUnit; // set only alongside a weight in the branches above
   }
   c.updateItem(props.item.id, patch);
+  // a size of your own has no weight yet, and it is the one thing the row still needs
+  if (p.own && !isParent.value)
+    nextTick(() => wrapRef.value?.querySelector<HTMLInputElement>(".item__weight .field")?.focus());
 }
 
 // the sub-line: the gear type (common name) and the note. Each shows as an editable

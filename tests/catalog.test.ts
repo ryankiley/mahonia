@@ -23,7 +23,9 @@ import {
   isTrustedSource,
   proposeCorrection,
   recentChanges,
+  searchCatalog,
 } from "../server/utils/catalog";
+import { rankProducts } from "../shared/catalogSearch";
 import { undoCatalogEdit } from "../server/utils/catalogVerify";
 
 // A fresh in-memory catalog DB (PGlite, no disk) with the catalog DDL applied.
@@ -437,5 +439,29 @@ describe("activeCatalogRows — the import matcher's pool", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ brand: "MSR", name: "PocketRocket 2 Stove", weightMg: 73_000, variant: null, kcal: null });
     expect(typeof rows[0]!.weightMg).toBe("number");
+  });
+});
+
+describe("searchCatalog — cut by row, or by product on request", () => {
+  it("answers a product query with twelve rows by default, and with the whole product when asked", async () => {
+    const db = await freshCatalogDb();
+    await db.insert(schema.catalogItems).values(
+      Array.from({ length: 16 }, (_, i) => ({
+        brand: "El Coyote",
+        name: "AlphaLite 900 Quilt",
+        variant: `Size ${i + 1}`,
+        weightMg: 500_000 + i,
+        weightSource: "manufacturer",
+        verified: true,
+      })),
+    );
+    await db.insert(schema.catalogItems).values({ brand: "El Coyote", name: "AlphaLite Hood", weightMg: 60_000, weightSource: "manufacturer", verified: true });
+    // by row: what the connector and the candidate dedup read, capped at the limit
+    expect(await searchCatalog(db, "alphalite")).toHaveLength(12);
+    // by product: both products, the quilt with all sixteen of its versions together
+    const whole = await searchCatalog(db, "alphalite", undefined, rankProducts);
+    expect(whole).toHaveLength(17);
+    expect(whole.filter((r) => r.name === "AlphaLite 900 Quilt")).toHaveLength(16);
+    expect(new Set(whole.slice(0, 16).map((r) => r.name)).size).toBe(1);
   });
 });

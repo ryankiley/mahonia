@@ -9,6 +9,7 @@ import { foldKeepingPlus, highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys } from "~~/shared/catalogMatch";
+import { compareVersions, fitOf, groupProducts, leftoverWords, beginsVersion, narrowVersions, nearestVersion, type CatalogProduct } from "~~/shared/catalogProducts";
 import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
 import { formatVolume, isWaterName, waterMenu, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
@@ -144,6 +145,20 @@ function setDraftQuiet(v: string) {
 watch(draft, (v) => emit("draft", v));
 watch(draft, (v) => {
   if (suppressOpen || !props.suggest) return; // no suggestions asked for → no request
+  if (sizing.value) {
+    if (onProduct(v)) {
+      // still on the product: what follows its name narrows its versions, with no request,
+      // unless it fits none of them, when it may be the rest of a longer name ("Durston
+      // X-Mid 2 Solid" is a product of its own): then the catalog is asked too, and what it
+      // finds that begins with the whole text is offered above the typed size
+      open.value = true;
+      if (!narrowVersions(shown.value, v.slice(sizingName.value.length)).length) search(v);
+      nextTick(pointAtVersion);
+      return;
+    }
+    // typed back into the name, or on past it into another one: it is a search again
+    sizing.value = null;
+  }
   search(v);
   if (props.sources !== "catalog") vaultSearch(v);
   active.value = -1;
@@ -211,8 +226,105 @@ const waterSuggestion = computed<WaterSug | null>(() => {
 // catalog. Vault rows sit above the catalog because gear you already own is the
 // more likely answer when the two match — and because it's the whole point of
 // keeping a vault.
-type AcOption = { water: WaterSug } | { vault: VaultEntry } | { result: CatalogResult };
+type AcOption =
+  | { water: WaterSug }
+  | { vault: VaultEntry }
+  | { result: CatalogResult }
+  // a product sold in several versions: picking it opens them (the version step)
+  | { product: CatalogProduct<CatalogResult> }
+  // the version step's last word: the typed size, as a size of the person's own
+  | { other: string };
 const NO_OPTIONS: AcOption[] = [];
+
+// THE VERSION STEP. The catalog holds a row per size or version, and a menu of rows gave
+// a product sold in sixteen sizes sixteen lines (and lost four to the result cap), and
+// scattered seven jackets' Men's and Women's rows among each other. So the menu names a
+// PRODUCT once, and picking one that comes in versions doesn't commit: it stays in this
+// field, on that product, and the menu lists the versions, the likely one lit.
+//
+// There is no second control and no mode to leave. The field holds the product's name,
+// and while it still begins with it, whatever follows narrows the versions ("20 reg w"
+// leaves one of sixteen); deleting back into the name is a search again. Focus never
+// leaves the input, so nothing about committing on blur changes.
+const sizing = ref<CatalogProduct<CatalogResult> | null>(null);
+/** Its versions in the order the step lists them: reading order (10F before 20F, Regular
+ *  beside Regular Wide). `sizing.rows` keeps the search's order, most picked first. */
+const shown = ref<CatalogResult[]>([]);
+const nameOfProduct = (r: { brand: string | null; name: string }) => tidyText(itemDisplayName(r.brand, r.name));
+const sizingName = computed(() => (sizing.value ? nameOfProduct(sizing.value.rows[0]!) : ""));
+/** Is this text still on the product being sized: its name, then nothing or a space and
+ *  words? A letter or a "+" straight after the name is a longer name ("Durston X-Mid Pro
+ *  2+" is not a version of the Pro 2), and so is a "+" opening the words: the search fold
+ *  drops the mark, so as words it would narrow nothing and look like no words at all. */
+function onProduct(text: string): boolean {
+  const name = sizingName.value;
+  if (!text.startsWith(name)) return false;
+  const rest = text.slice(name.length);
+  return rest === "" || (rest.startsWith(" ") && !rest.trimStart().startsWith("+"));
+}
+/** What has been typed after the product's name: the words that narrow its versions. */
+const sizingText = computed(() => (sizing.value ? tidyText(draft.value.slice(sizingName.value.length)) : ""));
+const versionRows = computed(() => (sizing.value ? narrowVersions(shown.value, sizingText.value) : []));
+/** A version as its row reads: its size, or for the one row with none (the plain model
+ *  beside its "Active Noise Cancellation"), the model itself. */
+const versionLabel = (r: CatalogResult) => tidyText(r.variant || nameAfterBrand(r.brand, r.name));
+
+// WHICH VERSION IS LIT. With nothing typed: the fit last picked on this device, where two
+// versions state one (the Men's / Women's pair is most of what comes in versions), else
+// the one most people pick, which is the first the search sent. Once words narrow the
+// rows it is the one they most nearly say, or the typed size itself when nothing fits.
+const FIT_KEY = "gear.fit.v1";
+function rememberedFit(): string | null {
+  try {
+    return localStorage.getItem(FIT_KEY);
+  } catch {
+    return null; // private mode, blocked storage: no memory, no harm
+  }
+}
+function pointAtVersion() {
+  const p = sizing.value;
+  if (!p) return;
+  // words typed: the version they most nearly say ("Regular" over "Regular Wide"); with
+  // none fitting, a product whose name the words complete (they more likely meant the
+  // groundsheet than a tent in size "Groundsheet"), else the typed size itself
+  let at = versionRows.value.length
+    ? nearestVersion(versionRows.value)
+    : Math.max(0, options.value.findIndex((o) => !("other" in o)));
+  if (!sizingText.value) {
+    const fit = rememberedFit();
+    const mine = fit ? versionRows.value.findIndex((r) => fitOf(r.variant) === fit) : -1;
+    at = mine >= 0 ? mine : Math.max(0, versionRows.value.indexOf(p.rows[0]!));
+  }
+  active.value = options.value.length ? at : -1;
+  scrollActiveIntoView();
+}
+function enterSizing(p: CatalogProduct<CatalogResult>, typed = "") {
+  sizing.value = p;
+  shown.value = [...p.rows].sort(compareVersions);
+  // a size typed along with the name ("ghost whisperer hoody women") carries over as the
+  // first narrowing, when it fits a version; words that fit none were just a loose search
+  const said = leftoverWords(typed, p.rows[0]!);
+  const carried = said && narrowVersions(shown.value, said).length ? said : "";
+  setDraftQuiet(`${nameOfProduct(p.rows[0]!)} ${carried}`);
+  open.value = true;
+  nextTick(pointAtVersion);
+}
+
+// Other products whose name begins with everything in the field: what words that fit
+// no version may be, the rest of a longer name. From the catalog's answer to the whole
+// text (the watcher asks for it), each drawn as the main menu draws a product.
+/** One of the sized product's own versions, as opposed to the typed size or a product
+ *  of its own that a longer name found. */
+const isVersionRow = (o: AcOption) => !!sizing.value && "result" in o && sizing.value.rows.includes(o.result);
+const longerNames = computed<AcOption[]>(() => {
+  const p = sizing.value;
+  if (!p) return [];
+  const typed = foldKeepingPlus(draft.value);
+  return groupProducts(results.value)
+    .filter((o) => o.key !== p.key && foldKeepingPlus(nameOfProduct(o.rows[0]!)).startsWith(typed))
+    .map((o) => (o.rows.length === 1 ? { result: o.rows[0]! } : { product: o }));
+});
+
 const options = computed<AcOption[]>(() => {
   // Suggestions off means NO suggestions, not "no menu". Gating only the render left the
   // one option that needs no network — the water/volume reading of the draft — still in
@@ -222,6 +334,17 @@ const options = computed<AcOption[]>(() => {
   // (waterSuggestion's regexes + a Set + two arrays) on a field that can render none of it.
   if (!props.suggest) return NO_OPTIONS;
   const opts: AcOption[] = [];
+  // on a product: its versions and nothing else, then the typed size as one of its own
+  // (unless it is one of them being typed: "wom" is the Women's, not a new size)
+  if (sizing.value) {
+    for (const r of versionRows.value) opts.push({ result: r });
+    const typed = sizingText.value;
+    if (typed && !versionRows.value.some((r) => beginsVersion(typed, r.variant))) opts.push({ other: typed });
+    // other products, below the product's own rows and apart from them (sectionAt): a
+    // groundsheet is not a size of the tent it is named for
+    if (typed && !versionRows.value.length) opts.push(...longerNames.value);
+    return opts;
+  }
   if (waterSuggestion.value) opts.push({ water: waterSuggestion.value });
   // A vault row that came from a catalog pick keeps its catalog id, so the same
   // product would otherwise appear twice — once as yours (with your weight) and
@@ -229,7 +352,13 @@ const options = computed<AcOption[]>(() => {
   // dropped.
   const mine = new Set(vaultResults.value.map((v) => v.catalogItemId).filter((id) => id != null));
   for (const v of vaultResults.value) opts.push({ vault: v });
-  for (const r of results.value) if (!mine.has(r.id)) opts.push({ result: r });
+  // one row per PRODUCT: a product left with a single version is that version's row, as
+  // it always was; one with several is a product row, and its versions are the next step
+  for (const p of groupProducts(results.value)) {
+    const rows = p.rows.filter((r) => !mine.has(r.id));
+    if (rows.length === 1) opts.push({ result: rows[0]! });
+    else if (rows.length) opts.push({ product: { key: p.key, rows } });
+  }
   return opts;
 });
 
@@ -248,11 +377,18 @@ const options = computed<AcOption[]>(() => {
 // aria-activedescendant are all untouched.
 const sectionAt = computed<Map<number, string>>(() => {
   const map = new Map<number, string>();
+  // the version step: the first row that is neither a version nor the typed size starts
+  // the other products a longer name found (longerNames)
+  if (sizing.value) {
+    const at = options.value.findIndex((o) => !isVersionRow(o) && !("other" in o));
+    if (at >= 0) map.set(at, "Other products");
+    return map;
+  }
   let vaultAt = -1;
   let catalogAt = -1;
   options.value.forEach((o, i) => {
     if (vaultAt < 0 && "vault" in o) vaultAt = i;
-    if (catalogAt < 0 && "result" in o) catalogAt = i;
+    if (catalogAt < 0 && ("result" in o || "product" in o)) catalogAt = i;
   });
   if (vaultAt < 0 || catalogAt < 0) return map;
   map.set(vaultAt, "My Gear");
@@ -260,54 +396,31 @@ const sectionAt = computed<Map<number, string>>(() => {
   return map;
 });
 
-// ONE PRODUCT IN SEVERAL SIZES is named once, and each of its rows leads with the size.
-//
-// A product's name typed in full ("alphalite") answers with every size it is sold in —
-// the ranker gives a product query all of them, and hundreds of products have sizes —
-// and those rows differ ONLY in the variant. Laid out as ordinary rows, the variant is
-// the part that yields first under width pressure (it is secondary on a mixed menu, where
-// the model is what tells two rows apart), so on a phone eight rows all read "El Coy…
-// AlphaLite 900 Qu… · 10F, …" and the one thing you are choosing between was the one
-// thing cut. Truncate where items differ: here they differ at the end.
-//
-// So a RUN of two or more consecutive catalog rows with the same brand + model, each with
-// a variant, gets the product as a heading over it, and its rows show the variant (and the
-// weight) with the whole width to themselves. Consecutive only: the ranker's order is the
-// menu's order and arrow keys walk it, so nothing is regrouped — a size ranked apart from
-// its siblings simply reads as a full row. Same index→heading idea as sectionAt, so
-// `options` stays flat and keyboard nav, option ids and aria-activedescendant don't move.
+// THE VERSION STEP'S HEADING: the product named once, over its versions, each of which
+// leads with its size and has the row's width to itself. A product's rows differ only in
+// the variant, the part that yields first under width pressure on a mixed menu, so on a
+// phone eight rows all read "El Coy… AlphaLite 900 Qu… · 10F, …" and the one thing being
+// chosen between was the one thing cut. Truncate where items differ: here, at the end.
 // The heading is presentation only; each row still carries the product's full name for
 // assistive tech (a visually-hidden prefix), so no option's accessible name is the size
 // alone.
-const sizeRuns = computed(() => {
-  const heads = new Map<number, CatalogResult>();
-  const members = new Set<number>();
-  const opts = options.value;
-  const productKey = (o: AcOption | undefined) =>
-    o && "result" in o && o.result.variant ? `${foldKeepingPlus(o.result.brand ?? "")}|${foldKeepingPlus(o.result.name)}` : null;
-  for (let i = 0; i < opts.length; ) {
-    const key = productKey(opts[i]);
-    let end = i + 1;
-    if (key) while (end < opts.length && productKey(opts[end]) === key) end++;
-    if (key && end - i >= 2) {
-      heads.set(i, (opts[i] as { result: CatalogResult }).result);
-      for (let m = i; m < end; m++) members.add(m);
-    }
-    i = end;
-  }
-  return { heads, members };
-});
 // What the template walks: each option with its index and whatever heads it. `named`
-// is the piece of gear behind a My Gear or catalog row (null for the water row): the
-// two draw their brand, model and variant the same way, from this one handle.
+// is the piece of gear behind a row (null for the water row and the typed size): My
+// Gear, the catalog and a product draw their brand and model the same way, from this
+// one handle.
 const rows = computed(() =>
   options.value.map((opt, i) => ({
     opt,
     i,
     section: sectionAt.value.get(i),
-    product: sizeRuns.value.heads.get(i),
-    sized: sizeRuns.value.members.has(i),
-    named: "water" in opt ? null : "vault" in opt ? opt.vault : opt.result,
+    product: sizing.value && i === 0 ? sizing.value.rows[0] : undefined,
+    // only the product's own versions lead with their size under its heading; another
+    // product found by a longer name is a whole row of its own
+    sized: isVersionRow(opt),
+    // the piece of gear behind a My Gear, catalog or product row; a product row names
+    // the product alone, so it carries no variant
+    named:
+      "vault" in opt ? opt.vault : "result" in opt ? opt.result : "product" in opt ? { ...opt.product.rows[0]!, variant: null } : null,
   })),
 );
 
@@ -389,6 +502,7 @@ function scrollActiveIntoView() {
 function close() {
   clear();
   vaultClear();
+  sizing.value = null;
   open.value = false;
   active.value = -1;
 }
@@ -417,6 +531,15 @@ function selectResult(r: CatalogResult) {
   });
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});
+  // the fit this pick states is the one the next Men's / Women's pair opens on
+  const fit = fitOf(r.variant);
+  if (fit) {
+    try {
+      localStorage.setItem(FIT_KEY, fit);
+    } catch {
+      /* no storage: the next pair opens on the most picked */
+    }
+  }
   // tidied, because picking with Enter never unfocuses the field and the props.initial
   // watcher only syncs an UNfocused one — so the straight spelling would sit in the box
   // while state already held the curly one, until a blur happened to heal it
@@ -460,17 +583,56 @@ function selectVault(v: VaultEntry) {
   setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name)));
   close();
 }
-// the one weight cell every option row ends with — three sources, one rendering
-const optWeightMg = (opt: AcOption): number =>
-  "water" in opt ? opt.water.weightMg : "vault" in opt ? opt.vault.weightMg : opt.result.weightMg;
+// A size the catalog doesn't list, typed in the version step: the product's brand, model
+// and gear type with the typed size, as the person's OWN (`own`: no catalog link, since
+// no row is this size, and no weight, since nobody has cited one). The row waits for a
+// weight like any hand-typed gear, and once saved it is staged as a candidate with its
+// size in the key (server/utils/candidates), so enough lists agreeing on it makes it a
+// version of the product.
+function selectOther(size: string) {
+  const head = sizing.value?.rows[0];
+  if (!head) return;
+  emit("commit", {
+    name: head.name,
+    brand: head.brand ?? undefined,
+    variant: size,
+    commonName: head.commonName ?? undefined,
+    classification: head.categoryHint === "consumable" ? "consumable" : undefined,
+    own: true,
+  });
+  setDraftQuiet(props.clearOnCommit ? "" : nameOfProduct(head));
+  close();
+}
+// the one weight cell a gear row ends with — three sources, one rendering (a product
+// row says how many versions there, and the typed size has no weight to show)
+const optWeightMg = (opt: AcOption): number | null =>
+  "water" in opt ? opt.water.weightMg : "vault" in opt ? opt.vault.weightMg : "result" in opt ? opt.result.weightMg : null;
 // ...in the unit the row it makes will read in: a piece of My Gear brings its own
 // (vaultRowFields), so the menu shouldn't say "108 g" over a row that lands as "3.8 oz"
 const optUnit = (opt: AcOption): Unit => ("vault" in opt && opt.vault.entryUnit) || props.unit;
 
-function selectOption(opt: AcOption) {
+/** Take an option. True when that names a row and is done; false when it opened a
+ *  product's versions (the step goes on) or added a size with no weight yet (the weight
+ *  comes next), which is when Enter must not start a new row below. */
+function selectOption(opt: AcOption): boolean {
   if ("water" in opt) selectWater(opt.water);
   else if ("vault" in opt) selectVault(opt.vault);
-  else selectResult(opt.result);
+  else if ("result" in opt) selectResult(opt.result);
+  else if ("product" in opt) {
+    // the product AND its size typed in full name one version: that is the pick, with no
+    // step to walk (exactMatch, the rule leaving the field applies to the same text)
+    const typed = splitWeightTail(draft.value).name;
+    const exact = exactMatch(typed);
+    if (exact && "result" in exact && opt.product.rows.includes(exact.result)) selectResult(exact.result);
+    else {
+      enterSizing(opt.product, typed);
+      return false;
+    }
+  } else {
+    selectOther(opt.other);
+    return false;
+  }
+  return true;
 }
 // The typed text IS a product the menu is showing, word for word: brand + model, or
 // brand + model + size. Then tabbing away links it, exactly as picking it would have,
@@ -498,7 +660,15 @@ function exactMatch(typed: string): AcOption | null {
 // The same row in two versions of the menu. `active` is an index, and the two searches
 // settle independently with My Gear going first, so a landing shifts what it points at.
 const sameOption = (a: AcOption, b: AcOption) =>
-  "vault" in a ? "vault" in b && a.vault === b.vault : "result" in a ? "result" in b && a.result === b.result : "water" in b;
+  "vault" in a
+    ? "vault" in b && a.vault === b.vault
+    : "result" in a
+      ? "result" in b && a.result === b.result
+      : "product" in a
+        ? "product" in b && a.product.key === b.product.key
+        : "other" in a
+          ? "other" in b
+          : "water" in b;
 // The menu points at that product the moment the results settle, so what Enter or
 // Tab will take is on screen before it is pressed: the row lights as if arrowed onto,
 // and aria-activedescendant says so. Only onto an unpointed menu (a hover or an arrow
@@ -507,15 +677,25 @@ const sameOption = (a: AcOption, b: AcOption) =>
 // settle, and lets go if the row has left the menu rather than land on its neighbour.
 watch(options, (opts, prev) => {
   if (!open.value) return;
+  // the version step points for itself, again when a longer name arrives above the
+  // typed size (pointAtVersion lights the first row when no version fits)
+  if (sizing.value) return pointAtVersion();
   if (active.value >= 0) {
     const was = prev[active.value];
     const at = was ? opts.findIndex((o) => sameOption(o, was)) : -1;
     active.value = at;
     if (at >= 0) return;
   }
-  const hit = exactMatch(splitWeightTail(draft.value).name);
-  if (!hit) return;
-  const at = opts.findIndex((o) => sameOption(o, hit));
+  const typed = splitWeightTail(draft.value).name;
+  const hit = exactMatch(typed);
+  // a product's own name, typed in full, points at the product: Enter opens its versions
+  // (leaving the field still commits the text as typed: several versions is no one row)
+  const key = foldKeepingPlus(typed);
+  // (a version typed in full sits inside its product's row, which is what lights: Enter
+  // on it takes that version, see selectOption)
+  const at = hit
+    ? opts.findIndex((o) => sameOption(o, hit) || ("product" in o && "result" in hit && o.product.rows.includes(hit.result)))
+    : opts.findIndex((o) => "product" in o && foldKeepingPlus(nameOfProduct(o.product.rows[0]!)) === key);
   if (at >= 0) active.value = at;
 });
 // Free text, read as a commit: the trailing weight ("Tent 540 g") rides along
@@ -533,6 +713,24 @@ function freeCommit(raw: string): NameCommit | null {
   return { name, weight: split.weight, classification: isWaterName(name) ? "consumable" : undefined };
 }
 function commitFree() {
+  // Left on a product, mid-step, which picks only what the menu would. Words that fit
+  // one version name it, as a product typed in full with its size always did
+  // (exactMatch). Words that fit none are either another product's whole name (taken, as
+  // tabbing away from it takes it anywhere) or the size the menu was offering as the
+  // person's own. Words that fit several are a choice not yet made, and the text is
+  // committed as typed, the rule for any name that answers to more than one row; so is
+  // the name with nothing after it.
+  if (sizing.value) {
+    const typed = sizingText.value;
+    const fits = versionRows.value;
+    if (typed && fits.length === 1) return selectResult(fits[0]!);
+    if (typed && !fits.length) {
+      const exact = exactMatch(splitWeightTail(draft.value).name);
+      if (exact && !("result" in exact && sizing.value.rows.includes(exact.result))) return selectOption(exact);
+      return selectOther(typed);
+    }
+    sizing.value = null;
+  }
   const raw = draft.value.trim();
   if (!raw) return;
   // Editing an unchanged name shouldn't emit a redundant update. Compared on the
@@ -615,7 +813,8 @@ function onKeydown(e: KeyboardEvent) {
     if (e.isComposing) return; // IME confirming a composition, not a commit
     e.preventDefault();
     if (open.value && active.value >= 0 && options.value[active.value]) {
-      selectOption(options.value[active.value]!);
+      // no new row yet when the versions, or the weight, come first
+      if (!selectOption(options.value[active.value]!)) return;
     } else if (props.pickOnly) {
       // A product's own name typed in full still links, as tabbing away does in a
       // list (exactMatch); anything else is the form's to submit, weight and all. The
@@ -646,6 +845,7 @@ function onKeydown(e: KeyboardEvent) {
     // cancel: revert to the original (or clear in add mode) so the focusout that
     // follows blur won't commit the rejected draft
     setDraftQuiet(props.clearOnCommit ? "" : props.initial);
+    sizing.value = null;
     open.value = false;
     active.value = -1;
     (e.target as HTMLInputElement).blur();
@@ -663,6 +863,8 @@ function onKeydown(e: KeyboardEvent) {
 // straight at it. The parts are built over the tidied string and the parts are what
 // render, so the highlight offsets stay correct by construction.
 const hl = (text: string) => highlightParts(tidyText(text), draft.value);
+// a version's row bolds the words that narrowed to it, not the product's name before them
+const hlVersion = (text: string) => highlightParts(text, sizingText.value);
 </script>
 
 <template>
@@ -708,7 +910,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
     <ul :id="`${acId}-listbox`" class="ac__list" role="listbox">
       <template
         v-for="{ opt, i, section, product, sized, named } in rows"
-        :key="'water' in opt ? 'water' : 'vault' in opt ? `v${opt.vault.id}` : `c${opt.result.id}`"
+        :key="'water' in opt ? 'water' : 'vault' in opt ? `v${opt.vault.id}` : 'result' in opt ? `c${opt.result.id}` : 'product' in opt ? `p${opt.product.key}` : 'other'"
       >
       <!-- a source heading, not an option: role="presentation" keeps it out of the
            listbox's option set, so it can't be arrowed onto or counted in it. Screen
@@ -718,18 +920,15 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
            the control, and letting it take focus from the field committed the half-typed
            text as a free-text row. -->
       <li v-if="section" class="ac__section" role="presentation" @mousedown.prevent>{{ section }}</li>
-      <!-- a PRODUCT heading over a run of its sizes (see sizeRuns): the brand + model the
+      <!-- the PRODUCT whose versions these are (the version step): the brand + model the
            rows under it share, said once. aria-hidden as well as presentation — each size
            row carries the same name for assistive tech, so reading this too would say it
            twice. -->
       <li v-if="product" class="ac__product" role="presentation" aria-hidden="true" @mousedown.prevent>
         <span class="ac__name">
-          <span v-if="brandOf(product.brand, product.name)" class="ac__brand t-clip">
-            <span v-for="(p, pi) in hl(brandOf(product.brand, product.name) ?? '')" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
-          </span>
-          <span class="ac__model t-clip">
-            <span v-for="(p, pi) in hl(nameAfterBrand(product.brand, product.name))" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
-          </span>
+          <!-- no bolding: the field holds this very name, so every letter would match -->
+          <span v-if="brandOf(product.brand, product.name)" class="ac__brand t-clip">{{ tidyText(brandOf(product.brand, product.name) ?? "") }}</span>
+          <span class="ac__model t-clip">{{ tidyText(nameAfterBrand(product.brand, product.name)) }}</span>
         </span>
       </li>
       <li
@@ -737,7 +936,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
         class="ac__opt"
         role="option"
         :aria-selected="i === active"
-        :class="{ 'is-active': i === active, 'ac__opt--size': sized }"
+        :class="{ 'is-active': i === active, 'ac__opt--size': sized || 'other' in opt }"
         @mousedown.prevent="selectOption(opt)"
         @mouseenter="active = i"
       >
@@ -749,14 +948,21 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
         <!-- one size of the product named in the heading above it: the size leads, with
              the row's width to itself. The product's name is still in the row, hidden,
              so the option reads "El Coyote AlphaLite 900 Quilt · 20F, Long" and not
-             just "20F, Long". Only a catalog row is ever sized (see sizeRuns). -->
+             just "20F, Long". Only the version step sizes a row. -->
         <template v-else-if="sized && 'result' in opt">
           <span class="ac__name">
-            <span class="visually-hidden">{{ tidyText(itemDisplayName(opt.result.brand, opt.result.name)) }} · </span>
+            <span class="visually-hidden">{{ nameOfProduct(opt.result) }} · </span>
             <span class="ac__size t-clip">
-              <span v-for="(p, pi) in hl(opt.result.variant ?? '')" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
+              <span v-for="(p, pi) in hlVersion(versionLabel(opt.result))" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
             </span>
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
+          </span>
+        </template>
+        <!-- the typed size, offered as a size of the person's own (selectOther) -->
+        <template v-else-if="'other' in opt">
+          <span class="ac__name">
+            <span class="visually-hidden">{{ sizingName }} · </span>
+            <span class="ac__size ac__other t-clip">Add “{{ opt.other }}”</span>
           </span>
         </template>
         <!-- a piece of gear, yours or the catalog's: one row shape for both. Your own
@@ -792,10 +998,15 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
             <span v-if="'result' in opt && !opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
         </template>
-        <!-- the weight cell, shared by all three row kinds (it was three copies) -->
-        <span class="t-num ac__w">{{ formatWeight(optWeightMg(opt), optUnit(opt), { withUnit: false }) }} <span class="t-muted">{{ optUnit(opt) }}</span></span>
+        <!-- the weight cell, shared by every row that is one piece of gear (it was three
+             copies); a product says how many versions are behind it instead -->
+        <span v-if="optWeightMg(opt) != null" class="t-num ac__w">{{ formatWeight(optWeightMg(opt)!, optUnit(opt), { withUnit: false }) }} <span class="t-muted">{{ optUnit(opt) }}</span></span>
+        <span v-else-if="'product' in opt" class="ac__w ac__count">{{ opt.product.rows.length }} versions</span>
       </li>
       </template>
+      <!-- the way in for a size the catalog doesn't list: said under the versions until
+           something is typed, when the typed size becomes a row of its own above -->
+      <li v-if="sizing && !sizingText" class="ac__hint" role="presentation" @mousedown.prevent>Not listed? Type your size.</li>
     </ul>
     </div>
     </Transition>
@@ -959,8 +1170,8 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   font-style: italic;
   color: var(--foreground-tertiary);
 }
-/* A RUN OF SIZES (sizeRuns): the product heading names what the rows share, and each
-   row leads with its size. The heading is set as a row's name would be — same padding,
+/* THE VERSION STEP: the product heading names what the rows share, and each row leads
+   with its size. The heading is set as a row's name would be — same padding,
    same type, brand in ink-2 and model in foreground — because it IS that name, said once; it
    just isn't a target (no hover, no active, nothing to press). The sizes under it step
    in by --space-3, which is what says "these belong to that" without a rule or a box.
@@ -976,6 +1187,24 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 }
 .ac__size {
   flex: 0 1 auto;
+}
+/* the typed size, offered under the versions it didn't settle on: a step quieter than
+   they are, since it is the way out when none of them is yours, not one of them */
+.ac__other {
+  color: var(--foreground-secondary);
+}
+/* how many versions a product row opens: where a weight would sit, in the quiet ink,
+   since it is a count of what is behind the row and not a fact about it */
+.ac__count {
+  color: var(--foreground-tertiary);
+  white-space: nowrap;
+}
+/* the line under a product's versions that says a size of your own can be typed: a
+   sentence, not a row (no hover, nothing to press), on the sizes' own text edge */
+.ac__hint {
+  padding: var(--space-2) var(--space-2) var(--space-2) calc(var(--space-2) + var(--space-3));
+  color: var(--foreground-tertiary);
+  cursor: default;
 }
 /* source heading — it separates, it doesn't compete with the rows. Inline padding
    matches .ac__opt so it sits on the rows' text edge; the first one drops its top

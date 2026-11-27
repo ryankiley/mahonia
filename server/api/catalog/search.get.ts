@@ -2,7 +2,7 @@ import { defineEventHandler, setHeader } from "h3";
 import { searchCatalog } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
-import { SEARCH_LIMIT } from "../../../shared/catalogSearch";
+import { rankProducts, SEARCH_LIMIT } from "../../../shared/catalogSearch";
 import { SEARCH_QUERY_MAX } from "../../../shared/searchText";
 import { queryString, setNoIndex } from "../../utils/http";
 
@@ -41,8 +41,17 @@ export default defineEventHandler(async (event) => {
 
   const q = queryString(event, "q", SEARCH_QUERY_MAX);
 
+  // `by=product`: the first SEARCH_LIMIT products, each with every version it is sold
+  // in, the versions together (rankProducts). What the editor's menu asks for, since it
+  // shows a product once and its versions as a second step. Asked for rather than made
+  // the default because the rows of twelve products can be several times twelve, and a
+  // client written for "at most twelve rows" (the iOS app, a tab still running last
+  // week's bundle) would draw all of them. Its own cache entry: the query string is part
+  // of the key.
+  const byProduct = queryString(event, "by", 16) === "product";
+
   const db = await useCatalogDb();
-  const results = await searchCatalog(db, q, SEARCH_LIMIT);
+  const results = await searchCatalog(db, q, SEARCH_LIMIT, byProduct ? rankProducts : undefined);
 
   return { results };
 });
