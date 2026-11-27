@@ -941,10 +941,13 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
   });
 
   root.append(head, input);
-  // The route's own two ends have no Remove, as their rows have none (WaypointRow): they
-  // come with the route and only a new route seeds them again, so a removed end would be
-  // gone for good. They still move, by the hold every pin answers to.
-  if (w.kind === "trailhead" || w.kind === "end") return root;
+  // The route's own trailhead and finish have no Remove, as their rows have none
+  // (WaypointRow's `removable`, the same rule): they come with the route and only a new
+  // route seeds them again, so a removed end would be gone for good. A SPARE one can go,
+  // which is how a list that was copied into two of each gets back to one. They still
+  // move, by the hold every pin answers to.
+  const isRouteEnd = w.kind === "trailhead" || w.kind === "end";
+  if (isRouteEnd && (props.waypoints ?? []).filter((p) => p.kind === w.kind).length < 2) return root;
 
   const del = document.createElement("button");
   del.type = "button";

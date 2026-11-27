@@ -32,14 +32,19 @@ const meta = computed(() => waypointKindMeta(props.waypoint.kind));
  * the camp is a property of the day that ends there, and they get the camp's treatment:
  * their mark, and nothing to press. Offering the kind toggles here let you turn a
  * trailhead into a water source, which is not a thing a trailhead can become; offering
- * delete was worse, because the route grows its ends back from the geometry (see
- * ensureRouteEnds) and the button was quietly a lie.
+ * delete is worse, because an end comes with the route and only a new route seeds it
+ * again, so a deleted one is gone for good (see `removable`).
  *
  * Still MOVABLE, on the map, by the same press-and-hold every pin answers to — which is
  * the case the plan wanted delete for anyway: you parked somewhere the track doesn't
  * start, so you drag the flag to where you actually left the car.
  */
 const isRouteEnd = computed(() => props.waypoint.kind === "trailhead" || props.waypoint.kind === "end");
+/** Every pin but the route's ONLY trailhead or finish. A spare one can go, which is how a
+ *  list that was copied into two of each gets back to one (the map's popup, the same rule). */
+const removable = computed(
+  () => !isRouteEnd.value || (c.snapshot.value?.waypoints ?? []).filter((w) => w.kind === props.waypoint.kind).length > 1,
+);
 /** For the screen-reader names, where the label reads mid-sentence. */
 const spoken = computed(() => meta.value.label.toLowerCase());
 /** Padded, because these form a column down the day — see formatDistancePadded. */
@@ -118,7 +123,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
     <!-- the cell stays either way, empty for the route's ends, so every column above and
          below still lines up through this row -->
     <button
-      v-if="!isRouteEnd"
+      v-if="removable"
       type="button"
       class="btn btn--icon btn--ghost wprow__del"
       :aria-label="`Remove the ${spoken} at ${spokenAt}`"
