@@ -281,6 +281,10 @@ function importFile(text: string, file: File) {
   margin: calc(-1 * var(--space-2));
   cursor: help;
 }
+/* a round ring for a round glyph, on focus only (the Trip panel's (?) does the same) */
+.import__why:focus-visible {
+  border-radius: var(--radius-pill);
+}
 .import__err {
   color: var(--ink);
 }

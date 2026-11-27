@@ -1334,6 +1334,12 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
      page-title size, and at 14px it made the only sign an explanation exists a 1.35:1
      smudge — invisible to exactly the reader who needed the explanation. */
 }
+/* The glyph is a circle and the button a bare 14px box, so the keyboard's ring was a
+   square with the circle's edge touching each side. Round on focus only, as the bare
+   option-menu triggers are (OptionMenu.vue), so nothing changes at rest. */
+.plan__why:focus-visible {
+  border-radius: var(--radius-pill);
+}
 .plan__gl {
   flex: none;
   color: var(--ink-3);
