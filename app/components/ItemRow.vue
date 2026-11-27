@@ -488,6 +488,14 @@ function onNameCommit(p: NameCommit) {
       delete patch.commonName;
       delete patch.commonNameOverridden;
     }
+    // A size of your own has no weight anyone has cited, and the one the row held belongs
+    // to what it was before (another product, or another size of this one): left in
+    // place, a quilt's 560 g would sit on the jacket that replaced it. Not weighed yet
+    // is 0, the state the weight field asks to fill (focus goes there, below).
+    if (p.own) {
+      patch.unitWeightMg = 0;
+      patch.entryUnit = null;
+    }
     // catalogWeightMgAtLink is deliberately NOT set: it's the baseline for the
     // "the catalog's weight changed" nudge, and your own weight is not that
     // baseline — stamping it here would compare the catalog against you. The row

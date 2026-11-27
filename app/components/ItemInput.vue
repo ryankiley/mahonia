@@ -146,13 +146,17 @@ watch(draft, (v) => emit("draft", v));
 watch(draft, (v) => {
   if (suppressOpen || !props.suggest) return; // no suggestions asked for → no request
   if (sizing.value) {
-    // still on the product: what follows its name narrows its versions, no request
-    if (v.startsWith(sizingName.value)) {
+    if (onProduct(v)) {
+      // still on the product: what follows its name narrows its versions, with no request,
+      // unless it fits none of them, when it may be the rest of a longer name ("Durston
+      // X-Mid 2 Solid" is a product of its own): then the catalog is asked too, and what it
+      // finds that begins with the whole text is offered above the typed size
       open.value = true;
+      if (!narrowVersions(shown.value, v.slice(sizingName.value.length)).length) search(v);
       nextTick(pointAtVersion);
       return;
     }
-    // typed back into the name: it is a search again
+    // typed back into the name, or on past it into another one: it is a search again
     sizing.value = null;
   }
   search(v);
@@ -248,6 +252,16 @@ const sizing = ref<CatalogProduct<CatalogResult> | null>(null);
 const shown = ref<CatalogResult[]>([]);
 const nameOfProduct = (r: { brand: string | null; name: string }) => tidyText(itemDisplayName(r.brand, r.name));
 const sizingName = computed(() => (sizing.value ? nameOfProduct(sizing.value.rows[0]!) : ""));
+/** Is this text still on the product being sized: its name, then nothing or a space and
+ *  words? A letter or a "+" straight after the name is a longer name ("Durston X-Mid Pro
+ *  2+" is not a version of the Pro 2), and so is a "+" opening the words: the search fold
+ *  drops the mark, so as words it would narrow nothing and look like no words at all. */
+function onProduct(text: string): boolean {
+  const name = sizingName.value;
+  if (!text.startsWith(name)) return false;
+  const rest = text.slice(name.length);
+  return rest === "" || (rest.startsWith(" ") && !rest.trimStart().startsWith("+"));
+}
 /** What has been typed after the product's name: the words that narrow its versions. */
 const sizingText = computed(() => (sizing.value ? tidyText(draft.value.slice(sizingName.value.length)) : ""));
 const versionRows = computed(() => (sizing.value ? narrowVersions(shown.value, sizingText.value) : []));
@@ -270,9 +284,12 @@ function rememberedFit(): string | null {
 function pointAtVersion() {
   const p = sizing.value;
   if (!p) return;
-  // words typed: the version they most nearly say ("Regular" over "Regular Wide"), or
-  // with none fitting, the typed size itself, the one row left
-  let at = Math.max(0, nearestVersion(versionRows.value));
+  // words typed: the version they most nearly say ("Regular" over "Regular Wide"); with
+  // none fitting, a product whose name the words complete (they more likely meant the
+  // groundsheet than a tent in size "Groundsheet"), else the typed size itself
+  let at = versionRows.value.length
+    ? nearestVersion(versionRows.value)
+    : Math.max(0, options.value.findIndex((o) => !("other" in o)));
   if (!sizingText.value) {
     const fit = rememberedFit();
     const mine = fit ? versionRows.value.findIndex((r) => fitOf(r.variant) === fit) : -1;
@@ -293,6 +310,21 @@ function enterSizing(p: CatalogProduct<CatalogResult>, typed = "") {
   nextTick(pointAtVersion);
 }
 
+// Other products whose name begins with everything in the field: what words that fit
+// no version may be, the rest of a longer name. From the catalog's answer to the whole
+// text (the watcher asks for it), each drawn as the main menu draws a product.
+/** One of the sized product's own versions, as opposed to the typed size or a product
+ *  of its own that a longer name found. */
+const isVersionRow = (o: AcOption) => !!sizing.value && "result" in o && sizing.value.rows.includes(o.result);
+const longerNames = computed<AcOption[]>(() => {
+  const p = sizing.value;
+  if (!p) return [];
+  const typed = foldKeepingPlus(draft.value);
+  return groupProducts(results.value)
+    .filter((o) => o.key !== p.key && foldKeepingPlus(nameOfProduct(o.rows[0]!)).startsWith(typed))
+    .map((o) => (o.rows.length === 1 ? { result: o.rows[0]! } : { product: o }));
+});
+
 const options = computed<AcOption[]>(() => {
   // Suggestions off means NO suggestions, not "no menu". Gating only the render left the
   // one option that needs no network — the water/volume reading of the draft — still in
@@ -308,6 +340,9 @@ const options = computed<AcOption[]>(() => {
     for (const r of versionRows.value) opts.push({ result: r });
     const typed = sizingText.value;
     if (typed && !versionRows.value.some((r) => beginsVersion(typed, r.variant))) opts.push({ other: typed });
+    // other products, below the product's own rows and apart from them (sectionAt): a
+    // groundsheet is not a size of the tent it is named for
+    if (typed && !versionRows.value.length) opts.push(...longerNames.value);
     return opts;
   }
   if (waterSuggestion.value) opts.push({ water: waterSuggestion.value });
@@ -342,6 +377,13 @@ const options = computed<AcOption[]>(() => {
 // aria-activedescendant are all untouched.
 const sectionAt = computed<Map<number, string>>(() => {
   const map = new Map<number, string>();
+  // the version step: the first row that is neither a version nor the typed size starts
+  // the other products a longer name found (longerNames)
+  if (sizing.value) {
+    const at = options.value.findIndex((o) => !isVersionRow(o) && !("other" in o));
+    if (at >= 0) map.set(at, "Other products");
+    return map;
+  }
   let vaultAt = -1;
   let catalogAt = -1;
   options.value.forEach((o, i) => {
@@ -372,7 +414,9 @@ const rows = computed(() =>
     i,
     section: sectionAt.value.get(i),
     product: sizing.value && i === 0 ? sizing.value.rows[0] : undefined,
-    sized: !!sizing.value && "result" in opt,
+    // only the product's own versions lead with their size under its heading; another
+    // product found by a longer name is a whole row of its own
+    sized: isVersionRow(opt),
     // the piece of gear behind a My Gear, catalog or product row; a product row names
     // the product alone, so it carries no variant
     named:
@@ -633,13 +677,15 @@ const sameOption = (a: AcOption, b: AcOption) =>
 // settle, and lets go if the row has left the menu rather than land on its neighbour.
 watch(options, (opts, prev) => {
   if (!open.value) return;
+  // the version step points for itself, again when a longer name arrives above the
+  // typed size (pointAtVersion lights the first row when no version fits)
+  if (sizing.value) return pointAtVersion();
   if (active.value >= 0) {
     const was = prev[active.value];
     const at = was ? opts.findIndex((o) => sameOption(o, was)) : -1;
     active.value = at;
     if (at >= 0) return;
   }
-  if (sizing.value) return; // the version step points for itself (pointAtVersion)
   const typed = splitWeightTail(draft.value).name;
   const hit = exactMatch(typed);
   // a product's own name, typed in full, points at the product: Enter opens its versions
@@ -667,14 +713,22 @@ function freeCommit(raw: string): NameCommit | null {
   return { name, weight: split.weight, classification: isWaterName(name) ? "consumable" : undefined };
 }
 function commitFree() {
-  // Left on a product, mid-step. Words that fit one version name it, so it is picked, as
-  // a product typed in full with its size always was (exactMatch); words that fit none
-  // or several are a size of the person's own; and with nothing typed after the name it
-  // is the name alone, committed below as the text it is.
+  // Left on a product, mid-step, which picks only what the menu would. Words that fit
+  // one version name it, as a product typed in full with its size always did
+  // (exactMatch). Words that fit none are either another product's whole name (taken, as
+  // tabbing away from it takes it anywhere) or the size the menu was offering as the
+  // person's own. Words that fit several are a choice not yet made, and the text is
+  // committed as typed, the rule for any name that answers to more than one row; so is
+  // the name with nothing after it.
   if (sizing.value) {
     const typed = sizingText.value;
-    if (typed && versionRows.value.length === 1) return selectResult(versionRows.value[0]!);
-    if (typed) return selectOther(typed);
+    const fits = versionRows.value;
+    if (typed && fits.length === 1) return selectResult(fits[0]!);
+    if (typed && !fits.length) {
+      const exact = exactMatch(splitWeightTail(draft.value).name);
+      if (exact && !("result" in exact && sizing.value.rows.includes(exact.result))) return selectOption(exact);
+      return selectOther(typed);
+    }
     sizing.value = null;
   }
   const raw = draft.value.trim();

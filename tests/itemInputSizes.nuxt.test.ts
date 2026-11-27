@@ -143,6 +143,21 @@ describe("a product in several versions", () => {
     expect(m.input.getAttribute("aria-activedescendant")).toBe(lit[0]!.attributes("id"));
   });
 
+  it("walks its versions and the typed size with the arrow keys", async () => {
+    const m = await menuFor(SIZES);
+    await openVersions(m);
+    await typeOn(m, "wide");
+    // the one wide version, then the typed size ("wide" fits it without beginning it)
+    expect(sizesShown(m.w)).toEqual(["20F, Regular Wide", "Add “wide”"]);
+    const lit = () => options(m.w).findIndex((o) => o.classes("is-active"));
+    expect(lit()).toBe(0);
+    await key(m.w, "ArrowDown");
+    expect(lit()).toBe(1);
+    expect(m.input.getAttribute("aria-activedescendant")).toBe(options(m.w)[1]!.attributes("id"));
+    await key(m.w, "ArrowDown");
+    expect(lit()).toBe(0);
+  });
+
   it("narrows as words are typed after the name, and lights the one they most nearly say", async () => {
     const m = await menuFor(SIZES);
     await openVersions(m);
@@ -212,7 +227,7 @@ describe("a size the catalog doesn't list", () => {
     expect(options(m.w)[0]!.text()).not.toContain("Add");
   });
 
-  it("is what leaving the field mid-step commits, when the words fit no one version", async () => {
+  it("is what leaving the field mid-step commits, when the words fit no version", async () => {
     const m = await menuFor(PAIR, "ghost whisperer");
     await openVersions(m);
     await typeOn(m, "Large");
@@ -230,11 +245,70 @@ describe("leaving the field on a product", () => {
     expect(m.commits()).toEqual([expect.objectContaining({ catalogItemId: 22, variant: "Women's" })]);
   });
 
+  // a choice not yet made is not a size: "20" fits four quilts, and nothing is invented
+  it("commits the text as typed when the words still fit several versions", async () => {
+    const m = await menuFor(SIZES);
+    await openVersions(m);
+    await typeOn(m, "20");
+    await m.w.find(".ac").trigger("focusout", { relatedTarget: document.body });
+    expect(m.commits()).toEqual([{ name: "El Coyote AlphaLite 900 Quilt 20", weight: undefined, classification: undefined }]);
+    expect(m.commits()[0]!.own).toBeUndefined();
+  });
+
   it("commits the name alone when no version was chosen: several versions is no one row", async () => {
     const m = await menuFor(PAIR, "ghost whisperer");
     await openVersions(m);
     await m.w.find(".ac").trigger("focusout", { relatedTarget: document.body });
     expect(m.commits()).toEqual([{ name: "Mountain Hardwear Ghost Whisperer Hoody", weight: undefined, classification: undefined }]);
+  });
+});
+
+describe("leaving the version step for another product", () => {
+  const tent = (id: number, name: string, variant: string | null) => ({
+    id,
+    brand: "Durston",
+    name,
+    variant,
+    weightMg: 900_000 + id,
+    verified: true,
+    commonName: "Tent",
+    categoryHint: "shelter",
+  });
+  const X2 = [tent(31, "X-Mid 2", "Silnylon"), tent(32, "X-Mid 2", "Polyester")];
+  const SOLID = tent(33, "X-Mid 2 Solid", null);
+  const PRO2 = [tent(41, "X-Mid Pro 2", "DCF"), tent(42, "X-Mid Pro 2", "DCF Ultra")];
+  const PRO2PLUS = [tent(43, "X-Mid Pro 2+", "DCF"), tent(44, "X-Mid Pro 2+", "DCF Ultra")];
+
+  it("offers another product's name above the typed size, and leaving the field takes it", async () => {
+    const m = await menuFor([...X2, SOLID], "x-mid 2", 2);
+    await openVersions(m);
+    await typeOn(m, "Solid");
+    await vi.waitFor(() => expect(options(m.w)).toHaveLength(2));
+    const rows = options(m.w);
+    // the typed size stays with the product; the other product sits apart, under its own
+    // label, as a whole row (brand and model), not as a version of the X-Mid 2
+    expect(rows[0]!.text()).toContain("Add “Solid”");
+    expect(visibleText(rows[1]!.element)).toContain("X-Mid 2 Solid");
+    expect(rows[1]!.classes("ac__opt--size")).toBe(false);
+    expect(rows[1]!.find(".ac__brand").text()).toBe("Durston");
+    expect(rows[1]!.element.previousElementSibling!.textContent).toBe("Other products");
+    // and it is what's lit: the words more likely finish its name than name a size
+    expect(rows[1]!.classes("is-active")).toBe(true);
+    await m.w.find(".ac").trigger("focusout", { relatedTarget: document.body });
+    expect(m.commits()).toEqual([expect.objectContaining({ catalogItemId: 33, name: "X-Mid 2 Solid" })]);
+  });
+
+  it("leaves the step for a plus straight after the name, or opening the words", async () => {
+    for (const plus of ["+", " +"]) {
+      const m = await menuFor([...PRO2, ...PRO2PLUS], "x-mid pro 2", 2);
+      // the Pro 2 row, first
+      await openVersions(m);
+      await typeOn(m, plus);
+      // a search again: both products, the Pro 2+ among them, and no version step
+      await vi.waitFor(() => expect(m.w.findAll(".ac__product")).toHaveLength(0));
+      await vi.waitFor(() => expect(options(m.w).some((o) => visibleText(o.element).includes("X-Mid Pro 2+"))).toBe(true), { timeout: 2_000 });
+      m.w.unmount();
+    }
   });
 });
 
