@@ -17,8 +17,8 @@ const PAGES = ["app/pages/legal.vue"];
 
 const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
 
-// matches the pages' existing format: "12 July 2026"
-const today = new Intl.DateTimeFormat("en-GB", {
+// US order, as every other date the app shows: "July 12, 2026"
+const today = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   month: "long",
   year: "numeric",

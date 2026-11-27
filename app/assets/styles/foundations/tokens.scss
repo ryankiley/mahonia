@@ -93,7 +93,12 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      (no warm tint) only where elevation needs to read. ---- */
   --background-primary: light-dark(#ffffff, #000000);
   --background-secondary: light-dark(#f4f4f4, #151515); /* faintly raised */
-  --background-tertiary: light-dark(#eaeaea, #1f1f1f); /* quiet surfaces, not borders */
+  /* (There was a --background-tertiary, #eaeaea / #1f1f1f. It was a page tone that things
+     on floating surfaces kept borrowing, and in dark it IS --surface-1's value, so
+     whatever was drawn in it vanished on a popover: the switch's off track, the typing
+     well's focus, and last the plain button's hover. Each now mixes an amount of
+     foreground instead, and the token is gone; where a comment names it, it is
+     describing that history.) */
   /* ---- the SELECTED ground: a control that is ON, held as a filled plate rather than as
      darker foreground (the classification chips, the waypoint kind toggles). Its own
      token and NOT --background-tertiary, which is what it used to borrow, for two reasons.
@@ -170,7 +175,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      restated it. --background-field-focus is the same ground one step on: the well
      focused, a chip pointed at. ONE percentage each, not a light-dark() pair: these
      measured out equal. ---- */
-  --background-field: color-mix(in oklab, var(--foreground-primary) 7%, transparent);
+  --background-field: var(--background-hover);
   --background-field-focus: color-mix(in oklab, var(--foreground-primary) 10%, transparent);
 
   /* ---- foreground: neutral grey ramp; primary is true black / white ---- */
@@ -278,20 +283,14 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --map-foreground-primary: #111111;
   --map-foreground-secondary: #333333;
   --map-foreground-tertiary: #555555;
-  --map-foreground-quaternary: #666666;
   --map-border: #cccccc;
   --map-bare: oklch(0.95 0.01 250);
   --map-route-ground: #767676;
-  --map-route-casing: #0b0b0b;
-  --map-route-fill: var(--map-background);
   --map-unassigned: #9a9a9a;
   --map-control-hover: #0000000d;
   --map-control-selected: #00000014;
   --map-control-shadow: 0 1px 4px #0000001f;
-  --map-pin-background: var(--map-background);
   --map-pin-seat: #ececec;
-  --map-pin-foreground: #1c1c1c;
-  --map-pin-seat-dark: var(--map-foreground-secondary);
   --map-pin-shadow: -1px 1px 3px #00000059;
   --map-pin-shadow-lifted: -2px 2px 8px #0000008c;
   --map-trace-shadow: 0 1px 3px #00000059;
@@ -337,16 +336,17 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
 
   /* ---- line-height scale — the leadings the type system uses, named so they
      can't drift as scattered literals. ---- */
-  --leading-tight: 1.15; /* the one heading size (.t-title) — cap-height rows */
-  /* a label's line, and a heading's: what the reset gives both, and what a box that is
-     neither asks for by name when it has to sit level with one (a <div> field beside a
-     <label> one). The reset names buttons and inputs too, but its `font: inherit`
-     further down hands those the body's 1.5 back, so a control that wants this says so. */
-  --leading-control: 1.2;
+  /* a heading's line, and a label's: what the reset gives both and .t-title asks for,
+     and what a box that is neither asks for by name when it has to sit level with one
+     (a <div> field beside a <label> one). The reset names buttons and inputs too, but
+     its `font: inherit` further down hands those the body's 1.5 back, so a control that
+     wants this says so. (.t-title had a 1.15 of its own until 2026-11-27: two tight
+     leadings a twentieth apart, and one use of the second.) */
+  --leading-tight: 1.2;
   /* the two-line phone row. Its edit, read and packing forms have to come out the same
      height or the row jumps when the mode changes, so the four rules that set it
      (atoms/item.scss, ItemRow) read one number */
-  --leading-compact: 1.3;
+  --leading-snug: 1.3;
   --leading-normal: 1.5; /* body prose, item names + notes — multi-line reading */
   --leading-none: 1; /* a single glyph or figure centred in its own box: no line to lead */
 
@@ -509,6 +509,9 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      The reset gives it to <button>; the rest restate it for elements the reset can't
      reach. */
   --opacity-pressed: 0.7;
+  /* a control that can't be used right now: a button, the packing check, a My Gear row
+     already on the list. One value; they were 0.3, 0.4 and 0.45. */
+  --opacity-disabled: 0.4;
 
   /* ---- elevation: one floating-surface drop, shared so the lifted row + the toast
      read at the same height and can't drift apart ---- */

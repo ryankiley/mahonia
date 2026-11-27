@@ -130,7 +130,7 @@ const DIM = 0.25;
  * the yellows muddy and leaving the blues untouched. And it reads the leg's token, so a
  * change to the day palette carries here for free.
  */
-const casingFor = (color: string) => `color-mix(in oklab, ${color} 45%, var(--map-route-casing))`;
+const casingFor = (color: string) => `color-mix(in oklab, ${color} 45%, var(--map-foreground-primary))`;
 
 /**
  * The leg's own fill: the same hue, LIFTED.
@@ -141,7 +141,7 @@ const casingFor = (color: string) => `color-mix(in oklab, ${color} 45%, var(--ma
  * both directions, so the route keeps a crisp edge without the casing going so black that
  * the day's colour stops being legible in it.
  */
-const fillFor = (color: string) => `color-mix(in oklab, ${color} 82%, var(--map-route-fill))`;
+const fillFor = (color: string) => `color-mix(in oklab, ${color} 82%, var(--map-background))`;
 
 /** Whether a stretch of the route is outside the armed one, and so should stand down. */
 function isDimmed(fromM: number, toM: number): boolean {
@@ -1289,7 +1289,7 @@ onBeforeUnmount(() => {
 }
 .routemap__wphead {
   font-size: var(--text-chrome);
-  color: var(--map-foreground-quaternary);
+  color: var(--map-foreground-tertiary);
 }
 .routemap__wpname {
   width: 100%;
@@ -1418,7 +1418,7 @@ onBeforeUnmount(() => {
   // drop is the same shape on every ground, so what you actually read is the symbol: a
   // droplet means water before you have decided which blue it was. The hue is still there,
   // in the mark, doing the job of telling two water sources from two camps at a glance.
-  background: var(--map-pin-background);
+  background: var(--map-background);
   color: var(--pin);
   position: relative;
   // round everywhere except the bottom-left, which the rotation below swings to the
@@ -1504,11 +1504,11 @@ onBeforeUnmount(() => {
    reader shouldn't have to know which of these the itinerary drew and which somebody
    placed. It used to carry a byte-for-byte copy of the recipe under its own name. */
 .routemap__pin--dark i {
-  background: var(--map-pin-foreground);
-  color: var(--map-pin-background);
+  background: var(--map-foreground-primary);
+  color: var(--map-background);
 }
 .routemap__pin--dark i::before {
-  background: var(--map-pin-seat-dark);
+  background: var(--map-foreground-secondary);
 }
 
 /* THE CHART'S CURSOR, ON THE GROUND.
@@ -1523,11 +1523,11 @@ onBeforeUnmount(() => {
      the pins, or the dot renders inside a little card. */
   border: 0;
   border-radius: var(--radius-round);
-  background: var(--map-pin-foreground);
+  background: var(--map-foreground-primary);
   /* the ring separates it from the day colour it sits on; the shadow lifts it off the
      contours, the same two jobs the pins' own casing does */
   box-shadow:
-    0 0 0 2px var(--map-pin-background),
+    0 0 0 2px var(--map-background),
     var(--map-trace-shadow);
 }
 

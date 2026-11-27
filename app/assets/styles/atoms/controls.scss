@@ -48,14 +48,14 @@
    an indirection in a stylesheet meant to be read straight through. */
 @media (hover: hover) and (pointer: fine) {
   .btn:hover {
-    background: var(--background-tertiary);
+    background: var(--background-hover);
   }
 }
 .btn:active {
   opacity: var(--opacity-pressed);
 }
 .btn:disabled {
-  opacity: 0.3;
+  opacity: var(--opacity-disabled);
   cursor: default;
   pointer-events: none;
 }
@@ -370,7 +370,7 @@ input[type="search"]::-webkit-search-decoration {
   color: var(--danger-foreground);
   border-radius: var(--radius-2);
   font-size: var(--text-chrome);
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
   text-align: center;
   text-wrap: balance;
   // out of the field, the way a tooltip leaves its trigger; replayed whenever the
@@ -1127,7 +1127,8 @@ input[type="search"]::-webkit-search-decoration {
 // became the thing you were using. That is the Worn/Consumable switch's bug (#216)
 // exactly, in the atom the switch's fix was written next to.
 // Mixed from foreground, the fill composites over whatever it lands on and cannot match its
-// surface. At 7% it reads 1.169 light and 1.226 dark on a popover, 1.120 dark on the
+// surface. (It is --background-hover's 8% since 2026-11-27, one number for the menus'
+// row tint and this; the figures here were measured a point lower.) At 7% it reads 1.169 light and 1.226 dark on a popover, 1.120 dark on the
 // page — all clear of the 1.10 that vanished — and focus lifts to 10%: 1.254 / 1.352 /
 // 1.200. It was 10% and 15% until 2026-11-07, which read as a dark grey slab on a white
 // popover (the lists menu's search is focused the moment it opens, so that was the only
@@ -1245,7 +1246,7 @@ input[type="search"]::-webkit-search-decoration {
   cursor: default;
 }
 .check__box:disabled ~ .check__icon--empty {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
 }
 .check__icon {
   grid-area: 1 / 1;

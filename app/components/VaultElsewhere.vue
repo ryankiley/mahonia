@@ -36,7 +36,7 @@ const emit = defineEmits<{ pick: [tab: VaultTab] }>();
 .elsewhere__go {
   position: relative; /* the touch target below hangs off it */
   text-decoration-line: underline;
-  text-underline-offset: 0.2em;
+  text-underline-offset: var(--underline-offset);
 }
 /* a finger-sized target for a link drawn at text size: the box that answers the tap
    grows, the picture doesn't (the .switch::before trick, controls.scss) */

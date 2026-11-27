@@ -3026,7 +3026,7 @@ function dismissFix() {
   .item-wrap .item__name :deep(.field) {
     min-height: 0;
     padding-block: var(--space-px);
-    line-height: var(--leading-compact);
+    line-height: var(--leading-snug);
   }
   /* …the ROW's text boxes, that is. The calorie field in the class card is a .field
      inside the row too, and the rule above was flattening it to a text line: 27px
@@ -3035,7 +3035,7 @@ function dismissFix() {
   .item-wrap .item .field.item__popinput {
     min-height: var(--pop-ctl-h);
     padding-block: var(--space-1);
-    line-height: var(--leading-control);
+    line-height: var(--leading-tight);
   }
   /* The sub-line sits directly under the name field here as on desktop, but the mobile
      name field is a text-tight box (padding-block 2px, see above), so the desktop tuck
@@ -3455,7 +3455,7 @@ function dismissFix() {
     grid-column: 2 / -1;
     grid-row: 1;
     padding-block: var(--space-px);
-    line-height: var(--leading-compact);
+    line-height: var(--leading-snug);
     display: flex;
     align-items: center;
   }

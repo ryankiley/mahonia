@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "Disabled buttons, checks and rows all dim to the same strength.",
+    "The legal page writes its date the way the rest of the app does."
+  ],
+  "fixed": [
+    "A plain button shows its hover again inside menus and dialogs in dark mode."
+  ]
+}
