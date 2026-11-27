@@ -1,18 +1,21 @@
-// The changelog: unit-test the ordering and merge helpers, and gate
-// the committed content (archive + every fragment) so a malformed entry (bad
-// date, empty group, blank bullet) fails `npm test` instead of shipping to the
-// page.
+// The changelog: unit-test the parser and the ordering and merge helpers, and gate
+// the committed fragments on what the parser cannot know (length, filename).
 //
-// Reads the SOURCES (the archive and the fragments), the same way the release script
-// does, so the test sees exactly what a release would.
+// Loading the fragments runs every one through parseChangelogRelease, so a malformed
+// entry (bad date, empty group, blank bullet) fails this file before a test starts,
+// the same way it would fail the release script.
 
 import { describe, expect, it } from "vitest";
-import { parseChangelogRelease, readArchive, readFragments } from "../scripts/changelogSources";
-import { mergeReleases, sortReleases, type ChangelogRelease } from "../shared/changelog";
+import {
+  mergeReleases,
+  parseChangelogRelease,
+  readFragments,
+  sortReleases,
+  type ChangelogRelease,
+} from "../scripts/changelogSources";
 
-const archive = readArchive();
 const fragments = readFragments();
-const everything: ChangelogRelease[] = [...archive, ...fragments.map((f) => f.release)];
+const everything: ChangelogRelease[] = fragments.map((f) => f.release);
 
 describe("parseChangelogRelease", () => {
   it("rejects rollover dates and malformed content before it reaches release rendering", () => {
@@ -22,9 +25,7 @@ describe("parseChangelogRelease", () => {
     expect(() => parseChangelogRelease({ date: "2026-02-28", added: [" "] }, "fixture")).toThrow(
       'blank entry in "added"',
     );
-    expect(() => parseChangelogRelease({ date: "2026-02-28", title: "Only a heading" }, "fixture")).toThrow(
-      "needs at least one",
-    );
+    expect(() => parseChangelogRelease({ date: "2026-02-28", added: [] }, "fixture")).toThrow("needs at least one");
   });
 });
 
@@ -40,12 +41,13 @@ describe("sortReleases", () => {
 
   it("is stable within a date (keeps authored order) and does not mutate the input", () => {
     const input: ChangelogRelease[] = [
-      { date: "2026-07-01", title: "a" },
-      { date: "2026-07-01", title: "b" },
+      { date: "2026-07-01", added: ["a"] },
+      { date: "2026-07-09", added: ["newer"] },
+      { date: "2026-07-01", added: ["b"] },
     ];
     const sorted = sortReleases(input);
-    expect(sorted.map((r) => r.title)).toEqual(["a", "b"]);
-    expect(input.map((r) => r.title)).toEqual(["a", "b"]); // untouched
+    expect(sorted.map((r) => r.added?.[0])).toEqual(["newer", "a", "b"]);
+    expect(input.map((r) => r.added?.[0])).toEqual(["a", "newer", "b"]); // untouched
   });
 });
 
@@ -71,58 +73,9 @@ describe("mergeReleases", () => {
     expect(merged[1]?.added).toEqual(["older", "older too"]);
   });
 
-  it("takes the FIRST title on a date, so a shipped headline is not rewritten", () => {
-    const merged = mergeReleases([
-      { date: "2026-07-01", title: "Mahonia is live", added: ["one"] },
-      { date: "2026-07-01", title: "second thoughts", added: ["two"] },
-    ]);
-    expect(merged[0]?.title).toBe("Mahonia is live");
-  });
-
-  it("carries a title through from a fragment when the archive has none", () => {
-    const merged = mergeReleases([
-      { date: "2026-07-01", added: ["one"] },
-      { date: "2026-07-01", title: "Named later", added: ["two"] },
-    ]);
-    expect(merged[0]?.title).toBe("Named later");
-  });
-
-  it("drops empty groups rather than carrying empty arrays onto the page", () => {
+  it("drops empty groups rather than carrying empty arrays into a release", () => {
     const merged = mergeReleases([{ date: "2026-07-01", added: ["one"], changed: [], fixed: [] }]);
     expect(merged[0]).toEqual({ date: "2026-07-01", added: ["one"] });
-  });
-
-  it("drops a bullet that arrives twice, so a half-done compaction can't double the page", () => {
-    // changelog:compact writes the archive and then deletes the fragments it folded.
-    // If a delete doesn't happen — Ctrl-C, a read-only directory, an author who
-    // stages the archive but not the deletions — the same sentence arrives from both
-    // sides on the next build. Before this, every bullet rendered twice on /about.
-    const merged = mergeReleases([
-      { date: "2026-07-01", added: ["First settled bullet.", "Second settled bullet."] },
-      { date: "2026-07-01", added: ["First settled bullet."] },
-      { date: "2026-07-01", added: ["Second settled bullet."] },
-    ]);
-    expect(merged).toHaveLength(1);
-    expect(merged[0]?.added).toEqual(["First settled bullet.", "Second settled bullet."]);
-  });
-
-  it("emits one fixed key order however the groups arrived", () => {
-    // Built incrementally, the first release on a date got the canonical order and
-    // later ones appended keys as they turned up — so the archive's on-disk key order
-    // depended on which fragment happened to be written first, and a compaction
-    // round-trip came back reordered.
-    const fixedFirst = mergeReleases([
-      { date: "2026-07-01", fixed: ["f"] },
-      { date: "2026-07-01", changed: ["c"] },
-      { date: "2026-07-01", added: ["a"] },
-    ]);
-    const addedFirst = mergeReleases([
-      { date: "2026-07-01", added: ["a"] },
-      { date: "2026-07-01", changed: ["c"] },
-      { date: "2026-07-01", fixed: ["f"] },
-    ]);
-    expect(Object.keys(fixedFirst[0]!)).toEqual(["date", "added", "changed", "fixed"]);
-    expect(JSON.stringify(fixedFirst)).toBe(JSON.stringify(addedFirst));
   });
 
   it("does not mutate the input or the releases inside it", () => {
@@ -137,34 +90,8 @@ describe("mergeReleases", () => {
 });
 
 describe("committed changelog content", () => {
-  it("has a non-empty archive", () => {
-    expect(Array.isArray(archive)).toBe(true);
-    expect(archive.length).toBeGreaterThan(0);
-  });
-
-  it("every release has an ISO date and at least one non-empty entry", () => {
-    for (const rel of everything) {
-      expect(rel.date, JSON.stringify(rel)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      const count = (rel.added?.length ?? 0) + (rel.changed?.length ?? 0) + (rel.fixed?.length ?? 0);
-      expect(count, `no entries on ${rel.date}`).toBeGreaterThan(0);
-    }
-  });
-
-  it("every entry is a non-blank string", () => {
-    for (const rel of everything) {
-      for (const group of [rel.added, rel.changed, rel.fixed]) {
-        for (const entry of group ?? []) {
-          expect(typeof entry).toBe("string");
-          expect(entry.trim().length, JSON.stringify(rel)).toBeGreaterThan(0);
-        }
-      }
-    }
-  });
-
-  // Ryan, 2026-09-12: "rewrite any of the changelog with brevity?" A hand pass took the
-  // median from 110 characters to 93; this keeps the tail from growing back. 140 is
-  // room for one plain sentence with a clause, not two sentences: the observable change,
-  // without the account of what it used to do.
+  // 140 is room for one plain sentence with a clause, not two sentences: the
+  // observable change, without the account of what it used to do.
   it("keeps every entry to one plain sentence (140 characters)", () => {
     const long: string[] = [];
     for (const rel of everything) {

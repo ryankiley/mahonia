@@ -1,6 +1,6 @@
 // A GitHub Release per changelog date: the tag, the title and the body, derived from
-// the same entries the site renders. Pure, so tests/releaseNotes.test.ts covers it
-// without git or gh; scripts/release-notes.ts is the CLI the workflow calls, and
+// the day's entries. Pure, so tests/releaseNotes.test.ts covers it without git or
+// gh; scripts/release-notes.ts is the CLI the workflow calls, and
 // .github/workflows/releases.yml does the tagging.
 //
 // The version scheme is the date. Every push to main deploys and the changelog has
@@ -15,7 +15,7 @@
 // the body is never stale, only the tag stands still. The Releases page IS the
 // changelog: the site no longer renders one, and /changelog redirects here.
 
-import { CHANGELOG_GROUPS, type ChangelogRelease } from "../shared/changelog";
+import { CHANGELOG_GROUPS, type ChangelogRelease } from "./changelogSources";
 
 /** The timezone the changelog's dates are written in — `npm run changelog` stamps today on this clock too. */
 export const CHANGELOG_TZ = "America/Los_Angeles";
@@ -39,17 +39,16 @@ export function settledReleases(releases: ChangelogRelease[], today: string): Ch
   return releases.filter((r) => r.date < today).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** "September 12, 2026", the way the site prints it, plus the day's headline if it has one. */
+/** A release's title is its date in words: "September 12, 2026". */
 export function releaseTitle(rel: ChangelogRelease): string {
   const [y, m, d] = rel.date.split("-").map(Number);
   // built in UTC and formatted in UTC so the day can't roll over on the machine's clock
-  const pretty = new Date(Date.UTC(y!, m! - 1, d!)).toLocaleDateString("en-US", {
+  return new Date(Date.UTC(y!, m! - 1, d!)).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
     timeZone: "UTC",
   });
-  return rel.title ? `${pretty}: ${rel.title}` : pretty;
 }
 
 /** The release body: the day's entries grouped Added / Changed / Fixed, Keep-a-Changelog style.

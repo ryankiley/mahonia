@@ -1,18 +1,40 @@
-// Where the changelog's two halves live, and how to read them. Read-only: the
-// release script, the compactor and the tests all come through here.
+// The changelog: what an entry is, where entries live, and how they fold into one
+// release per day (published as GitHub Releases by .github/workflows/releases.yml).
+// The writer, the release script and the tests all come through here.
 //
-// content/changelog.json is history that only changelog:compact rewrites, and
-// content/changelog.d/*.json is one file per PR. See shared/changelog.ts for why an
-// entry is a file rather than a line in a shared one.
+// An entry is a file of its own under content/changelog.d/, one per PR and only ever
+// added, because two open PRs cannot conflict on files neither of them shares. One
+// shared file conflicted on the same few lines whenever two PRs were open at once.
+//
+// Entries are hand-written per PR, never generated. A changelog-reminder comment
+// nudges a user-facing PR that is missing one, but nothing scrapes the PR title; a
+// forgotten entry is simply absent from that day's release until it is backfilled.
+// House style: one plain user-facing sentence, the observable change and not the
+// implementation, grouped Keep-a-Changelog style.
+//
+// Dates are checked-in content, never derived from git, whose per-file history is
+// wrong in a shallow clone.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CHANGELOG_GROUPS, type ChangelogRelease } from "../shared/changelog";
 import { isCalendarDate } from "../shared/calendar";
 import { ROOT } from "./paths";
 
-export const ARCHIVE_FILE = join(ROOT, "content", "changelog.json");
 export const FRAGMENT_DIR = join(ROOT, "content", "changelog.d");
+
+export interface ChangelogRelease {
+  /** ISO date (YYYY-MM-DD) the change shipped. */
+  date: string;
+  /** Plain, user-facing entries, grouped Added / Changed / Fixed. */
+  added?: string[];
+  changed?: string[];
+  fixed?: string[];
+}
+
+/** The entry groups, in the order a release lists them. The writer, the validator,
+ *  the merge and the release body all walk this one list. */
+export const CHANGELOG_GROUPS = ["added", "changed", "fixed"] as const;
+export type ChangelogGroup = (typeof CHANGELOG_GROUPS)[number];
 
 /**
  * Validate one checked-in release before it reaches the merge/release path. It is
@@ -27,9 +49,6 @@ export function parseChangelogRelease(value: unknown, source: string): Changelog
   const release = value as Record<string, unknown>;
   if (!isCalendarDate(release.date)) {
     throw new Error(`${source} has no valid "date" (expected a real YYYY-MM-DD calendar date).`);
-  }
-  if (release.title != null && (typeof release.title !== "string" || !release.title.trim())) {
-    throw new Error(`${source} has a blank or non-text "title".`);
   }
 
   let entries = 0;
@@ -47,19 +66,6 @@ export function parseChangelogRelease(value: unknown, source: string): Changelog
   return release as unknown as ChangelogRelease;
 }
 
-/** The compacted history. Always present — it is checked in. */
-export function readArchive(): ChangelogRelease[] {
-  const source = "content/changelog.json";
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(ARCHIVE_FILE, "utf8"));
-  } catch (e) {
-    throw new Error(`${source} is not valid JSON (${(e as Error).message}).`);
-  }
-  if (!Array.isArray(parsed)) throw new Error(`${source} must be a JSON array of releases.`);
-  return parsed.map((release, index) => parseChangelogRelease(release, `${source} entry ${index + 1}`));
-}
-
 interface Fragment {
   /** Bare filename, e.g. `2026-08-10-sort-folders-a1b2.json`. */
   name: string;
@@ -71,11 +77,10 @@ interface Fragment {
  *
  * Filename order is the whole ordering story for a day: names start with the
  * date and are otherwise fixed at the moment the entry is written, so the same
- * set of files always folds into the same page. Sorting by mtime or directory
+ * set of files always folds into the same release. Sorting by mtime or directory
  * order would let a checkout reshuffle a shipped day.
  *
- * A missing directory is normal, not an error — a repo with every entry
- * compacted into the archive has nothing here.
+ * A missing directory reads as no entries.
  */
 export function readFragments(): Fragment[] {
   if (!existsSync(FRAGMENT_DIR)) return [];
@@ -86,12 +91,10 @@ export function readFragments(): Fragment[] {
 }
 
 /**
- * One fragment, with its filename in any complaint.
- *
- * The bare JSON.parse said only "Unexpected token }" — and because the build runs
- * from `postinstall`, that surfaced as a failed `npm install` with nothing pointing
- * at which of N files was malformed. A hand-edited or half-merged fragment is the
- * likely cause, so the message names it and says what to do.
+ * One fragment, with its filename in any complaint. A bare JSON.parse error says
+ * only "Unexpected token }", with nothing pointing at which of the files is
+ * malformed. A hand-edited or half-merged fragment is the likely cause, so the
+ * message names it and says what to do.
  */
 function readFragment(name: string): ChangelogRelease {
   const raw = readFileSync(join(FRAGMENT_DIR, name), "utf8");
@@ -105,4 +108,29 @@ function readFragment(name: string): ChangelogRelease {
     );
   }
   return parseChangelogRelease(parsed, `content/changelog.d/${name}`);
+}
+
+// Newest first. localeCompare on ISO dates sorts chronologically; Array.sort is
+// stable, so same-day batches keep their authored order. Sorts a copy — never
+// mutates the input.
+export function sortReleases(releases: ChangelogRelease[]): ChangelogRelease[] {
+  return [...releases].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// Fold many releases into one per date, newest first. A day is usually several
+// fragments (five PRs shipped on Tuesday are five files that have to read as one
+// Tuesday), so each group's entries concatenate in the order given, which
+// readFragments fixes by filename: same files, same release, every run.
+//
+// Pure: never mutates the input or the releases inside it.
+export function mergeReleases(releases: ChangelogRelease[]): ChangelogRelease[] {
+  const byDate = new Map<string, ChangelogRelease>();
+  for (const rel of releases) {
+    let day = byDate.get(rel.date);
+    if (!day) byDate.set(rel.date, (day = { date: rel.date }));
+    for (const key of CHANGELOG_GROUPS) {
+      if (rel[key]?.length) day[key] = [...(day[key] ?? []), ...rel[key]];
+    }
+  }
+  return sortReleases([...byDate.values()]);
 }

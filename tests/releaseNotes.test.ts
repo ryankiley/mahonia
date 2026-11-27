@@ -2,7 +2,7 @@
 // workflow's git and gh calls are not tested; what is tested is that a day becomes the
 // right tag, the right title, the right body, and only once the day is over.
 import { describe, expect, it } from "vitest";
-import type { ChangelogRelease } from "../shared/changelog";
+import type { ChangelogRelease } from "../scripts/changelogSources";
 import { releaseBody, releaseTitle, settledReleases, tagFor, todayIn } from "../scripts/releaseNotes";
 
 const day = (date: string, extra: Partial<ChangelogRelease> = {}): ChangelogRelease => ({ date, ...extra });
@@ -36,9 +36,9 @@ describe("settled releases", () => {
 });
 
 describe("release title and body", () => {
-  it("print the date the way the site does, with the day's headline if it has one", () => {
+  it("title a release with its date in words, whatever clock the machine is on", () => {
     expect(releaseTitle(day("2026-09-12"))).toBe("September 12, 2026");
-    expect(releaseTitle(day("2026-06-27", { title: "Mahonia is live" }))).toBe("June 27, 2026: Mahonia is live");
+    expect(releaseTitle(day("2026-01-01"))).toBe("January 1, 2026");
   });
 
   it("group the entries Added / Changed / Fixed and skip an empty group", () => {

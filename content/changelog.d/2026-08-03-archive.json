@@ -1,0 +1,28 @@
+{
+  "date": "2026-08-03",
+  "added": [
+    "Switch between your lists from the editor's toolbar, without leaving the one you're in.",
+    "Recent changes name what happened, \"Removed Nunatak quilt liner\", instead of \"Edited 1 item\"."
+  ],
+  "changed": [
+    "The toolbar now says when your list was last edited, and only mentions syncing when there's something to say.",
+    "The gear vault's sign-in prompt is one line now, and reads the same on the vault page and beside a list.",
+    "A folder's controls now stay visible instead of appearing on hover.",
+    "On a shared list, the export formats group under one \"Export\" item, matching the editor.",
+    "On a shared list, \"Copy this list\" is \"Duplicate this list\", the editor's name for it.",
+    "On a shared list, signing in is an icon in the top bar like the rest of it, and the ⋯ menu sits at the end.",
+    "The trail link panel asks for a \"URL\".",
+    "The footer no longer links to the page you're already on.",
+    "Signing in opens over the page you're on, so you never lose your list.",
+    "The sign-in dialog says \"Sign in\" rather than \"Your account\" when you don't have one yet.",
+    "Deleting your account now asks once, with a checkbox for your lists, instead of two questions in a row.",
+    "The account's fields and buttons are contained, and Delete account is red."
+  ],
+  "fixed": [
+    "The gear vault no longer offers to save a list's gear while you're signed out.",
+    "On a phone, an item's gear type now sits tight under its row instead of floating below it.",
+    "The footer no longer offers a gear vault link when you're signed out.",
+    "Signing in now returns you to the list you were on, instead of leaving you on the account page.",
+    "A shared list no longer prints the top bar's buttons."
+  ]
+}

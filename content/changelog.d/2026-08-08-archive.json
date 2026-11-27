@@ -1,0 +1,14 @@
+{
+  "date": "2026-08-08",
+  "changed": [
+    "Tapping a control on a phone or tablet no longer raises a tooltip describing the thing you just pressed.",
+    "On a touchscreen, scrolling now closes an open menu instead of leaving it parked over the list.",
+    "The lit Worn and Consumable marks and the selected view tab sit a shade lighter, and stay readable on a row you're dragging or a group row.",
+    "The Worn and Consumable switches are a filled track rather than an outlined one, and easier to see when off.",
+    "The message that appears when you remove something is a little rounder at the corners."
+  ],
+  "fixed": [
+    "A weight or amount you'd just typed is no longer lost when you press a control on the same row.",
+    "In recent changes, the time of a change stays on one line beside a long description."
+  ]
+}

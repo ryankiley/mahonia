@@ -5,21 +5,18 @@
 // stripped — and fails on any dash that isn't one of the deliberate exceptions
 // below (title separators, the empty-value cell, numeric ranges, log lines).
 //
-// The changelog too: content/changelog.d/*.json and the archive are prose a visitor
-// reads on /about, and a hundred dashes had gathered there while this test looked
-// only at code (swept 2026-09-12).
+// The changelog too: content/changelog.d/*.json is prose a visitor reads in each
+// day's release, and a hundred dashes had gathered there while this test looked
+// only at code.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ROOT, blank, stripComments, walkSources } from "./helpers/sources";
 
 const ROOTS = ["app", "shared", "server"];
-const CHANGELOG = [
-  "content/changelog.json",
-  ...readdirSync(join(ROOT, "content/changelog.d"))
-    .filter((f) => f.endsWith(".json")) // the folder's README is for us, not the page
-    .map((f) => `content/changelog.d/${f}`),
-];
+const CHANGELOG = readdirSync(join(ROOT, "content/changelog.d"))
+  .filter((f) => f.endsWith(".json")) // the folder's README is for us, not the page
+  .map((f) => `content/changelog.d/${f}`);
 
 // CSS is not prose, a template's comments are not either, and the script block reads
 // like any other TypeScript. Spans are blanked, not cut, so line numbers stay true.

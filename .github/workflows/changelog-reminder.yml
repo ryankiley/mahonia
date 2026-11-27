@@ -4,9 +4,8 @@
 # doesn't write them; it just leaves a sticky reminder comment when a PR looks
 # user-facing (touches app/ or shared/) but adds no changelog entry.
 #
-# An entry is a new file under content/changelog.d/ (see shared/changelog.ts for
-# why it is a file per PR and not a line in a shared one); a PR that edits the
-# content/changelog.json archive counts too, which is what changelog:compact does.
+# An entry is a new file under content/changelog.d/ (see scripts/changelogSources.ts
+# for why it is a file per PR and not a line in a shared one).
 #
 # Opting out takes no trip to the GitHub UI: a conventional PR-title prefix
 # (refactor:, chore:, ci:, test:, docs:, build:) or [skip-changelog]
@@ -14,7 +13,7 @@
 # because most PRs in a refactoring run touch app/ or shared/ without changing one
 # thing a visitor can see, and hand-labelling each one is the tax this avoids.
 #
-# It never blocks a merge (the repo runs no required checks) and clears its own
+# It never blocks a merge (main requires only ci.yml's `check`) and clears its own
 # comment once satisfied. See scripts/changelog.ts + README.
 #
 # There is no auto-fill: nothing writes the entry for you. If a user-facing PR
@@ -69,11 +68,7 @@ jobs:
             });
             const paths = files.map((f) => f.filename);
 
-            // A new fragment is the normal way in; an edit to the archive is what
-            // changelog:compact does, and also counts.
-            const touchedChangelog =
-              paths.some((p) => p.startsWith("content/changelog.d/")) ||
-              paths.includes("content/changelog.json");
+            const touchedChangelog = paths.some((p) => p.startsWith("content/changelog.d/"));
             // "user-facing" = the surfaces a visitor sees; ignore tests
             const isTest = (p) => p.startsWith("tests/") || p.includes(".test.");
             const userFacing = paths.some(
