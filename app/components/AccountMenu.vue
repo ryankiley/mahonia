@@ -287,7 +287,7 @@ watch(offline, (off) => {
   border-radius: var(--radius-pill);
   background: var(--background-selected);
   font-size: calc(var(--avatar) * 0.64);
-  font-weight: var(--font-weight-semibold);
+  font-weight: 500; /* medium, on purpose: see above. The one weight outside the type scale. */
   line-height: var(--leading-none);
   letter-spacing: 0;
   text-transform: uppercase;

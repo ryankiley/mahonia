@@ -2558,10 +2558,10 @@ function dismissFix() {
   text-align: center;
 }
 /* The chip's ground is AN AMOUNT OF FOREGROUND, the well's two (.well,
-   atoms/controls.scss): 7% at rest, 10% under the pointer — the same pair the kcal field
+   atoms/controls.scss): 8% at rest, 10% under the pointer — the same pair the kcal field
    takes in the popover beside this one, so the two cards' grounds agree. It drew them in
    --background-secondary and --background-tertiary, page tones on a floating card: 1.10:1
-   at rest on the light popover, and in dark --background-tertiary IS --surface-1, so
+   at rest on the light popover, and in dark --background-tertiary WAS --surface-1, so
    pointing at a count erased its chip. Not --background-selected: that is the tone for
    ON, and here on is the inverted chip below. */
 .item__split {
@@ -2592,7 +2592,7 @@ function dismissFix() {
    drawn round it — the one focus every contained field on a floating surface takes (the
    trail panel's fields, the searches, the paste boxes). This one used to swap to
    --background-tertiary and add a hairline ring; the ring was standing in for a deepening
-   that couldn't show, since --background-tertiary is the card's own colour in dark. Only
+   that couldn't show, since --background-tertiary was the card's own colour in dark. Only
    the geometry is this field's — the transparent edge included: it is part of the box's
    size, and under forced colours, where fills are stripped, it is repainted and is all
    the field has. */

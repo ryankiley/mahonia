@@ -886,7 +886,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 /* --background-selected, the app's one tone for "on" (the mode tabs, the person filter,
    the row toggles), and an amount of foreground, so it composites over this card. It was
-   --background-tertiary, a page tone that IS --surface-1 in dark: the chosen tab had no
+   --background-tertiary, a page tone that WAS --surface-1 in dark: the chosen tab had no
    ground at all there and was told from the others by its foreground alone. */
 .vp__tab.is-active {
   background: var(--background-selected);

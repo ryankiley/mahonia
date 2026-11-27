@@ -81,8 +81,8 @@
 $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions);
 
 /* THE NAMES. The colour tokens carry the names most codebases use. --foreground-* is
-   what is drawn: text, glyphs, rules. --background-primary, -secondary and -tertiary
-   are the page and its raised tones; --background-hover, -selected and -field are
+   what is drawn: text, glyphs, rules. --background-primary and -secondary are the
+   page and its raised tone; --background-hover, -selected and -field are
    states, each a tint of the foreground laid over whatever is under it, so they read on
    any surface. --surface-* floats over the page, and --border-* is the hairlines. */
 :root {
@@ -102,10 +102,10 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* ---- the SELECTED ground: a control that is ON, held as a filled plate rather than as
      darker foreground (the classification chips, the waypoint kind toggles). Its own
      token and NOT --background-tertiary, which is what it used to borrow, for two reasons.
-     A ROLE, not a surface: --background-tertiary is sized for a panel you read ON TOP of,
+     A ROLE, not a surface: --background-tertiary was sized for a panel you read ON TOP of,
      where the tone is a hint at an edge. This is a 32px disc in an otherwise white row,
      and the same tone that reads as a whisper under a paragraph reads as a mark at that
-     area — --background-tertiary is the tone --border-primary resolves to over
+     area — --background-tertiary was the tone --border-primary resolves to over
      background, so the chip was carrying a hairline's weight as solid fill.
      And the two modes are tuned apart, on purpose. They were first matched by WCAG
      ratio — 6.5% / 8.5%, both 1.16:1 on background — and the dark plate came out as #161616
@@ -125,7 +125,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      a nesting parent that keeps it. Written as #161616 the dark chip measured 1.009:1
      against a dragged row's --background-secondary — a 1/255 difference from the thing
      under it, i.e. gone. That is the same failure the Worn/Consumable SWITCH shipped with
-     (#216): it drew its off track in --background-tertiary, which resolves to
+     (#216): it drew its off track in --background-tertiary, which resolved to
      --surface-1's exact value in dark, so the track vanished into the popover. Mixed from
      foreground instead, the plate composites over whatever it lands on — 1.16/1.30 on
      background, 1.16/1.44 on --background-secondary — and cannot match its surface. The
@@ -149,13 +149,13 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* ---- the switch's OFF TRACK: a control that is OFF, held as an empty well for its
      knob (the Worn/Consumable switch). --background-selected's counterpart, and the same
      kind of token for the same reason — an AMOUNT OF FOREGROUND and not a named tone,
-     because that switch's first version drew this in --background-tertiary, which is
+     because that switch's first version drew this in --background-tertiary, which was
      --surface-1's exact value in dark, and the off track vanished into the popover it
      sits on at 1.00:1. Where --background-selected has a target, this has a FLOOR. It is
      the whole of what makes an off switch a visible object, so it carries WCAG 1.4.11 by
      itself: 43%/35% is the least foreground that clears 3:1 on every ground in the app.
-     The binding cases come from opposite ends — --background-tertiary in light, where a
-     wash loses contrast against a ground already tinted toward it, and
+     The binding cases came from opposite ends — the old --background-tertiary in light,
+     where a wash loses contrast against a ground already tinted toward it, and
      --background-primary in dark, where black gives the ratio's denominator nothing but
      its 0.05 floor to work with. Do not lower either number. It REPLACED a 1px ring of
      45% foreground over a 10% track. That ring was three times the weight of
