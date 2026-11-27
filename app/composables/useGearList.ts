@@ -978,6 +978,10 @@ function create() {
       // server takes a replay, and nothing here may write to a record that is no
       // longer this session's.
       if (myEpoch !== epoch) return;
+      // A 2xx with no list in it (something between here and the server answering for
+      // it) acknowledges nothing. Refused while the batch is still queued, so the
+      // catch retries it like any other failure.
+      if (!res?.snapshot) throw new Error("no snapshot");
       // acknowledged: only now does the batch leave the queue. Edits made meanwhile
       // were pushed behind it, so the head is still exactly these ops.
       pending.splice(0, ops.length);

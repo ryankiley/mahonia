@@ -411,6 +411,20 @@ describe("useGearList — a batch still out when the editor moved on", () => {
     await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
   });
 
+  // A 200 that carries no list (a middlebox answering for the server) acknowledges
+  // nothing: the batch stays queued and goes again after the backoff.
+  it("keeps the batch queued when a 200 answer carries no snapshot, and sends it again", async () => {
+    const c = await opened();
+    c.setMeta({ title: "Renamed in place" });
+
+    await awaitMutateInFlight();
+    settleMutate.resolve({});
+
+    await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
+    expect(mutates[1]!.ops).toMatchObject([{ t: "setMeta", patch: { title: "Renamed in place" } }]);
+    expect(queued()).toMatchObject([{ t: "setMeta", patch: { title: "Renamed in place" } }]);
+  });
+
   // A batch out under the old link when this device replaces it comes back 404: the
   // link it went under is dead, not the list. It goes again under the new one, where
   // it used to mark the list gone and stop queueing every edit after it.
