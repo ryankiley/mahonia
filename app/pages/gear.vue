@@ -896,7 +896,7 @@ async function exportGear(kind: string) {
 /* the switcher's width before it hydrates: its word and chevron, unseen */
 .gear__leadhold {
   visibility: hidden;
-  padding-inline-end: calc(14 * var(--tpx) + var(--space-1));
+  padding-inline-end: calc(var(--icon-sm) + var(--space-1));
 }
 /* Signed out there is one thing to do, so the column centres and narrows. Signed in the page is a wide,
    left-aligned list of gear, which is why this is scoped to the signed-out block
@@ -1022,8 +1022,8 @@ async function exportGear(kind: string) {
    tab above is a solid line (Ryan: "match the weight of the other icons"). Scaled, it
    is the tab's icon, larger. */
 .vault__midmark {
-  width: calc(40 * var(--tpx));
-  height: calc(40 * var(--tpx));
+  width: var(--control-h);
+  height: var(--control-h);
   color: var(--ink-3);
 }
 /* the kit's name is typed where its button was, so it is centred as the button was */

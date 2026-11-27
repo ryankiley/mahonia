@@ -175,7 +175,7 @@ h6,
 button,
 input,
 label {
-  line-height: 1.2;
+  line-height: var(--leading-control);
 }
 
 // Media — block, responsive, aspect-ratio preserving.

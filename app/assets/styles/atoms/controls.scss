@@ -689,7 +689,7 @@ input[type="search"]::-webkit-search-decoration {
   // where a first row would put its own
   padding: var(--space-2) var(--space-3) var(--space-3);
   border-radius: var(--popover-item-radius);
-  background: color-mix(in oklab, var(--ink) 7%, transparent);
+  background: var(--wash);
   white-space: normal;
 }
 // Alone in its card (the signed-out offline card) there are no rows to stand off from
@@ -1131,7 +1131,7 @@ input[type="search"]::-webkit-search-decoration {
   /* the text's inset from the tint, which every well had restated as --space-3; a
      box that wants another (the feedback box) sets its own */
   padding-inline: var(--space-3);
-  background: color-mix(in oklab, var(--ink) 7%, transparent);
+  background: var(--wash);
   border-radius: var(--popover-item-radius);
   color: var(--ink);
   transition: background var(--spring-fade-dur) var(--spring-fade);
@@ -1144,7 +1144,7 @@ input[type="search"]::-webkit-search-decoration {
 // vanishes.
 .well:focus {
   outline: none;
-  background: color-mix(in oklab, var(--ink) 10%, transparent);
+  background: var(--wash-deep);
 }
 
 // Disclosure slide — a grid whose single row animates 1fr↔0fr.
