@@ -977,6 +977,17 @@ onClickOutside(trailEl, closeTrail);
   height: var(--icon);
   border-radius: var(--radius-icon);
 }
+/* A SITE'S MARK DRAWS A STEP SMALLER THAN ITS SLOT. A glyph's art lives inside 2–22 of
+   its 24 grid, so at --icon it is about 17px of line; a favicon is a filled square that
+   used the whole 20 and stood a size up from the calendar under it (Ryan, 2026-11-27:
+   "a hair too big"). Four fifths of the slot, the difference given back as margin, so
+   the slot is still --icon wide and the name beside it doesn't move, and the fallback
+   globe (a glyph, already inset) is untouched. */
+img.head__icon {
+  width: calc(var(--icon) * 0.8);
+  height: calc(var(--icon) * 0.8);
+  margin: calc(var(--icon) * 0.1);
+}
 /* The globe that stands in for a real mark (.head__icon--fallback) and the distance that
    rides after the name (.head__dist) are drawn with the read view's own, beside .link
    in atoms/controls.scss: the trail link reads the same on both. */

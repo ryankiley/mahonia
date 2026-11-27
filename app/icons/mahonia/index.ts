@@ -36,6 +36,7 @@ export { PocketKnifeGlyph } from "./PocketKnifeGlyph";
 export { TowelGlyph } from "./TowelGlyph";
 export { MountainGlyph } from "./MountainGlyph";
 export { StairsGlyph } from "./StairsGlyph";
+export { VerifiedGlyph } from "./VerifiedGlyph";
 export { FuelCanGlyph } from "./FuelCanGlyph";
 export { WaterBottleGlyph } from "./WaterBottleGlyph";
 export { CanisterGlyph } from "./CanisterGlyph";

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { IconCodeTree, IconCalculator, IconCheckmark1Medium, IconChevronDownMedium, IconCircleDotsCenter1, IconCrossMedium, IconDotGrid2x3, IconFashion, IconFormSquare, IconSlideAdd, IconListAdd, IconMinusMedium, IconPlusMedium, IconSquareCheck, IconSquareMinus, IconTextIndentLeft, IconTextIndentRight, IconTrashCan, IconUserEdit, IconSafeSimple } from "~/icons/central";
+import { IconArrowsRepeatCircle, IconCodeTree, IconCalculator, IconCheckmark1Medium, IconChevronDownMedium, IconCircleDotsCenter1, IconDotGrid2x3, IconFashion, IconFormSquare, IconSlideAdd, IconListAdd, IconMinusMedium, IconPencil2, IconPlusMedium, IconSquareCheck, IconSquareMinus, IconTextIndentLeft, IconTextIndentRight, IconTrashCan, IconUserEdit, IconSafeSimple } from "~/icons/central";
 import type { InjectionKey, Ref } from "vue";
 import type { Item as ItemT, Person, Unit } from "~~/shared/types";
 
@@ -64,7 +64,7 @@ import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup,
 import { isWaterName, itemQtyLabel } from "~~/shared/water";
 import { useItemRowFields } from "~/composables/useItemRowFields";
 import { useItemRowClassification } from "~/composables/useItemRowClassification";
-import { UnsetRingGlyph } from "~/icons/mahonia";
+import { UnsetRingGlyph, VerifiedGlyph } from "~/icons/mahonia";
 import { consumableIcon } from "~/utils/itemMarks";
 import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal } from "~~/shared/fuel";
 // the same worthiness + identity rules the capture path runs, so "already banked"
@@ -704,20 +704,22 @@ const menu = useItemMenu();
 // Namespaced off the row id like the menus, so the singleton's single openId makes
 // every popover on every row mutually exclusive with no cross-wiring.
 //
-// Placement is measured per open (useMenuPlacement, in its `shift` mode). Flip ABOVE
+// Placement is measured per open (useMenuPlacement, in its `center` mode). Flip ABOVE
 // the trigger when there isn't room below: a list is long and its last rows sit at
 // the viewport floor, where a below-anchored popover opens off-screen — the one
-// place the feature is needed is the one place it would be unreachable. Slide RIGHT
-// rather than flip to the leading edge when the card runs off the left: it hangs
-// off the trigger's right edge, which is correct on a wide row but walks off the
-// left of a phone, where the stacked layout puts the mark near the middle of a
-// 375px viewport (the composable's header says why a flip can't serve that case).
+// place the feature is needed is the one place it would be unreachable. Sideways it
+// sits UNDER THE MIDDLE OF THE RING and slides only as far as the window makes it,
+// as the row's menus do (ItemRowMenu): it hung off the ring's right edge, which put
+// most of the card over the weight it sits beside, and beside a catalog mark whose
+// menu centres the two cards opened from different corners (2026-11-27). On a phone
+// the ring is mid-row and the slide is what keeps the card on screen, which is the
+// job the old `shift` mode did from the trailing edge.
 // Tooltip.vue solves the same problem but is built around a hover-driven popup
 // teleported to <body>; this popover holds a focusable field and stays in the row.
 const classRootRef = useTemplateRef<HTMLElement>("classRootRef");
 const classPopRef = useTemplateRef<HTMLElement>("classPopRef");
 const isClassOpen = computed(() => menu.openId.value === `${props.item.id}:class`);
-const { above: classAbove, shift: classShift, place: placeClass } = useMenuPlacement(classPopRef, { fit: "shift" });
+const { above: classAbove, shift: classShift, place: placeClass } = useMenuPlacement(classPopRef, { fit: "center" });
 // The picture on the mark: what the row counts as. The shirt for worn, and for a
 // consumable whichever of the cookie, the fuel can and the droplet consumableIcon picks.
 // BASE is the row with nothing set (it is stored as null), so its mark is the empty
@@ -1168,6 +1170,8 @@ const showFix = computed(
     props.item.unitWeightMg > 0 &&
     formatWeight(props.item.unitWeightMg, rowUnit.value) !== formatWeight(props.item.catalogWeightMgAtLink, rowUnit.value),
 );
+/** the catalog's figure as this row reads, for the mark's tooltip and its first entry */
+const catalogShown = computed(() => formatWeight(props.item.catalogWeightMgAtLink ?? 0, rowUnit.value));
 function openFix() {
   if (props.item.catalogItemId == null || props.item.catalogWeightMgAtLink == null) return;
   correction.open({
@@ -1177,6 +1181,17 @@ function openFix() {
     suggestedMg: props.item.unitWeightMg,
     displayUnit: rowUnit.value,
   });
+}
+// THE OTHER ANSWER to the same disagreement: the catalog is right and the row is
+// wrong, which is the likelier case on a list that was imported (round numbers typed
+// into another tool years ago) or weighed by eye. The note only offered to correct the
+// catalog for everyone, so agreeing with it meant retyping its figure into the field
+// above. This takes it: the row's weight becomes the catalog's, it stops counting as
+// an override, and with nothing left to disagree about the note goes.
+function useCatalogWeight() {
+  const mg = props.item.catalogWeightMgAtLink;
+  if (mg == null) return;
+  c.updateItem(props.item.id, { unitWeightMg: mg, weightOverridden: false });
 }
 // dismiss the nudge from the page: re-baseline the linked catalog weight to the
 // current weight, so it no longer diverges (persists; re-offers if they edit again)
@@ -1324,7 +1339,8 @@ function dismissFix() {
                column below, where its rows' consumable marks are. -->
           <span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline" title="Calories in this group">· {{ formatKcal(rowKcal) }} kcal</span>
         </div>
-        <!-- sub-line: the gear type (a quiet upright label) and, under it, the freeform note;
+        <!-- sub-line: the gear type (a quiet upright label) and, after it where it fits
+             and under it where it doesn't (.item__subfields), the freeform note;
              both single-line live-text fields, showing whenever they hold a value or the
              name is being edited (see nameEditing). INSIDE the name cell, not under the
              whole row: the gear type is the everyday word for the product above it, so it
@@ -1475,7 +1491,11 @@ function dismissFix() {
              total would start where a sibling row's weight does, but with nothing to
              its left the total read as a broken wrap (Sept 2026, prod). A row's second
              line starts at its own left edge, like every other row's. -->
-        <div v-if="isWater || !bareGroup" class="item__qty" :class="{ 'item__qty--step': !isWater }">
+        <div
+          v-if="isWater || !bareGroup"
+          class="item__qty"
+          :class="{ 'item__qty--step': !isWater, 'item__qty--one': !isWater && item.qty === 1 }"
+        >
           <template v-if="isWater">
             <!-- text, not type="number", the way the weight field beside it is: it takes
                  "32 oz" and "500 ml" as well as bare litres (onWaterLiters) -->
@@ -1550,6 +1570,55 @@ function dismissFix() {
         </div>
 
         <div class="item__weight">
+          <!-- THE CATALOG DISAGREES: a quiet mark beside the weight it is about, and
+               behind it the three things to do. It was a line under the row (a sentence,
+               then buttons, then a boxed field: three tries on 2026-11-27), and each one
+               spent a line of every disagreeing row on a note most rows only need to be
+               ABLE to reach. A list just imported has a dozen of these, so the row says
+               only that there is something (the mark) and the popover says what: take
+               the catalog's figure, keep yours, or tell the catalog it is wrong.
+               Left of the number: the figure is right-aligned, so that end of the cell
+               is empty, and the column of numbers doesn't move for it.
+               The trigger's name leads with what the tooltip shows and adds the row. -->
+          <ItemRowMenu
+            v-if="showFix"
+            class="item__catnote"
+            :row-id="item.id"
+            kind="catalog"
+            :label="`Catalog: ${catalogShown}`"
+            :trigger-label="`Catalog: ${catalogShown}, for ${item.name || 'this item'}`"
+            menu-label="The catalog's weight"
+            trigger-class="item__catnote-btn"
+            tooltip
+          >
+            <template #trigger>
+              <SvgIcon :icon="VerifiedGlyph" />
+            </template>
+            <!-- THREE OUTCOMES, EACH NAMED BY ITS FIGURE, likeliest first: take the
+                 catalog's, keep yours, or tell the catalog it is wrong. The figure leads
+                 and its source follows ("Use 55 g from the catalog", not "the catalog's
+                 55 g"), and the second says what putting the mark away MEANS, which
+                 "Dismiss" left to be guessed (Ryan, 2026-11-27: "is this the copy you'd
+                 use?"). The glyphs say the same three things: swap, tick, pencil. -->
+            <li role="none">
+              <button type="button" data-row role="menuitem" class="menu__item item__fixuse" @click="menu.close(); useCatalogWeight()">
+                <SvgIcon :icon="IconArrowsRepeatCircle" aria-hidden="true" />
+                Use {{ catalogShown }} from the catalog
+              </button>
+            </li>
+            <li role="none">
+              <button type="button" data-row role="menuitem" class="menu__item item__fixdismiss" @click="menu.close(); dismissFix()">
+                <SvgIcon :icon="IconCheckmark1Medium" aria-hidden="true" />
+                Keep {{ formatWeight(item.unitWeightMg, rowUnit) }}
+              </button>
+            </li>
+            <li role="none" class="menu__foot">
+              <button type="button" data-row role="menuitem" class="menu__item item__fixsuggest" @click="menu.close(); openFix()">
+                <SvgIcon :icon="IconPencil2" aria-hidden="true" />
+                Suggest a catalog fix…
+              </button>
+            </li>
+          </ItemRowMenu>
           <input
             class="field field--num"
             :value="isParent ? groupWeight : weightDisplay"
@@ -1660,7 +1729,7 @@ function dismissFix() {
                   ref="classPopRef"
                   class="popover item__pop"
                   :class="{ 'is-above': classAbove }"
-                  :style="classShift ? { translate: classShift + 'px 0' } : undefined"
+                  :style="classShift ? { '--pop-shift': classShift + 'px' } : undefined"
                   role="dialog"
                   aria-label="Counts as"
                   @click="keepPopInView"
@@ -2010,25 +2079,6 @@ function dismissFix() {
         </div>
       </div>
     </div>
-
-    <Transition name="reveal">
-      <div v-if="showFix" class="reveal">
-        <div class="item__fixrow">
-          <button type="button" class="item__under-link foreground-quiet t-sm" @click="openFix">
-            Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, rowUnit) }} · suggest a fix
-          </button>
-          <button
-            type="button"
-            class="btn btn--icon btn--ghost item__fixdismiss foreground-quiet"
-            title="Dismiss"
-            aria-label="Dismiss suggestion"
-            @click="dismissFix"
-          >
-            <SvgIcon :icon="IconCrossMedium" size="sm" />
-          </button>
-        </div>
-      </div>
-    </Transition>
 
     <!-- nested items: the SAME row, one level down (checklist rows in packing mode), in a
          block indented behind a hairline thread line. Their real weights sum into this row's
@@ -2488,7 +2538,12 @@ function dismissFix() {
 
   position: absolute;
   top: calc(100% + var(--space-1));
-  right: 0;
+  /* under the middle of the ring, slid by --pop-shift when that would leave the window
+     (placeClass). `translate`, so it composes with the enter's transform; it grows from
+     the middle of the edge that faces the ring. */
+  left: 50%;
+  translate: calc(-50% + var(--pop-shift, 0px)) 0;
+  transform-origin: top center;
   z-index: var(--z-menu);
   display: grid;
   gap: var(--space-2);
@@ -2504,6 +2559,7 @@ function dismissFix() {
 .item__pop.is-above {
   top: auto;
   bottom: calc(100% + var(--space-1));
+  transform-origin: bottom center;
 }
 /* THE CHOICE: base · worn · consumable, as the app's own tabs — the mode bar's chip
    (.modebar__opt, atoms/modebar.scss), the way the share panel's two tabs wear it. No
@@ -2703,6 +2759,35 @@ function dismissFix() {
     opacity: 1;
   }
 }
+/* THE QUANTITY STEPPER IS QUIET UNTIL WANTED. "− 1 +" stood on every row, three marks
+   each, and on most lists nearly every count is 1: a column of controls saying nothing
+   beside the one column (weight) the page is for.
+   THE NUMBER ALWAYS SHOWS. A first version let a count of 1 rest unseen and Ryan turned
+   it down on sight (2026-11-27: "I don't like quantity hidden"), which is the standing
+   rule that a row's information isn't hidden until hover. So a 1 stays and steps back
+   to the quiet ink, at every width, and any other count reads at full strength: "8"
+   stakes is the figure the eye should find in the column.
+   Only the − and + rest unseen, on the grid under a pointer that can hover, and come
+   back when the row is under the pointer or holds focus, the way Duplicate and Remove
+   do above. Written as the REST state (:not(:hover):not(:focus-within)) rather than as a
+   reveal, so that under the pointer nothing here applies and a disabled − keeps
+   .btn:disabled's own dimming; a reveal would have had to restate it.
+   Opacity, never display: the track keeps its width, so the number stays centred in it. */
+.item-wrap .item__qty--one .field {
+  color: var(--foreground-tertiary);
+}
+/* being typed in, it is the field's own ink: a grey caret-holder reads as disabled */
+.item-wrap .item__qty--one .field:focus {
+  color: var(--foreground-primary);
+}
+@media (hover: hover) and (pointer: fine) and (min-width: #{$bp-stack + 1px}) {
+  .item__qtybtn {
+    transition: opacity var(--spring-fade-dur) var(--spring-fade);
+  }
+  .item-row:not(:hover):not(:focus-within) .item__qtybtn {
+    opacity: 0;
+  }
+}
 /* The save button's coming and going is STATE — the automatic capture releasing a
    row, or taking it. Arrival gets a little sizzle: the trigger pops in, and a
    light front sweeps left-to-right through the glyph — a soft-edged mask wipe
@@ -2857,6 +2942,60 @@ function dismissFix() {
   flex-direction: column;
   gap: var(--space-1);
 }
+/* THE NOTE JOINS THE TYPE LINE WHEN IT FITS, as it always has on the share page
+   ("Tent · 2P tent", ReadonlyItemRow's sub-line). It had a line to itself here whatever
+   its length, so a row with a type and a two-word note stood three lines tall, and four
+   with the catalog's note under it; thirty of those is most of the page's height.
+   The stack becomes a wrapping row. The note sizes to its text (the engine's
+   field-sizing, which the type and variant beside it already take), so a short one sits
+   after the type and a long one fails to fit, drops to the next line and wraps there at
+   the full width, which is exactly what it did before.
+   THE DOT BETWEEN THEM has to be there on a shared line and gone when the note starts
+   a line of its own, and nothing in CSS says which of those a wrapped flex item is. So
+   the dot lives in a strip the note carries on its left and gives back with a negative
+   margin: on a shared line the strip is the space between the two, and at the start of
+   a line it hangs off the left edge of this box, which clips (.reveal > *, the slide's
+   own overflow). The type line pays the strip's width back on its right so the two
+   never overlap.
+   Only where a field can size to its content. Elsewhere the column above stands. */
+@supports (field-sizing: content) {
+  .item__subfields {
+    --sub-sep: calc(2 * var(--space-1) + 0.35em);
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 0;
+  }
+  .item__subfields > .item__gtype-line {
+    flex: 0 1 auto;
+    max-width: 100%;
+  }
+  .item__subfields > .item__gtype-line:has(+ .reveal--detail) {
+    margin-right: var(--sub-sep);
+  }
+  .item__subfields > .reveal--detail {
+    position: relative;
+    flex: 0 1 auto;
+    max-width: calc(100% + var(--sub-sep));
+    margin-left: calc(-1 * var(--sub-sep));
+    padding-left: var(--sub-sep);
+  }
+  .item__subfields > .reveal--detail::before {
+    content: "·";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--sub-sep);
+    text-align: center;
+    color: var(--foreground-tertiary);
+    font-size: var(--text-input);
+  }
+  .item__subfields > .reveal--detail > textarea.item__note {
+    width: auto;
+    min-width: 2ch;
+    max-width: 100%;
+  }
+}
 /* If one sub-line has a saved value, the shared reveal stays mounted when focus
    leaves. Let its empty sibling finish closing instead of disappearing mid-frame. */
 .reveal-field-leave-active {
@@ -2913,32 +3052,38 @@ function dismissFix() {
    covers the engines without field-sizing. `rows="1"` is the floor, so an empty note
    costs exactly the line the <input> did and the row's height is unchanged until there
    is something to wrap. */
-/* quiet "suggest a fix" link under a row (a <button>: the pointer is the reset's). Its
-   foregrounds are .foreground-quiet's (atoms/controls.scss), in the markup: the lesser
-   foreground at rest, primary foreground under the pointer and on keyboard focus, on the
-   fade. */
-.item__under-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  text-align: left;
+/* THE CATALOG'S MARK in the weight cell. The glyph is the row's own size (--icon, as
+   the class ring and the grip are): at a step smaller it read as a different kind of
+   thing from the icons a few px away (Ryan, 2026-11-27: "seems small vs the other
+   icons"). The BOX is the glyph and no more, not the row's 32px icon button, because it
+   shares a 100px cell with a number: on the grid it also hangs a step out into the
+   column gap on its left, which leaves the field room for a five-figure weight.
+   :deep, because the button is ItemRowMenu's element and a scoped rule stops at that
+   component's root (the first version of this rule never applied, and the button stood
+   32px wide). No wash under the pointer: a 20px disc would hug the seal's own outline,
+   and the foreground deepening (.foreground-quiet) already answers. The press area comes back to
+   --touch-target on touch through an ::after, since growing the box would push the number. */
+.item__catnote {
+  flex: none;
+  align-self: center;
+  margin-left: calc(-1 * var(--space-2));
 }
-/* the suggest-a-fix nudge + an × to dismiss it from the page */
-.item__fixrow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
+.item__catnote :deep(.item__catnote-btn) {
+  position: relative;
+  width: var(--icon);
+  min-width: 0;
+  height: var(--icon);
+  min-height: 0;
+  padding: 0;
+  background: transparent;
 }
-/* composes .btn--icon for the real tap target (--icon-btn box, --touch-target on touch) —
-   without it the bare 14px glyph was the whole hit area. This rule keeps the quiet
-   --foreground-tertiary treatment over .btn--ghost's foreground, and the negative block
-   margins pull the enlarged box back out of layout so the fix row keeps its one-text-line
-   rhythm (the actions cluster's overshoot technique). */
-.item__fixdismiss {
-  margin-block: var(--touch-target-pull);
+@media (pointer: coarse) {
+  .item__catnote :deep(.item__catnote-btn)::after {
+    content: "";
+    position: absolute;
+    inset: calc((100% - var(--touch-target)) / 2);
+  }
 }
-
 /* the nested block's thread-line container is the shared .nest-block atom
    (atoms/item.scss), rendered identically by ReadonlyItemRow */
 /* the collapse machinery (1fr↔0fr grid slide + clip) is the shared .nestcollapse atom
@@ -3384,6 +3529,12 @@ function dismissFix() {
   .item-wrap .item__qty .field,
   .item__weight .field {
     text-align: left;
+  }
+  /* the catalog's mark trails the weight and its unit on this line: the figure starts
+     at the cell's left edge down here, so the empty end is the other one */
+  .item__weight .item__catnote {
+    order: 3;
+    margin-left: 0;
   }
   /* and the cell gives back the stepper's geometry with it — both variants, since
      both are a plain field down here. That reserved button gutter, the zero gap and

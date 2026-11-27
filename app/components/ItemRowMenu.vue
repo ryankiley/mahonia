@@ -49,12 +49,15 @@ const rootRef = useTemplateRef<HTMLElement>("rootRef");
 // with the open menu, so a list pays for one plate, not three per row.
 const menuList = useTemplateRef<{ el: HTMLElement | null }>("menuList");
 const listRef = computed(() => menuList.value?.el ?? null);
-// Which sides to hang from, measured per open (useMenuPlacement). Rows are the one
+// Where to hang, measured per open (useMenuPlacement). UNDER THE MIDDLE of the trigger:
+// every one of these opens off a small icon in a row, and a card flush to one of the
+// icon's edges reads as its neighbour's. It slides only as far as the window makes it,
+// which for the ⋯ at a row's far end is the old right-aligned place. Rows are the one
 // place the atom's default was reliably wrong: a list is long, so its LAST rows sit
 // at the viewport floor, and a menu anchored below them opened off the bottom of
 // the screen — 144px past it, measured. One placement per menu; only one of a
 // row's menus is ever open (the singleton), so nothing is measured that isn't up.
-const { atStart, above, place } = useMenuPlacement(listRef);
+const { centered, above, shift, place } = useMenuPlacement(listRef, { fit: "center" });
 const id = computed(() => `${props.rowId}:${props.kind}`);
 const isOpen = computed(() => menu.openId.value === id.value);
 // measured on the tick the list mounts — it has no size to measure before that
@@ -99,7 +102,8 @@ function toggle() {
       <MenuList
         v-if="isOpen"
         ref="menuList"
-        :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
+        :class="{ 'menu__list--center': centered, 'menu__list--above': above }"
+        :style="shift ? { '--menu-shift': `${shift}px` } : undefined"
         :aria-label="menuLabel ?? label"
       >
         <slot />

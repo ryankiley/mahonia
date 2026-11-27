@@ -583,6 +583,20 @@ input[type="search"]::-webkit-search-decoration {
 .menu__list--above.menu__list--start {
   transform-origin: bottom left;
 }
+// Set under the MIDDLE of the trigger (useMenuPlacement's `center`), slid by --menu-shift
+// when the centred card would leave the window. `translate`, not transform: the enter and
+// leave run on transform (the rise and the scale, above), and the two properties compose
+// where two transforms would overwrite each other. It grows from the middle of the edge
+// that faces the trigger.
+.menu__list--center {
+  right: auto;
+  left: 50%;
+  translate: calc(-50% + var(--menu-shift, 0px)) 0;
+  transform-origin: top center;
+}
+.menu__list--above.menu__list--center {
+  transform-origin: bottom center;
+}
 // ONE GLYPH COLUMN down every menu in the app. A row is icon · label, centred, and
 // the glyph is PINNED to its column: an <svg> is a shrinkable flex item by default,
 // and a menu list is an absolutely positioned, shrink-to-fit box whose width the

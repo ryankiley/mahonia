@@ -63,12 +63,13 @@ describe("a row reading in grams on a pounds list", () => {
 
   it("nudges in grams too: the catalog figure under the row reads in the row's unit", () => {
     const w = mountRow(chair);
-    expect(w.find(".item__fixrow").text()).toContain("Catalog: 553 g");
+    expect(w.get(".item__catnote-btn").attributes("aria-label")).toContain("Catalog: 553 g");
   });
 
   it("opens the fix dialog in grams, so the prefilled suggestion and the row agree", async () => {
     const w = mountRow(chair);
-    await w.find(".item__under-link").trigger("click");
+    await w.get(".item__catnote-btn").trigger("click");
+    await w.get(".item__fixsuggest").trigger("click");
     const { target } = useCatalogCorrection();
     expect(target.value?.displayUnit).toBe("g");
     expect(target.value?.catalogWeightMg).toBe(553_000);
@@ -91,7 +92,7 @@ describe("a row reading in grams on a pounds list", () => {
   // the control: a row with no unit of its own still reads in the list's
   it("falls back to the list's unit on a row with no unit of its own", () => {
     const w = mountRow({ ...chair, entryUnit: undefined });
-    expect(w.find(".item__fixrow").text()).toContain("Catalog: 1.22 lb");
+    expect(w.get(".item__catnote-btn").attributes("aria-label")).toContain("Catalog: 1.22 lb");
   });
 });
 
@@ -104,13 +105,13 @@ describe("a catalog weight the row cannot tell from its own", () => {
 
   it.each(["g", "oz", "lb", "kg"] as const)("raises no note where both read the same in %s", (entryUnit) => {
     const w = mountRow({ ...tent, entryUnit });
-    expect(w.find(".item__fixrow").exists()).toBe(false);
+    expect(w.find(".item__catnote").exists()).toBe(false);
   });
 
   it("still raises it for a gram the row's unit shows, and not in a unit that hides it", () => {
     const off = { ...tent, catalogWeightMgAtLink: 888_000 };
-    expect(mountRow({ ...off, entryUnit: "g" }).find(".item__fixrow").text()).toContain("Catalog: 888 g");
+    expect(mountRow({ ...off, entryUnit: "g" }).get(".item__catnote-btn").attributes("aria-label")).toContain("Catalog: 888 g");
     // 0.89 kg both ways
-    expect(mountRow({ ...off, entryUnit: "kg" }).find(".item__fixrow").exists()).toBe(false);
+    expect(mountRow({ ...off, entryUnit: "kg" }).find(".item__catnote").exists()).toBe(false);
   });
 });

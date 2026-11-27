@@ -91,6 +91,15 @@ describe("a row's quantity stepper", () => {
     expect(w.get(".item__qtyfield").attributes("tabindex")).toBeUndefined();
     expect(w.get(".item__weight input").attributes("tabindex")).toBeUndefined();
   });
+
+  // What the styles hang the resting state on: a count of one is marked, any other is
+  // not (its number stays in view; only the buttons step back).
+  it("marks a count of one, and only that", () => {
+    const one = mountRow(item({ id: "tent", name: "X-Mid 2", unitWeightMg: 887_000 }));
+    expect(one.get(".item__qty").classes()).toContain("item__qty--one");
+    const eight = mountRow(item({ id: "stakes", name: "Stakes", unitWeightMg: 14_000, qty: 8 }));
+    expect(eight.get(".item__qty").classes()).not.toContain("item__qty--one");
+  });
 });
 
 describe("a folder's remove button", () => {
