@@ -1269,6 +1269,10 @@ onClickOutside(trailEl, closeTrail);
   margin-left: var(--space-1);
   cursor: help;
 }
+/* a round ring for a round glyph, on focus only (the Trip panel's (?) does the same) */
+.head__gpxwhy:focus-visible {
+  border-radius: var(--radius-pill);
+}
 .head__gpxerr {
   color: var(--foreground-secondary);
 }

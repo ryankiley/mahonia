@@ -81,6 +81,18 @@ describe("a row's controls name the row", () => {
   });
 });
 
+// From a typed name to its weight. The stepper's two buttons stood in the Tab path, so
+// a hand-entered item was six presses from name to weight; the number field between
+// them steps on the arrow keys, which is the keyboard's − and +.
+describe("a row's quantity stepper", () => {
+  it("keeps its buttons out of the Tab path and the number in it", () => {
+    const w = mountRow(item({ id: "tent", name: "X-Mid 2", unitWeightMg: 887_000 }));
+    expect(w.findAll(".item__qtybtn").map((b) => b.attributes("tabindex"))).toEqual(["-1", "-1"]);
+    expect(w.get(".item__qtyfield").attributes("tabindex")).toBeUndefined();
+    expect(w.get(".item__weight input").attributes("tabindex")).toBeUndefined();
+  });
+});
+
 describe("a folder's remove button", () => {
   const remove = (f: ReturnType<typeof folder>) =>
     mount(FolderSection, {

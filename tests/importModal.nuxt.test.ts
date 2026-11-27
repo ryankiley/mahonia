@@ -211,6 +211,26 @@ describe("where the import dialog says a backup comes from", () => {
 // "Choose a file…" is the other way to put something in, so it stands with the paste box.
 // It was the first of three in the action row, a bare phrase beside the contained Cancel
 // and Import, and on a phone the row wrapped and left Import alone on a second line.
+// A link or a CSV is already on the clipboard, so the dialog opens with the caret in
+// the box it goes in. The shell here drops its contents while closed, as BaseModal does
+// (the box is a new node on every open, which is what the focus follows).
+describe("where the import dialog opens", () => {
+  it("puts the caret in the paste box, on the first open and on a reopen", async () => {
+    const w = mount(ImportModal, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { stubs: { BaseModal: { props: ["open"], template: `<div v-if="open"><slot /></div>` } } },
+    });
+    await nextTick();
+    expect(document.activeElement).toBe(w.get("textarea").element);
+
+    await w.setProps({ open: false });
+    await w.setProps({ open: true });
+    await nextTick();
+    expect(document.activeElement).toBe(w.get("textarea").element);
+  });
+});
+
 describe("the import dialog's buttons", () => {
   it("keeps the action row to Cancel and Import", () => {
     const w = dialog();

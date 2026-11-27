@@ -48,16 +48,26 @@ watch(
       restoreEl = document.activeElement as HTMLElement | null;
       menuTrigger =
         restoreEl?.closest('[role="menu"]')?.closest(".menu")?.querySelector<HTMLElement>("button") ?? null;
-      // nextTick: the dlg node exists only after this open renders. Yield if a
-      // caller already placed focus inside (the link-fallback preselects its
-      // input). reset.scss suppresses the container's non-keyboard focus ring.
-      nextTick(() => {
-        const el = dlg.value;
-        if (el && !el.contains(document.activeElement)) el.focus();
-      });
     } else restoreFocus();
   },
   { immediate: true },
+);
+// MOVING IN, when the card is in the document, which is not "a tick after it opened".
+// This waited on nextTick, and on a dialog's FIRST open the card isn't there yet: the
+// dialogs are Lazy, their chunk arrives inside the page's <Suspense>, and the mount
+// lands after that tick. So the first open of every Lazy dialog left focus where it
+// was, behind the scrim: Tab came in (the window listener below), but typing went to
+// whatever had the caret, and a link typed at Import landed in a row's weight field.
+// The node itself is the signal: it appears on each open, first or not, and a post
+// watcher on it is held until the node is in the page.
+// Yields if a caller already placed focus inside (the link-fallback preselects its
+// input). reset.scss suppresses the container's non-keyboard focus ring.
+watch(
+  dlg,
+  (el) => {
+    if (el && !el.contains(document.activeElement)) el.focus();
+  },
+  { flush: "post" },
 );
 // a dialog its parent mounts with v-if (People) is never told it closed
 onBeforeUnmount(() => props.open && restoreFocus());
