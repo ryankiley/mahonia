@@ -88,3 +88,22 @@ describe("sending a catalog correction", () => {
 
   afterEach(() => release());
 });
+
+// The card asks for one figure and arrives holding a suggestion for it, so the field
+// opens focused with the suggestion's number selected: a typed number replaces it. The
+// unit stays outside the selection, because a figure sent without one is read as grams.
+describe("where the catalog correction opens", () => {
+  it("puts the caret in the weight, with the number selected and the unit left", async () => {
+    useCatalogCorrection().open(TARGET);
+    const w = mount(CatalogCorrectionModal, {
+      attachTo: document.body,
+      global: { stubs: { BaseModal: { template: "<div><slot /></div>" } } },
+    });
+    await nextTick();
+    const field = w.get<HTMLInputElement>("input").element;
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe("510 g");
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, 3]);
+    useCatalogCorrection().close();
+  });
+});

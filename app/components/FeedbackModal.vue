@@ -33,10 +33,12 @@ watch(
     message.value = props.preset ?? "";
     error.value = "";
     state.value = "idle";
-    nextTick(() => boxRef.value?.focus());
   },
   { immediate: true },
 );
+// the box takes the caret when it is in the page, not a tick after `open`: on this
+// dialog's first open the two are different moments (see BaseModal's move-in)
+watch(boxRef, (el) => el?.focus(), { flush: "post" });
 
 async function send() {
   if (!canSend.value) return;

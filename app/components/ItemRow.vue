@@ -1487,12 +1487,17 @@ function dismissFix() {
                  also what lets you press + three times without the caret leaving
                  the field you were typing in.
                  The names carry the ITEM, like the grip's and the checkbox's do:
-                 "One more, button" on its own says nothing about what of. -->
+                 "One more, button" on its own says nothing about what of.
+                 NOT TAB STOPS. The quantity between them is a number field, which
+                 steps on ↑ and ↓, so the keyboard already has both presses; as stops
+                 they stood between a typed name and its weight, six Tabs apart where
+                 four will do. A screen reader's own cursor still reaches them. -->
             <button
               class="btn btn--icon btn--ghost item__qtybtn ink-quiet"
               type="button"
               :disabled="item.qty <= 1"
               :aria-label="`One fewer ${item.name || 'item'}`"
+              tabindex="-1"
               @mousedown.prevent
               @click="stepQty(-1)"
             >
@@ -1523,6 +1528,7 @@ function dismissFix() {
               type="button"
               :disabled="item.qty >= MAX_QTY"
               :aria-label="`One more ${item.name || 'item'}`"
+              tabindex="-1"
               @mousedown.prevent
               @click="stepQty(1)"
             >
