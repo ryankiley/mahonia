@@ -65,9 +65,16 @@
   color: var(--accent-foreground);
 }
 @media (hover: hover) and (pointer: fine) {
+  // A step toward its own label: 12% of --accent-foreground laid into the fill, so a
+  // black button lifts to #1f1f1f and a white one settles to #e0e0e0, the dark hover's
+  // amount on a ground that is as dark as a ground gets. It was `filter:
+  // brightness(1.05)`, which multiplies: on pure black it is black, on pure white it
+  // clips, and the app's one primary action answered the pointer in neither theme.
+  // Mixed in sRGB, unlike the tints: those are an alpha the compositor blends in sRGB
+  // anyway, and this is one opaque colour, where 12% of the way in oklab from black
+  // is #060606.
   .btn--primary:hover {
-    background: var(--accent);
-    filter: brightness(1.05);
+    background: color-mix(in srgb, var(--accent-foreground) var(--background-hover-opacity-dark), var(--accent));
   }
 }
 

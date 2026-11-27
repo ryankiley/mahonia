@@ -261,17 +261,17 @@ function remove(p: Person) {
 .ppl__swatchbtn.is-active {
   background: var(--background-selected);
 }
-/* …and the hover wears the SAME plate, so it has to be pointer-gated (it paints —
-   see the note on .btn:hover, controls.scss). iOS latches :hover on the last thing
-   tapped, and here that latch is indistinguishable from the selection: pick a colour
-   and the strip reads as having two chosen at once, in the one row whose whole job is
-   to say which one you took.
+/* …and the hover is the quieter plate a mode tab takes beside its selected one
+   (--background-hover-subtle). It wore the SAME plate as the chosen swatch, so a colour
+   you were only pointing at read as a second one chosen, in the one row whose whole job
+   is to say which one you took. Pointer-gated all the same (it paints — see the note on
+   .btn:hover, controls.scss): iOS latches :hover on the last thing tapped.
    The plate is BUTTON-scoped: the standing procedural-colour mark below wears this
    class for the box alone (a <span>, so the reset's pointer cursor doesn't reach it
    either), and a plate on it would offer an affordance the element doesn't have. */
 @media (hover: hover) and (pointer: fine) {
   button.ppl__swatchbtn:hover {
-    background: var(--background-selected);
+    background: var(--background-hover-subtle);
   }
   button.ppl__swatchbtn.is-active:hover {
     background: var(--background-selected-hover); /* the chosen swatch answers the pointer too */

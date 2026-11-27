@@ -86,19 +86,16 @@
 // Dark is 7.5% now: --background-selected's dark plate went to 13% (2026-11-25,
 // tokens.scss says why ratios mislead next to black), and the wash keeps its place a
 // little over halfway up to it, as 3.5 is to 6.5 — at 5% it was #0d0d0d on #000, a hover
-// nobody saw. Kept as a color-mix and NOT a token: this is a transient tint that has to
-// work on whatever the bar sits on. (Not --background-hover either: that is the menus'
-// row wash, 8% light and 12% dark, and this bar's is its own quieter pair.)
+// nobody saw. It is --background-hover-subtle (tokens.scss), the hover every control
+// with a selected sibling takes, and not --background-hover: that is the menus' row
+// wash, 8% light and 12% dark, which would outweigh the selected tab beside it.
 // Pointer-gated — it paints (see the note on .btn:hover, controls.scss). This bar is
 // the one every mode change goes through, so an ungated wash left the option you
 // last tapped lit next to the one actually selected — two "on" states at once, in the
 // one place the app has to be unambiguous about which mode you are in.
 @media (hover: hover) and (pointer: fine) {
   .modebar__opt:hover {
-    background: light-dark(
-      color-mix(in oklab, var(--foreground-primary) 3.5%, transparent),
-      color-mix(in oklab, var(--foreground-primary) 7.5%, transparent)
-    );
+    background: var(--background-hover-subtle);
     color: var(--foreground-primary);
   }
 }

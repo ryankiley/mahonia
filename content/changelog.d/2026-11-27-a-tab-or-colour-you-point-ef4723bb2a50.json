@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "A tab or colour you point at shows a quieter plate than the one that is selected."
+  ],
+  "fixed": [
+    "The main button answers the pointer: it lifts a shade when you hover it."
+  ]
+}
