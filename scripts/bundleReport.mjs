@@ -8,8 +8,8 @@ import { readFileSync } from "node:fs";
 /** bytes → "12.3" (KiB, one decimal) — the same figure on the CI log and the receipt */
 export const kb = (n) => (n / 1024).toFixed(1);
 
-/** Every key a report carries. `firstLoad` is null when /e wasn't in the build;
- *  the two `*Sources` maps are null when the build carried no hidden sourcemaps.
+/** Every key a report carries. The two `*Sources` maps are null when the build
+ *  carried no hidden sourcemaps.
  *  Each entry of `files` is { file, br, raw, first }; `raw` is absent from reports
  *  written before the receipt learned to name compression noise, and a reader has
  *  to allow for that (main's stored baseline may be one). */

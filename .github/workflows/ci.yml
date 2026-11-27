@@ -172,7 +172,7 @@ jobs:
             if [ -n "$art" ]; then sha="$run_sha"; break; fi
           done <<<"$ordered"
           if [ -z "$art" ]; then
-            echo "_No bundle report from main yet — the first main run after this workflow landed will upload one._" > delta.md
+            echo "_No bundle report from main to compare against: none of its 20 newest runs has one (expired, or their builds failed)._" > delta.md
           else
             gh api "repos/$REPO/actions/artifacts/$art/zip" > base.zip
             unzip -o -q base.zip -d base

@@ -1,25 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PWA_OPTIONS, pwaPrecacheRevision } from "../config/pwa";
+import { PWA_OPTIONS } from "../config/pwa";
 import { applyOps, type Op } from "../shared/ops";
 import { blankState, folder, item } from "./helpers/list";
-
-describe("pwaPrecacheRevision", () => {
-  it("uses a unique Vercel deployment ID ahead of the commit SHA", () => {
-    expect(
-      pwaPrecacheRevision(
-        { VERCEL_DEPLOYMENT_ID: "dpl_second", VERCEL_GIT_COMMIT_SHA: "same-commit" },
-        "local-build",
-      ),
-    ).toBe("dpl_second");
-  });
-
-  it("falls back to the commit SHA, then a local-build revision", () => {
-    expect(pwaPrecacheRevision({ VERCEL_GIT_COMMIT_SHA: "commit" }, "local-build")).toBe("commit");
-    expect(pwaPrecacheRevision({}, "local-build")).toBe("local-build");
-  });
-});
 
 const rules = PWA_OPTIONS.workbox?.runtimeCaching ?? [];
 type Match = (o: { request: { mode: string }; url: URL }) => boolean;

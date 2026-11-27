@@ -23,8 +23,6 @@
 export default defineNuxtPlugin(() => {
   if (useOfflineEnabled()) {
     if (!("serviceWorker" in navigator)) return;
-    // The editor shell used to be runtime-cached under this name; nothing reads it now.
-    if (typeof caches !== "undefined") caches.delete("mahonia-shell").catch(() => {});
     // The worker used to queue failed edits here for replay (config/pwa.ts says why it
     // stopped). Each entry is a whole request, edit key included, and nothing reads
     // them now; the edits themselves are still in the editor's own on-device copy.

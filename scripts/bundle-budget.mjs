@@ -49,6 +49,13 @@ if (!root) {
   process.exit(1);
 }
 const dir = join(root, "_nuxt");
+// Nitro's prerender does not fail the build when a page fails, so a build can finish
+// without /e. Without the page there is no first load to hold to the cap.
+const editorPage = join(root, "e/index.html");
+if (!existsSync(editorPage)) {
+  console.error(`✗ ${editorPage} is not in the build output — the prerender of /e failed, so the first load can't be measured. See the build log.`);
+  process.exit(1);
+}
 
 const brotli = (buf) =>
   brotliCompressSync(buf, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length;
@@ -69,14 +76,9 @@ const brotli = (buf) =>
  * split exists to create: making the vault pane lazy is supposed to move its weight
  * off the ratchet, but with its prefetch still counted it earned nothing, and every
  * KB the lazy pane grew was billed to first load anyway.
- *
- * Falls back to null if the page isn't in the build output, in which case the
- * first-load gate is skipped rather than guessed at.
  */
 function firstLoadAssets() {
-  const page = join(root, "e/index.html");
-  if (!existsSync(page)) return null;
-  const html = readFileSync(page, "utf8");
+  const html = readFileSync(editorPage, "utf8");
   const assets = new Set();
   const add = (href) => href && assets.add(href);
   const asset = (tag) => (tag.match(/\/_nuxt\/([A-Za-z0-9_.-]+\.(?:js|css))/) || [])[1];
@@ -101,7 +103,7 @@ for (const f of files) {
   totalRaw += buf.length;
   totalBr += br;
   totalGz += gz;
-  rows.push({ f, buf, raw: buf.length, br, first: firstLoad?.has(f) ?? false });
+  rows.push({ f, buf, raw: buf.length, br, first: firstLoad.has(f) });
 }
 rows.sort((a, b) => b.br - a.br);
 
@@ -230,7 +232,7 @@ function attribute() {
     }
     if (!mapped) return { firstLoadSources: null, totalSources: null };
     const sorted = (m) => Object.fromEntries([...m].sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, Math.round(v)]));
-    return { firstLoadSources: firstLoad ? sorted(first) : null, totalSources: sorted(total) };
+    return { firstLoadSources: sorted(first), totalSources: sorted(total) };
   } catch (e) {
     console.warn(`  ! per-source attribution skipped: ${e.message}\n`);
     return { firstLoadSources: null, totalSources: null };
@@ -243,7 +245,7 @@ if (reportPath) {
     reportPath,
     JSON.stringify(
       {
-        firstLoad: firstLoad ? firstBr : null,
+        firstLoad: firstBr,
         total: totalBr,
         maxChunk: { file: maxChunk.f, br: maxChunk.br },
         budgets: { firstLoad: FIRST_LOAD_CAP_KB, maxChunk: MAX_CHUNK_BUDGET_KB },
@@ -270,9 +272,7 @@ if (rows.length > 8) console.log(`  …and ${rows.length - 8} more`);
 console.log("");
 console.log(`  (▸ = on the editor's first load)`);
 console.log("");
-if (firstLoad) {
-  console.log(`  FIRST LOAD   : ${kb(firstBr)} KB brotli  (cap ${FIRST_LOAD_CAP_KB} KB)  ← what every visitor downloads`);
-}
+console.log(`  FIRST LOAD   : ${kb(firstBr)} KB brotli  (cap ${FIRST_LOAD_CAP_KB} KB)  ← what every visitor downloads`);
 console.log(`  total raw    : ${kb(totalRaw)} KB`);
 console.log(`  total gzip   : ${kb(totalGz)} KB`);
 console.log(`  total brotli : ${kb(totalBr)} KB`);
@@ -298,12 +298,10 @@ else {
   if (vendorImports.length)
     failures.push(`vendor chunk ${vendor} imports ${vendorImports.join(", ")} — it must be a leaf (see nuxt.config's vendor group)`);
 }
-if (firstLoad && firstBrKb > FIRST_LOAD_CAP_KB)
+if (firstBrKb > FIRST_LOAD_CAP_KB)
   failures.push(
     `first load ${kb(firstBr)} KB is over the ${FIRST_LOAD_CAP_KB} KB cap. The PR's bundle comment says what grew. Shave it here (the levers are beside the constant), or decide the editor may be heavier and move the cap`,
   );
-if (!firstLoad)
-  console.warn("  ! /e not in the build output — first-load gate skipped.\n");
 if (maxChunkBrKb > MAX_CHUNK_BUDGET_KB)
   failures.push(
     `largest chunk ${kb(maxChunk.br)} KB > ${MAX_CHUNK_BUDGET_KB} KB budget (${maxChunk.f})`,
@@ -316,5 +314,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `✓ Within budget: first load ${firstLoad ? kb(firstBr) : "—"}/${FIRST_LOAD_CAP_KB} KB, largest chunk ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB, total ${kb(totalBr)} KB; ${vendor} is a leaf.`,
+  `✓ Within budget: first load ${kb(firstBr)}/${FIRST_LOAD_CAP_KB} KB, largest chunk ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB, total ${kb(totalBr)} KB; ${vendor} is a leaf.`,
 );

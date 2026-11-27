@@ -31,7 +31,6 @@ const delta = (a, b) => {
   if (d === 0) return "—";
   return `${d > 0 ? "+" : "−"}${(Math.abs(d) / 10).toFixed(1)} KB`;
 };
-const measured = (v) => typeof v === "number";
 const { firstLoad: cap, maxChunk: maxBudget } = head.budgets;
 
 // THE COMPRESSOR'S OWN NOISE. Brotli at quality 11 is not monotonic: a stylesheet that
@@ -50,34 +49,19 @@ const rawFirstLoad = (rep) => {
 const signedBytes = (n) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-US")} B`;
 
 const lines = [];
-// "not measured" is not zero: a build whose /e prerender is missing has no first
-// load to report, and rendering it as 0.0 KB would celebrate a 146 KB saving
 const first = head.firstLoad;
 const firstBase = base.firstLoad;
-const bothFirst = measured(first) && measured(firstBase);
-const firstCell = (v) => (measured(v) ? `${kb(v)} KB` : "not measured");
 const rawWas = rawFirstLoad(base);
 const rawNow = rawFirstLoad(head);
 // only where the table shows growth: a wobble that rounds to "—" needs no explaining
-const noise =
-  bothFirst && rawWas !== null && rawNow !== null && rawNow <= rawWas && first > firstBase && delta(firstBase, first) !== "—";
-if (measured(first)) {
-  lines.push(
-    `### Bundle — first load ${kb(first)} KB (${bothFirst ? delta(firstBase, first) : "main not measured"} vs main${noise ? ", compression noise" : ""})`,
-  );
-} else {
-  lines.push("### Bundle — first load not measured (`/e/index.html` is not in this build)");
-}
+const noise = rawWas !== null && rawNow !== null && rawNow <= rawWas && first > firstBase && delta(firstBase, first) !== "—";
+lines.push(`### Bundle — first load ${kb(first)} KB (${delta(firstBase, first)} vs main${noise ? ", compression noise" : ""})`);
 lines.push("");
 lines.push("| | main | this PR | Δ |");
 lines.push("|---|---:|---:|---:|");
-lines.push(`| **First load** — what every visitor to the editor downloads | ${firstCell(firstBase)} | **${firstCell(first)}** | **${bothFirst ? delta(firstBase, first) : "—"}** |`);
-const room = measured(first) ? cap * 1024 - first : null;
-lines.push(
-  `| cap ${cap} KB | | ${
-    room === null ? "—" : room >= 0 ? `${kb(room)} KB under the cap` : `**${kb(-room)} KB OVER the cap**`
-  } | |`,
-);
+lines.push(`| **First load** — what every visitor to the editor downloads | ${kb(firstBase)} KB | **${kb(first)} KB** | **${delta(firstBase, first)}** |`);
+const room = cap * 1024 - first;
+lines.push(`| cap ${cap} KB | | ${room >= 0 ? `${kb(room)} KB under the cap` : `**${kb(-room)} KB OVER the cap**`} | |`);
 lines.push(`| Total, every chunk | ${kb(base.total)} KB | ${kb(head.total)} KB | ${delta(base.total, head.total)} |`);
 lines.push(`| Largest chunk (cap ${maxBudget} KB) | ${kb(base.maxChunk.br)} KB | ${kb(head.maxChunk.br)} KB | ${delta(base.maxChunk.br, head.maxChunk.br)} |`);
 lines.push("");
@@ -101,11 +85,9 @@ function movers(a, b, threshold) {
     .sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
 }
 const attributed = base.totalSources && head.totalSources;
-const moved = bothFirst ? movers(base.firstLoadSources, head.firstLoadSources, 100) : null;
+const moved = attributed ? movers(base.firstLoadSources, head.firstLoadSources, 100) : null;
 if (!attributed) {
   lines.push("_No per-source attribution: one of the builds ran without hidden sourcemaps (BUNDLE_MAPS=1)._");
-} else if (!bothFirst) {
-  lines.push("_No first-load attribution: the first load was not measured on one side._");
 } else if (moved.length === 0) {
   lines.push("Nothing on the first load moved by 0.1 KB or more.");
 } else {
@@ -127,7 +109,7 @@ if (!attributed) {
 // total delta, sometimes the opposite sign, for the ones it kept.)
 if (attributed) {
   const off = (rep) =>
-    Object.fromEntries(Object.entries(rep.totalSources).map(([k, v]) => [k, v - (rep.firstLoadSources?.[k] ?? 0)]));
+    Object.fromEntries(Object.entries(rep.totalSources).map(([k, v]) => [k, v - (rep.firstLoadSources[k] ?? 0)]));
   const offPath = movers(off(base), off(head), 512);
   if (offPath.length) {
     lines.push(

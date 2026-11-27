@@ -1,0 +1,34 @@
+{
+  // Type coverage for scripts/ (the catalog + changelog pipeline) and tests/, which
+  // `nuxt typecheck` never reaches: Nuxt's own include covers app/, shared/,
+  // nuxt.config.ts and `tests/nuxt/**`, a directory this repo doesn't have. Scripts
+  // run only as jiti transpiles and a test only fails when it runs, so without this
+  // a removed field or a stale import sits unreported until then. `npm run typecheck
+  // -- tooling` runs this project on its own; `npm run typecheck` runs it alongside
+  // the app project (scripts/typecheck.mjs).
+  //
+  // A SEPARATE project rather than an entry in nuxt.config's
+  // typescript.tsConfig.include, which was tried first: seed-catalog.ts imports
+  // the server's db + catalog modules, and adding those to the app's program
+  // tipped TypeScript's instantiation limit on an unrelated composable
+  // (useVaultAccess's untyped-URL $fetch reported "excessive stack depth", and
+  // reverting the include alone cleared it). This project holds scripts/, tests/ and
+  // what they import, and is checked apart from the app's program.
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    // A script walks a CSV it just parsed and indexes by position (`cells[3]`,
+    // `rows[i - 1]`) against a header it validated a few lines earlier; a test
+    // indexes its fixtures by position on purpose (`items[0].name`). The app's
+    // strict-index rule would only add a `!` to every such line and assert nothing
+    // the code doesn't already know: a script runs at a developer's keyboard, not in
+    // a request, and a wrong index throws on the spot or fails the assertion loudly.
+    // What this project IS here to catch is the stale reference: a field the schema
+    // dropped, an import that moved.
+    "noUncheckedIndexedAccess": false,
+    // Incremental, like the app project (see tsconfig.json): a re-check after a
+    // small edit costs seconds, not the whole program.
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/typecheck/tooling.tsbuildinfo"
+  },
+  "include": [".nuxt/nuxt.d.ts", "scripts/**/*", "tests/**/*"]
+}
