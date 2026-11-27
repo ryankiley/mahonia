@@ -1,0 +1,122 @@
+{
+  "_comment": "2026-11-27: the other fit of products the catalog held in one fit only (Men's or Women's), read on the maker's page or a stockist quoting it. The first pass of the version research after the menu began showing a product's versions as a second step.",
+  "rows": [
+    {
+      "brand": "finetrack",
+      "name": "Everbreath Photon Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": ["size"],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 300,
+      "weight_unit": "g",
+      "weight_secondary": "10.6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.finetrackglobal.com/en_US/shop_by_product/l5_outer_shell_layer/men%27s-everbreath-photon-jacket/FAM0331.html",
+      "quote": "300g / 10.6 oz"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Asynja Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": ["size"],
+      "category_hint": "clothing",
+      "common_name": "shell jacket",
+      "weight_value": 316,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-eu/10651w11-asynja-jacket-ws-rose-red/",
+      "quote": "Weight 316 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Vidre Hood Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": ["size"],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 201,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-eu/vidre-hood-jacket-ws-black/",
+      "quote": "Weight 201 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Superior Down Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": ["size"],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 200,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://webshop.montbell.jp/goods/disp.php?product_id=2301377",
+      "quote": "【平均重量】200g"
+    },
+    {
+      "brand": "Keen",
+      "name": "Zionic ADV Open-Air",
+      "variant": "Women's",
+      "attributes_unpublished": ["size"],
+      "category_hint": "clothing",
+      "common_name": "hiking shoes",
+      "weight_value": 470,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.altitude-sports.com/p/keen-zionic-adv-openair-hiking-shoes-womens-ken-1031953",
+      "quote": "Weight per shoe: 235g/8.29oz | pair = 470 g (2× per-shoe)"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Lopt Hood Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": ["size"],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 366,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/lopt-hood-jacket-ws-cedar-rose/",
+      "quote": "366 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Plasma 1000 Down Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": ["size"],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 120,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://webshop.montbell.jp/goods/disp.php?product_id=2301382",
+      "quote": "【平均重量】120 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "U.L. Thermawrap Parka",
+      "variant": "Men's",
+      "attributes_unpublished": ["size"],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 252,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://webshop.montbell.jp/goods/disp.php?product_id=1101538",
+      "quote": "【平均重量】252g"
+    },
+    {
+      "brand": "Houdini",
+      "name": "More Pants",
+      "variant": "Men's Large",
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 434,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://houdinisportswear.com/en-na/products/ms-more-pants-true-black-860033_900",
+      "quote": "Weight men’s large: 434 g"
+    }
+  ]
+}
