@@ -53,21 +53,17 @@ export async function renameMovedVariants(db: Db, rows: readonly CatalogCsvRow[]
     const next = to[0]!.variant;
     await db.update(catalogItems).set({ variant: next }).where(eq(catalogItems.id, old.id));
     catalog++;
-    try {
-      const mine = await db
-        .select({ id: vaultItems.id })
-        .from(vaultItems)
-        .where(eq(vaultItems.normKey, vaultNormKey(old.brand, old.name, old.variant)));
-      for (const r of mine) {
-        try {
-          await db.update(vaultItems).set({ variant: next, normKey: vaultNormKey(old.brand, old.name, next) }).where(eq(vaultItems.id, r.id));
-          vault++;
-        } catch {
-          /* the person already holds the new form: two rows for one thing, theirs to merge */
-        }
+    const mine = await db
+      .select({ id: vaultItems.id })
+      .from(vaultItems)
+      .where(eq(vaultItems.normKey, vaultNormKey(old.brand, old.name, old.variant)));
+    for (const r of mine) {
+      try {
+        await db.update(vaultItems).set({ variant: next, normKey: vaultNormKey(old.brand, old.name, next) }).where(eq(vaultItems.id, r.id));
+        vault++;
+      } catch {
+        /* the person already holds the new form: two rows for one thing, theirs to merge */
       }
-    } catch {
-      /* no vault table on this database (a catalog-only seed target) */
     }
   }
   return { catalog, vault };

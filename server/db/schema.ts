@@ -98,8 +98,8 @@ export type ListRow = typeof lists.$inferSelect;
 // Fuzzy search uses pg_trgm's word_similarity(). pg_trgm is available on Neon
 // but NOT on local PGlite (its WASM build doesn't ship the extension unless
 // loaded into the constructor, which we don't touch), so the extension is
-// created at runtime ONLY on Neon by `ensureCatalogSchema()`
-// in server/utils/catalog.ts; on PGlite the search endpoint falls back to the
+// created at runtime ONLY on Neon (CATALOG_NEON_DDL in server/utils/catalog.ts,
+// run by useDb()); on PGlite the search endpoint falls back to the
 // shared JS trigram ranker `rankCandidates` (shared/catalogSearch.ts) — the
 // same ranking the offline client uses, so recall can't drift. The Neon query
 // filters + orders on the word_similarity() function directly, deliberately

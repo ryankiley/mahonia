@@ -1,4 +1,4 @@
-// The schema is written twice. The raw CREATE/ALTER strings (LISTS_DDL and the rest) are
+// The schema is written twice. The raw CREATE/ALTER strings (SCHEMA_DDL) are
 // what makes the tables, on every cold instance, with no migration step; server/db/schema.ts
 // is Drizzle's typed view of them, which every query is written against. A column added to
 // one and not the other typechecks and fails at runtime, so here the DDL is run on PGlite
@@ -13,11 +13,7 @@ import { is, sql } from "drizzle-orm";
 import { getTableConfig, PgTable } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
-import { ACCOUNT_DDL } from "../server/utils/accountSchema";
-import { CANDIDATES_DDL } from "../server/utils/candidates";
-import { CATALOG_DDL } from "../server/utils/catalog";
-import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL } from "../server/utils/db";
-import { VAULT_DDL } from "../server/utils/vaultSchema";
+import { SCHEMA_DDL } from "../server/utils/db";
 import { createTestDb } from "./helpers/db";
 
 interface Column {
@@ -60,7 +56,7 @@ function declared(): Map<string, Map<string, Column>> {
 
 describe("server/db/schema.ts and the DDL", () => {
   it("describe the same tables and columns", async () => {
-    const db = await createTestDb(LISTS_DDL, CATALOG_DDL, CANDIDATES_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, VAULT_DDL, ACCOUNT_DDL);
+    const db = await createTestDb(SCHEMA_DDL);
     const { rows } = await db.execute<{ table_name: string; column_name: string; data_type: string; is_nullable: string; column_default: string | null }>(
       sql`select table_name, column_name, data_type, is_nullable, column_default from information_schema.columns where table_schema = 'public'`,
     );

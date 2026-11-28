@@ -13,7 +13,7 @@ import { sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
-import { LISTS_DDL, useAccountDb, useVaultDb } from "../server/utils/db";
+import { LISTS_DDL } from "../server/utils/db";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { requireEditHash } from "../server/utils/editAuth";
 import { findOrCreateUser } from "../server/utils/authSession";
@@ -25,19 +25,10 @@ import { dbState } from "./helpers/dbMock";
 import { makeEvent } from "./helpers/http";
 import { signInCookie } from "./helpers/session";
 
-// requireEditHash reaches for useAccountDb(), itself and through resolveSession; every
-// accessor points at this file's throwaway database. `throwIfTouched` lets the bearer
-// test prove its path costs no lookup at all. The two accessors the gate could take
-// are wrapped, so a case can ask WHICH schema it had ensured: on PGlite they hand back
-// the same database, and only on Neon does the choice decide which tables exist.
-vi.mock("../server/utils/db", async (o) => {
-  const mod = await (await import("./helpers/dbMock")).mockDbModule(o);
-  return {
-    ...mod,
-    useAccountDb: vi.fn(mod.useAccountDb as () => Promise<unknown>),
-    useVaultDb: vi.fn(mod.useVaultDb as () => Promise<unknown>),
-  };
-});
+// requireEditHash reaches for useDb(), itself and through resolveSession, and it points
+// at this file's throwaway database. `throwIfTouched` lets the bearer test prove its
+// path costs no lookup at all.
+vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 
 /** A request at the gate with these headers and nothing else. */
 const gate = (headers: Record<string, string> = {}) => makeEvent("/api/edit/mutate", { method: "POST", headers });
@@ -84,21 +75,6 @@ describe("requireEditHash — one gate, two ways through it", () => {
 
     const hash = await requireEditHash(gate({ cookie, [LIST_CODE_HEADER]: CODE }));
     expect(hash).toBe(sha256Hex(list.editToken));
-  });
-
-  // The claim it reads is a list_claims row, the account layer's table. The gate took
-  // the VAULT's connection for it, which ensures tables it never reads, and found
-  // list_claims only because the session check before it had ensured the account's.
-  it("reads the claim over the account's connection, where list_claims lives, not the vault's", async () => {
-    const list = await seedList(db);
-    const { userId, cookie } = await signedInCookie(db, "ryan@example.com");
-    await claimLists(db, userId, [list.editToken]);
-    vi.mocked(useAccountDb).mockClear();
-    vi.mocked(useVaultDb).mockClear();
-
-    expect(await requireEditHash(gate({ cookie, [LIST_CODE_HEADER]: CODE }))).toBe(sha256Hex(list.editToken));
-    expect(useAccountDb).toHaveBeenCalled();
-    expect(useVaultDb).not.toHaveBeenCalled();
   });
 
   it("normalizes the code's case and confusables on the way in", async () => {

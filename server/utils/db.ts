@@ -1,16 +1,17 @@
 // Database access. Local dev uses PGlite (in-process Postgres, zero setup);
 // production uses Neon when DATABASE_URL is set. Same Drizzle API either way.
 // There is no migration step: the schema is ensured idempotently on first use, by
-// build() in dev and by the use*Db() and ensure*Schema() helpers below on Neon.
+// build() in dev and by useDb() on Neon.
 
 import { sql, type SQL } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT, PgTable } from "drizzle-orm/pg-core";
 import * as schema from "../db/schema";
-import { CATALOG_DDL, ensureCatalogSchema } from "./catalog";
+import { CATALOG_DDL, CATALOG_NEON_DDL } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
 import { VAULT_DDL } from "./vaultSchema";
 import { ACCOUNT_DDL } from "./accountSchema";
-import { ensureOf, runDdl } from "./ddl";
+import { runDdl } from "./ddl";
+import { memoized } from "./memoize";
 
 /**
  * The connection handle every repo takes: Neon's HTTP driver in production,
@@ -51,9 +52,9 @@ async function build(): Promise<Db> {
   if (url) {
     const { drizzle } = await import("drizzle-orm/neon-http");
     const { neon } = await import("@neondatabase/serverless");
-    // Prod (Neon): the schema is ensured idempotently on first use via useDb()
-    // below — memoized so it runs once per warm instance, mirroring the
-    // snapshot + catalog tables. No separate migration step to forget.
+    // The schema is not ensured here: this promise is kept for the life of the
+    // instance, so a failed ensure inside it would fail every later request too.
+    // useDb() runs it, where a failure is retried.
     return drizzle(neon(url), { schema });
   }
   // @electric-sql/pglite is kept OUT of the deployed server bundle — its wasm
@@ -80,7 +81,7 @@ async function build(): Promise<Db> {
   mkdirSync(dir, { recursive: true });
   const db = drizzle(new PGlite(dir), { schema });
   try {
-    await runDdl(db, DDL); // local dev only — idempotent
+    await runDdl(db, SCHEMA_DDL); // local dev only — idempotent
   } catch (error) {
     throw (await writtenByAnotherPostgres(dir, () => PGlite.create())) ?? error;
   }
@@ -124,8 +125,7 @@ export async function writtenByAnotherPostgres(
   );
 }
 
-// lists DDL — single-sourced here (mirrors CATALOG_DDL) so tests can build a
-// fresh DB with the exact production-faithful shape. Safe on PGlite + Neon.
+// lists DDL. Safe on PGlite + Neon.
 // CREATE TABLE IF NOT EXISTS won't add a column to a table that already exists, so a
 // new column ships as an ALTER beside its CREATE and is folded in once it has
 // deployed (see CLAUDE.md).
@@ -179,9 +179,7 @@ export const LISTS_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_lists_purge ON lists(deleted_at) WHERE deleted_at IS NOT NULL`,
 ];
 
-// list_snapshots (vandalism-recovery) — single-sourced here. Idempotent + safe on
-// both engines; ensured on the request path too (ensureSnapshotSchema) so it
-// exists on Neon without a migration, mirroring CATALOG_DDL.
+// list_snapshots (vandalism-recovery). Idempotent + safe on both engines.
 export const SNAPSHOTS_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS list_snapshots (
     id serial PRIMARY KEY,
@@ -198,8 +196,7 @@ export const SNAPSHOTS_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_list_snapshots_list ON list_snapshots(list_id, created_at DESC)`,
 ];
 
-// trail_favicons — one row per HOST, not per list (see server/db/schema.ts). Single-
-// sourced here like the others so tests build the production-faithful shape.
+// trail_favicons — one row per HOST, not per list (see server/db/schema.ts).
 export const TRAIL_FAVICONS_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS trail_favicons (
     host text PRIMARY KEY,
@@ -210,56 +207,15 @@ export const TRAIL_FAVICONS_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_trail_favicons_stale ON trail_favicons(fetched_at)`,
 ];
 
-/** Idempotently create the `lists` table + indexes (memoized) — for Neon, where
- *  there's no build-time DDL. Mirrors ensureSnapshotSchema; gated to the prod path
- *  in useDb (dev's PGlite already runs the full DDL in build()). */
-const ensureListsSchema = ensureOf(LISTS_DDL);
-
-/** Idempotently create trail_favicons (memoized) — for Neon (no build-time DDL). */
-export const ensureTrailFaviconSchema = ensureOf(TRAIL_FAVICONS_DDL);
-
-/** Idempotently create list_snapshots (memoized) — for Neon (no build-time DDL). */
-export const ensureSnapshotSchema = ensureOf(SNAPSHOTS_DDL);
-
-/** Idempotently create the vault tables (memoized) — for Neon, where there's no
- *  build-time DDL. Mirrors ensureCatalogSchema; every vault endpoint reaches its
- *  connection through useVaultDb() below, so the ensure can't be forgotten on a
- *  path that needs it. */
-const ensureVaultSchema = ensureOf(VAULT_DDL);
-
 /**
- * The shared DB with one more schema ensured on it: the shape of useVaultDb,
- * useAccountDb and useCatalogDb. On Neon the tables are created on first use, so an
- * endpoint must ensure before it queries; folding the two calls together makes that
- * impossible to forget. Both are memoized, so this costs no extra round-trips on a
- * warm instance.
+ * Every table the app has, as one list: lists and their recovery points, the catalog,
+ * My Gear and the account layer. One list, so one ensure, and no path can reach a
+ * table nothing made yet. The accepted price: a statement that fails anywhere in it
+ * fails every request that reads the database, a share page as much as the sign-in
+ * the statement belongs to.
  */
-const withSchema = (ensure: (db: Db) => Promise<void>) => async (): Promise<Db> => {
-  const db = await useDb();
-  await ensure(db);
-  return db;
-};
-
-/** The shared DB with the vault schema ensured — the vault's counterpart to
- *  useCatalogDb(), and for the same reason (withSchema). */
-export const useVaultDb = withSchema(ensureVaultSchema);
-
-/** Idempotently create the OPTIONAL account tables (memoized). Separate from the
- *  vault's ensure on purpose: the vault works with no account at all, so a visitor
- *  who never signs in must never pay for this DDL. Every auth endpoint reaches its
- *  connection through useAccountDb() below, so it can't be forgotten. */
-const ensureAccountSchema = ensureOf(ACCOUNT_DDL);
-
-/** The shared DB with the account schema ensured — the account layer's
- *  counterpart to useVaultDb(), for the same reason and with the same memoization. */
-export const useAccountDb = withSchema(ensureAccountSchema);
-
-const DDL = [
+export const SCHEMA_DDL: string[] = [
   ...LISTS_DDL,
-  // catalog_items (Phase 2) — single-sourced in server/utils/catalog.ts so the
-  // seed script + search endpoint can ensure it on Neon too. These are safe on
-  // both engines; the pg_trgm and unaccent extensions are created Neon-only (see
-  // catalog.ts).
   ...CATALOG_DDL,
   ...CANDIDATES_DDL,
   ...SNAPSHOTS_DDL,
@@ -268,20 +224,21 @@ const DDL = [
   ...ACCOUNT_DDL,
 ];
 
+/** What useDb() runs on Neon: the whole schema, then the extensions only Neon ships. */
+export const NEON_DDL: string[] = [...SCHEMA_DDL, ...CATALOG_NEON_DDL];
+
+// Once per instance, however many requests arrive on it cold, and again on the next
+// request if it failed (memoized).
+const ensureSchema = memoized((db: Db) => runDdl(db, NEON_DDL));
+
+/**
+ * The database, with every table made. The one accessor: on Neon the tables are
+ * created on first use rather than migrated, and this is where; dev's PGlite made
+ * them in build().
+ */
 export async function useDb(): Promise<Db> {
   if (!_dbPromise) _dbPromise = build();
   const db = await _dbPromise;
-  // Neon has no build-time DDL (dev's PGlite ensured the schema in build()), so
-  // ensure the core `lists` table exists on first use. Memoized → one batch per
-  // warm instance. Snapshots + catalog self-ensure on their own paths.
-  if (process.env.DATABASE_URL) await ensureListsSchema(db);
+  if (process.env.DATABASE_URL) await ensureSchema(db);
   return db;
 }
-
-/**
- * The shared DB with the catalog schema ensured. Every catalog endpoint needs
- * both — and forgetting the ensure is a Neon-only latent bug (works on PGlite,
- * where build() ran the full DDL, but throws in prod). Folding them into one call
- * makes that impossible to forget. Both are memoized, so this adds no round-trips.
- */
-export const useCatalogDb = withSchema(ensureCatalogSchema);

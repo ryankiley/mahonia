@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
-import { LISTS_DDL, SNAPSHOTS_DDL, ensureSnapshotSchema } from "../server/utils/db";
+import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
   applyOpsByEditHash,
@@ -293,13 +293,5 @@ describe("snapshots — vandalism recovery", () => {
     const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     expect(await listSnapshotsByEditToken("nope", db)).toBeNull();
     expect(await restoreSnapshotByEditToken("nope", 1, db)).toBeNull();
-  });
-
-  it("bootstraps the snapshots table on first use (Neon request-path)", async () => {
-    // build WITHOUT the snapshots DDL — the repo must create it lazily via ensureSnapshotSchema
-    const db = await createTestDb(LISTS_DDL);
-    ensureSnapshotSchema.reset();
-    const { editToken } = await seedList(db, { folders: [], items: [item("i1", "X")] });
-    expect(await listSnapshotsByEditToken(editToken, db)).toEqual([]);
   });
 });

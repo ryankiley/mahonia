@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { openPrivate, startSession } from "../../../utils/authSession";
 import { findCredential, touchCredential } from "../../../utils/credentialRepo";
-import { useAccountDb } from "../../../utils/db";
+import { useDb } from "../../../utils/db";
 import { readJsonBodyCapped } from "../../../utils/http";
 import { trustedOrigin } from "../../../utils/origin";
 import { rpIdFor, takeChallenge } from "../../../utils/passkeys";
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   const credentialId = typeof response?.id === "string" ? response.id : "";
   if (!credentialId) return { ok: false as const };
 
-  const db = await useAccountDb();
+  const db = await useDb();
   const cred = await findCredential(db, credentialId);
   if (!cred) return { ok: false as const };
 

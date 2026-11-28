@@ -1,6 +1,6 @@
 import { defineEventHandler, setHeader } from "h3";
 import { catalogBrands } from "../../utils/catalog";
-import { useCatalogDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
 import { setNoIndex } from "../../utils/http";
 
@@ -10,5 +10,5 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "catalog-search");
   setNoIndex(event);
   setHeader(event, "Cache-Control", "public, max-age=3600, s-maxage=86400");
-  return catalogBrands(await useCatalogDb());
+  return catalogBrands(await useDb());
 });

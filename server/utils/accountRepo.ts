@@ -15,7 +15,7 @@ import {
   vaults,
 } from "../db/schema";
 import { revokeAllAccessTokens } from "./accessTokens";
-import { ensureSnapshotSchema, type Db } from "./db";
+import type { Db } from "./db";
 import { deleteVaultContents } from "./vaultRepo";
 
 interface AccountDeletion {
@@ -85,16 +85,8 @@ export async function deleteAccount(
   // stranger's list.
   await db.update(lists).set({ authorUserId: null }).where(eq(lists.authorUserId, userId));
   // The same for the changes it made to lists: a recovery point remembers which
-  // account made it, and the point outlives the account, as the list does. Nothing
-  // reads a name off a pointer at an account that is gone, so this is tidying and
-  // must not be able to stop an account from closing: a database that has never
-  // taken a recovery point has no such table until the ensure makes it.
-  try {
-    await ensureSnapshotSchema(db);
-    await db.update(listSnapshots).set({ editorUserId: null }).where(eq(listSnapshots.editorUserId, userId));
-  } catch (e) {
-    console.warn("[delete account] recovery points still name the account", (e as Error).message);
-  }
+  // account made it, and the point outlives the account, as the list does.
+  await db.update(listSnapshots).set({ editorUserId: null }).where(eq(listSnapshots.editorUserId, userId));
 
   // everything keyed on the account at once; the account row itself goes last
   await Promise.all([

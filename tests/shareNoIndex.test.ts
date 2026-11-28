@@ -25,7 +25,7 @@ vi.mock("../server/utils/vaultShare", async (importOriginal) => ({
 }));
 vi.mock("../server/utils/db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../server/utils/db")>()),
-  useVaultDb: async () => ({}),
+  useDb: async () => ({}),
 }));
 vi.mock("../server/utils/rateLimit", () => ({ rateLimit: async () => {} }));
 

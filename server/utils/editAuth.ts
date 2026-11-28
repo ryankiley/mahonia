@@ -25,7 +25,7 @@ import { createError, getHeader } from "h3";
 import { LIST_CODE_HEADER } from "../../shared/links";
 import { resolveSession } from "./authSession";
 import { claimedEditHash } from "./claimRepo";
-import { useAccountDb } from "./db";
+import { useDb } from "./db";
 import { bearerToken, setNoIndex } from "./http";
 import { rateLimit, type RateLimitAction } from "./rateLimit";
 import { sha256Hex } from "./tokens";
@@ -52,9 +52,7 @@ export async function requireEditHash(event: H3Event): Promise<string> {
   if (code) {
     const user = await resolveSession(event);
     if (user) {
-      // the account's connection: a claim is a list_claims row, the account layer's
-      // table, and this is the accessor that ensures it (as resolveSession's does)
-      const db = await useAccountDb();
+      const db = await useDb();
       const hash = await claimedEditHash(db, user.id, code);
       // A code this account hasn't claimed falls through to the same 401 as no
       // credential at all — never a 403, which would confirm the list is real.

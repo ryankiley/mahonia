@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 import { createAccount, deleteAccountRow, mailMagicLink, openPrivate, startSession } from "../../../utils/authSession";
 import { canSendEmail } from "../../../utils/email";
 import { savePasskey } from "../../../utils/credentialRepo";
-import { useAccountDb } from "../../../utils/db";
+import { useDb } from "../../../utils/db";
 import { readJsonBodyCapped } from "../../../utils/http";
 import { requirePasskeysConfigured, takeChallenge, verifyPasskeyRegistration } from "../../../utils/passkeys";
 
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
   );
   if (!verified) return { ok: false as const, reason: "invalid" as const };
 
-  const db = await useAccountDb();
+  const db = await useDb();
   let user;
   try {
     user = await createAccount(db, stored.email);

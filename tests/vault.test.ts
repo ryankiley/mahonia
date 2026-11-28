@@ -284,7 +284,7 @@ describe("vault capture — the upsert's merge rules", () => {
   let db: TestDb;
   const VAULT = 1;
   beforeEach(async () => {
-    db = await createTestDb(VAULT_DDL);
+    db = await createTestDb(VAULT_DDL, CATALOG_DDL);
   });
 
   it("inserts once and updates in place on the second capture", async () => {

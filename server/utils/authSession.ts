@@ -12,7 +12,7 @@ import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
 import { authTokens, credentials, oauthCodes, sessions, users } from "../db/schema";
 import { notRetired, revokeAllAccessTokens } from "./accessTokens";
-import { useAccountDb, type Db } from "./db";
+import { useDb, type Db } from "./db";
 import { setNoIndex, setPrivate } from "./http";
 import { rateLimit, type RateLimitAction } from "./rateLimit";
 import { randomSecret, sha256Hex } from "./tokens";
@@ -511,7 +511,7 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
   const raw = getCookie(event, SESSION_COOKIE);
   if (!raw) return null;
   const hash = sha256Hex(raw);
-  const db = await useAccountDb();
+  const db = await useDb();
   const now = new Date();
   const rows = await db
     .select({
@@ -589,7 +589,7 @@ export async function openPrivate(event: H3Event, action: RateLimitAction): Prom
  * The preamble every session-gated ACCOUNT endpoint opens with, in the order
  * they all used to spell out by hand: keep it out of search results, never
  * cache it, throttle on `action`, resolve the session or 401, and hand back the
- * connection with the account schema ensured.
+ * connection.
  *
  * http.ts argues against a general headers-plus-rate-limit wrapper, and that
  * argument stands: it is about requireCron charging the cron budget twice and
@@ -606,7 +606,7 @@ export async function requireAccount(
   await openPrivate(event, action);
   const user = await resolveSession(event);
   if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in required" });
-  const db = await useAccountDb();
+  const db = await useDb();
   return { user, db };
 }
 
@@ -625,7 +625,7 @@ export async function endSession(event: H3Event): Promise<void> {
   const raw = getCookie(event, SESSION_COOKIE);
   clearSessionCookies(event);
   if (!raw) return;
-  const db = await useAccountDb();
+  const db = await useDb();
   await db.delete(sessions).where(eq(sessions.tokenHash, sha256Hex(raw)));
 }
 
@@ -643,7 +643,7 @@ export async function endSession(event: H3Event): Promise<void> {
  * one tap with a passkey.
  */
 export async function endAllSessions(event: H3Event, userId: number): Promise<number> {
-  const db = await useAccountDb();
+  const db = await useDb();
   const gone = await db.delete(sessions).where(eq(sessions.userId, userId)).returning({ id: sessions.id });
   clearSessionCookies(event);
   return gone.length;

@@ -2,7 +2,7 @@ import { createError, defineEventHandler } from "h3";
 import { registrationOptions, requirePasskeysConfigured, startChallenge } from "../../../utils/passkeys";
 import { randomSecret } from "../../../utils/tokens";
 import { emailTaken, normalizeEmail, openPrivate } from "../../../utils/authSession";
-import { useAccountDb } from "../../../utils/db";
+import { useDb } from "../../../utils/db";
 import { readJsonBodyCapped } from "../../../utils/http";
 
 // Step 1 of creating an account with nothing but a passkey.
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
   // someone has touched their sensor. Racy by nature — two signups for one address
   // could both pass here — but the unique index is the real guard and signup-verify
   // handles losing that race.
-  const db = await useAccountDb();
+  const db = await useDb();
   if (await emailTaken(db, email)) {
     throw createError({ statusCode: 409, statusMessage: "That address already has an account" });
   }

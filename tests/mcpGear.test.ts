@@ -18,7 +18,7 @@ import { CATALOG_DDL } from "../server/utils/catalog";
 import { listClaimedLists } from "../server/utils/claimRepo";
 import { REPLAY_WAIT } from "../server/utils/mcp";
 import { sizeConflict } from "../server/utils/catalogSizes";
-import { LISTS_DDL } from "../server/utils/db";
+import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
 import { rateLimitSubject } from "../server/utils/rateLimit";
 import { sha256Hex } from "../server/utils/tokens";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
@@ -85,7 +85,7 @@ let bobWrite = "";
 const NEVER_MINTED = `${ACCESS_TOKEN_PREFIX}this-was-never-minted`;
 
 beforeAll(async () => {
-  db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL, CATALOG_DDL);
+  db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL, VAULT_DDL, CATALOG_DDL);
   dbState.db = db;
   // one catalog row, for the pieces that name a catalog_id
   await db.insert(schema.catalogItems).values([

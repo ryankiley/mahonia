@@ -1,5 +1,5 @@
 import { defineEventHandler, getRouterParam } from "h3";
-import { useVaultDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { notFound, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { sharedGearByCode } from "../../utils/vaultShare";
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   setNoIndex(event);
   setPrivate(event);
   await rateLimit(event, "public-read");
-  const gear = await sharedGearByCode(await useVaultDb(), getRouterParam(event, "code") || "");
+  const gear = await sharedGearByCode(await useDb(), getRouterParam(event, "code") || "");
   if (!gear) throw notFound();
   return gear;
 });

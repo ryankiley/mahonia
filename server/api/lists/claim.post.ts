@@ -1,7 +1,6 @@
 import { defineEventHandler } from "h3";
 import { requireAccount } from "../../utils/authSession";
 import { backfillVaultFromClaims, claimLists, listClaimedLists } from "../../utils/claimRepo";
-import { useVaultDb } from "../../utils/db";
 import { arrayOf, readJsonBodyCapped } from "../../utils/http";
 import { CLAIMED_LIST_CAP } from "../../../shared/types";
 
@@ -22,11 +21,6 @@ export default defineEventHandler(async (event) => {
   const body = await readJsonBodyCapped<{ editTokens?: unknown }>(event, 64_000);
   const editTokens = arrayOf(body?.editTokens, (t): t is string => typeof t === "string", CLAIMED_LIST_CAP);
 
-  // useVaultDb as well as the account db: the backfill below writes vault rows, and
-  // on Neon the vault tables are ensured on first use rather than migrated. Without
-  // this the write would throw into the swallowed catch and the backfill would
-  // silently never happen on a cold instance.
-  await useVaultDb();
   const claimed = await claimLists(db, user.id, editTokens);
 
   // Rebuild the vault from every list this account holds, not just the ones that

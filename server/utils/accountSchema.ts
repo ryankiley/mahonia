@@ -1,5 +1,5 @@
 // DDL for the OPTIONAL account layer. A LEAF module, like vaultSchema.ts: it
-// imports nothing from db.ts, so db.ts can spread it into the local dev DDL while
+// imports nothing from db.ts, so db.ts can spread it into its schema list while
 // authSession.ts imports its connection back from db.ts.
 //
 // Every statement is idempotent and safe on BOTH engines (PGlite locally, Neon in

@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery } from "h3";
 import { openPrivate } from "../../utils/authSession";
-import { useAccountDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { checkAuthorizeRequest } from "../../utils/oauth";
 import { isLoopbackHttp } from "../../utils/oauthClients";
 import { trustedOrigin } from "../../utils/origin";
@@ -16,7 +16,7 @@ import { trustedOrigin } from "../../utils/origin";
 // page that did would be an open redirector on this origin (RFC 9700 §4.11.2).
 export default defineEventHandler(async (event) => {
   await openPrivate(event, "oauth-authorize");
-  const check = await checkAuthorizeRequest(await useAccountDb(), trustedOrigin(event), getQuery(event));
+  const check = await checkAuthorizeRequest(await useDb(), trustedOrigin(event), getQuery(event));
   if (!check.ok) return check;
   const back = new URL(check.redirectUri);
   return {

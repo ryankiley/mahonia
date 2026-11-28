@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
 import { bumpUsage } from "../../utils/catalog";
-import { useCatalogDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { arrayOf, readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const body = await readJsonBodyCapped<{ ids?: unknown }>(event, 8_000);
   const ids = arrayOf(body?.ids, (n): n is number => typeof n === "number");
   if (!ids.length) return { ok: true };
-  const db = await useCatalogDb();
+  const db = await useDb();
   await bumpUsage(db, ids);
   return { ok: true };
 });

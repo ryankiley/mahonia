@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
 import { revokeByToken } from "../utils/accessTokens";
-import { useAccountDb } from "../utils/db";
+import { useDb } from "../utils/db";
 import { setNoStore } from "../utils/http";
 import { readFormBody } from "../utils/oauth";
 import { rateLimit } from "../utils/rateLimit";
@@ -12,6 +12,6 @@ export default defineEventHandler(async (event) => {
   setNoStore(event);
   await rateLimit(event, "oauth-revoke");
   const body = await readFormBody(event);
-  await revokeByToken(await useAccountDb(), body.token);
+  await revokeByToken(await useDb(), body.token);
   return {};
 });

@@ -8,6 +8,7 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { vaultItems, vaultKitParts, vaults } from "../server/db/schema";
+import { CATALOG_DDL } from "../server/utils/catalog";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import {
   applyVaultItemOp,
@@ -74,7 +75,7 @@ const row = (name: string, grams: number, over: Partial<Item> = {}): Item => ({
 });
 
 beforeEach(async () => {
-  db = await createTestDb(VAULT_DDL);
+  db = await createTestDb(VAULT_DDL, CATALOG_DDL);
   vault = await newVault();
 });
 

@@ -1,6 +1,6 @@
 import { defineEventHandler, setHeader } from "h3";
 import { searchCatalog } from "../../utils/catalog";
-import { useCatalogDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
 import { rankProducts, SEARCH_LIMIT } from "../../../shared/catalogSearch";
 import { SEARCH_QUERY_MAX } from "../../../shared/searchText";
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
   // of the key.
   const byProduct = queryString(event, "by", 16) === "product";
 
-  const db = await useCatalogDb();
+  const db = await useDb();
   const results = await searchCatalog(db, q, SEARCH_LIMIT, byProduct ? rankProducts : undefined);
 
   return { results };

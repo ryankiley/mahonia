@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { listClaims, lists, listSnapshots } from "../server/db/schema";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
@@ -181,17 +181,19 @@ describe("purgeDeletedLists — hard-deletes rows past the grace window", () => 
     expect((await db.select().from(listClaims)).map((c) => c.listId)).toEqual([kept.id]);
   });
 
-  it("still purges where the account tables were never made, and says the claims were skipped", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL); // no list_claims table
+  // A list purged ahead of its claims would strand them: nothing reads a claim on a
+  // list that is gone, so nothing could remove it. The list has to outlive a failure.
+  it("leaves a list for the next run when its claims can't be dropped", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
     await seed(db, { deletedAt: softDeleted(100) });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      expect((await purgeDeletedLists(db)).purged).toBe(1);
-      expect(await rowCount(db)).toBe(0);
-      expect(warn).toHaveBeenCalled();
-    } finally {
-      warn.mockRestore();
-    }
+    await db.execute(sql`alter table list_claims rename to list_claims_away`); // the delete fails
+
+    await expect(purgeDeletedLists(db)).rejects.toThrow();
+    expect(await rowCount(db)).toBe(1);
+
+    await db.execute(sql`alter table list_claims_away rename to list_claims`);
+    expect((await purgeDeletedLists(db)).purged).toBe(1);
+    expect(await rowCount(db)).toBe(0);
   });
 
   it("does not immediately purge a list the reaper just soft-deleted", async () => {

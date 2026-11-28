@@ -51,7 +51,7 @@ import { eq, inArray, isNull } from "drizzle-orm";
 import { catalogItems, listClaims, lists } from "../server/db/schema";
 import { findOrCreateUser, issueMagicToken, normalizeEmail } from "../server/utils/authSession";
 import { claimLists, listClaimedLists } from "../server/utils/claimRepo";
-import { useVaultDb, type Db } from "../server/utils/db";
+import { useDb, type Db } from "../server/utils/db";
 import { createList } from "../server/utils/listRepo";
 import { mintVault } from "../server/utils/vaultAuth";
 import { deleteVaultContents, importVaultItems } from "../server/utils/vaultRepo";
@@ -239,7 +239,7 @@ async function main() {
   const email = normalizeEmail(config.email);
   if (!email) throw new Error(`"${config.email}" is not an address the sign-in form would take`);
 
-  const db = await useVaultDb();
+  const db = await useDb();
   const user = await findOrCreateUser(db, email);
   const vaultId = await mintVault(db, user.id);
   console.log(`Account ${email} (user ${user.id}, vault ${vaultId}).`);
