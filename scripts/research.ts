@@ -36,7 +36,7 @@ export interface ResearchRow {
   // that only warned drifted within weeks, so a convention is an error or it is not a
   // convention; the only warnings are judgment lists for a human (weight plausibility,
   // food rows still at net weight or without kcal, rows missing an axis their gear type
-  // is sold by). normalizeVariant tidies what it can.
+  // is sold by, rows marked quote_unchecked). normalizeVariant tidies what it can.
   //   • S/M/L-family sizes are WORDS — "Medium", "X-Large", "Men's Medium" — on anything
   //     worn or carried (2026-09-12; they were letters from 2026-09-05, and the build
   //     rewrites a letter to the word, so "M" in a row still builds "Medium"). A range
@@ -122,6 +122,12 @@ export interface ResearchRow {
   weight_source?: string;
   source_url?: string | null;
   quote?: string;
+  // Why the weight is NOT held to its quote, for the few rows whose quote the one reader
+  // (shared/catalogQuality quoteWeights) can't back as it stands: "table lists the unit
+  // before the figures", "quoted per gaiter, stored as the pair", "community estimate, no
+  // maker figure". The quote stays verbatim; the audit lists the row as a warning, and a
+  // marker on a row whose quote does back its weight is an error.
+  quote_unchecked?: string | null;
   // Per-unit food energy — food rows only. Carries its OWN citation (the weight's
   // source_url/quote often cite a spec page with no nutrition panel): kcal without
   // kcal_source_url + kcal_quote fails the build, same bar the weight is held to.
@@ -131,8 +137,8 @@ export interface ResearchRow {
 }
 
 /** The research file `npm run catalog:graduate` writes: rows an admin verified in the app
- *  (verify_catalog_item) that no other research file has, whose quotes the audit reads in
- *  ounces as the tool did. A research row corrected in the app goes back into its own file. */
+ *  (verify_catalog_item) that no other research file has. A research row corrected in the
+ *  app goes back into its own file. */
 export const GRADUATED_FILE_NAME = "verified-in-app.json";
 
 // The one layout every research file is written in (2026-11-25; until then a file was
@@ -145,11 +151,11 @@ export const GRADUATED_FILE_NAME = "verified-in-app.json";
 const RESEARCH_KEY_ORDER = [
   "brand", "name", "variant", "attributes", "attributes_source_url", "attributes_quote",
   "attributes_unpublished", "category_hint", "common_name", "weight_value", "weight_unit",
-  "weight_secondary", "weight_source", "source_url", "quote", "kcal", "kcal_source_url", "kcal_quote",
+  "weight_secondary", "weight_source", "source_url", "quote", "quote_unchecked", "kcal", "kcal_source_url", "kcal_quote",
 ];
 const OPTIONAL_KEYS = new Set([
   "variant", "attributes", "attributes_source_url", "attributes_quote", "attributes_unpublished",
-  "common_name", "weight_secondary", "kcal", "kcal_source_url", "kcal_quote",
+  "common_name", "weight_secondary", "quote_unchecked", "kcal", "kcal_source_url", "kcal_quote",
 ]);
 
 /** JSON on one line with a space after every colon and comma, nested values too. */
@@ -247,6 +253,7 @@ const RESEARCH_TEXT_FIELDS = [
   "weight_source",
   "source_url",
   "quote",
+  "quote_unchecked",
   "kcal_source_url",
   "kcal_quote",
 ] as const;

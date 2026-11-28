@@ -32,50 +32,96 @@ export const CATALOG_CATEGORIES = Object.keys(RANGE_G);
  *  before a number stays a weight: "539 g / 19 oz" is one weight in two units. */
 const NOT_A_RATE = String.raw`(?!\s*\/\s*[a-z²]|\s*per\s+(?:sq|square|m\b|metre|meter|yd|yard|ft|foot|hour|hr|day|litre|liter|l\b))`;
 
-/** All gram-equivalent figures mentioned in a quote (kg converted to g). Handles thousands
- *  separators ("1,790 g" is 1790, not 790), and never reads a decimal comma's last digits
- *  ("1,2 kg" isn't 2 kg). `spelled` reads "169 grams" and "1.2 kilograms" too, as
- *  verify_catalog_item does; the hand research's spelled-out quotes are lists and tables
- *  ("368/538 Grams", "Kilograms 1.29 1.33") that a single-figure read would flag. */
-export function gramsInQuote(q: string, spelled = false): number[] {
-  const out: number[] = [];
-  const num = (s: string) => parseFloat(s.replace(/,/g, ""));
-  const figure = String.raw`(?<![\d.,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*`;
-  const kg = spelled ? String.raw`(?:kg|kilo(?:gram)?s?(?![a-z]))` : "kg";
-  const g = spelled ? "g(?:rams?|r)?" : "g";
-  for (const m of q.matchAll(new RegExp(`${figure}${kg}${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!) * 1000);
-  for (const m of q.matchAll(new RegExp(`${figure}${g}(?![a-z])${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!));
-  return out;
-}
+/** A weight a quote states, in grams: one figure (lo === hi), or a range ("36 to 39 oz"),
+ *  which backs either end and anything between. */
+export type QuoteWeight = { lo: number; hi: number };
 
 const OZ_G = MG_PER_UNIT.oz / MG_PER_UNIT.g;
 const LB_G = MG_PER_UNIT.lb / MG_PER_UNIT.g;
-/** One imperial figure: "19", "2.1", or ".60" whole, never the "60" of ".60" (which
- *  read as 60 oz, 1.7 kg, and backed a weight the quote doesn't state). */
-const NUM = String.raw`(?<![\d.])(\d*\.\d+|\d+)`;
+/** A metric figure: thousands separators read whole ("1,790 g" is 1790, not 790), and a
+ *  decimal comma's last digits never read alone ("1,2 kg" isn't 2 kg). */
+const METRIC_FIG = String.raw`\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?`;
+/** An imperial figure: "19", "2.1", or ".60" whole, never the "60" of ".60" (which read
+ *  as 60 oz, 1.7 kg, and backed a weight the quote doesn't state). */
+const IMPERIAL_FIG = String.raw`\d*\.\d+|\d+`;
+/** What may join the figures before one unit: ", " (a list), an unspaced "/" (a list,
+ *  "13/19 oz"), an unspaced hyphen or dash or a " to " (a range, "36-39 oz"). Spaced
+ *  slashes and dashes are left out: "Flash 22 / 10.6 oz" is a model and a weight. */
+const JOIN = String.raw`,\s+|\/|[-–—]|\s+to\s+`;
 
-/** Every weight a quote states, in grams: its metric figures (gramsInQuote) and its
- *  imperial ones, "1 lb 3 oz" read as one figure and a lone "19 oz" or "2.1 lbs" as
- *  their own. What verify_catalog_item holds a quote to, since a US maker's page often
- *  gives ounces alone. */
-export function weightsInQuote(q: string): number[] {
-  const out = gramsInQuote(q, true);
-  const rest = q.replace(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\.?,?\\s*${NUM}\\s*(?:oz|ounces?)\\b`, "gi"), (_, lb: string, oz: string) => {
-    out.push(parseFloat(lb) * LB_G + parseFloat(oz) * OZ_G);
-    return " ";
-  });
-  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:oz|ounces?)\\b${NOT_A_RATE}`, "gi"))) out.push(parseFloat(m[1]!) * OZ_G);
-  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\b${NOT_A_RATE}`, "gi"))) out.push(parseFloat(m[1]!) * LB_G);
+/** The figures before each `unit` in `q`, a list or range read whole. A comma list
+ *  counts only from three figures up, so "Size 10, 11.5 oz" is one weight; a range only
+ *  when it rises; a list glued to a word ("SP129/85 g") only by its last figure. */
+function figuresBefore(q: string, fig: string, unit: string, start: string): QuoteWeight[][] {
+  const out: QuoteWeight[][] = [];
+  const re = new RegExp(`${start}((?:${fig})(?:(?:${JOIN})(?:${fig}))*)\\s*${unit}${NOT_A_RATE}`, "gi");
+  for (const m of q.matchAll(re)) {
+    const run = m[1]!;
+    const nums = [...run.matchAll(new RegExp(fig, "g"))].map((n) => parseFloat(n[0].replace(/,/g, "")));
+    const joins = run.split(new RegExp(fig)).slice(1, -1);
+    const last = nums.at(-1)!;
+    const glued = /[a-z\d]/i.test(q[m.index! - 1] ?? "");
+    const isRange = nums.length === 2 && /^(?:[-–—]|\s+to\s+)$/.test(joins[0]!) && nums[0]! < last;
+    const isList = joins.length > 0 && !glued && (joins.every((j) => j === "/") || (nums.length >= 3 && joins.every((j) => /^,\s+$/.test(j))));
+    if (isRange && !glued) out.push([{ lo: nums[0]!, hi: last }]);
+    else if (isList) out.push(nums.map((n) => ({ lo: n, hi: n })));
+    else out.push([{ lo: last, hi: last }]);
+  }
   return out;
 }
+
+const scale = (ws: QuoteWeight[][], k: number) => ws.flat().map(({ lo, hi }) => ({ lo: lo * k, hi: hi * k }));
+
+/** Every weight a quote states, in grams: metric figures, kilograms and grams spelled
+ *  out or not, and imperial ones, "1 lb 3 oz" read as one figure and a lone "19 oz" or
+ *  "2.1 lbs" as their own. A list before one unit ("8.3, 8.8, 9.3 oz", "368/538 Grams")
+ *  is every figure in it, and a range ("36 to 39 oz") is one weight from end to end.
+ *  The one reader for every research file and for verify_catalog_item: a US maker's
+ *  page often gives ounces alone. */
+export function quoteWeights(q: string): QuoteWeight[] {
+  const metricStart = String.raw`(?<![\d.,])`;
+  const out = [
+    ...scale(figuresBefore(q, METRIC_FIG, String.raw`(?:kg|kilo(?:gram)?s?(?![a-z]))`, metricStart), 1000),
+    ...scale(figuresBefore(q, METRIC_FIG, String.raw`g(?:rams?|r)?(?![a-z])`, metricStart), 1),
+  ];
+  const num = String.raw`(?<![\d.])(${IMPERIAL_FIG})`;
+  const rest = q.replace(new RegExp(`${num}\\s*(?:lbs?|pounds?)\\.?,?\\s*${num}\\s*(?:oz|ounces?)\\b`, "gi"), (_, lb: string, oz: string) => {
+    const g = parseFloat(lb) * LB_G + parseFloat(oz) * OZ_G;
+    out.push({ lo: g, hi: g });
+    return " ";
+  });
+  const imperialStart = String.raw`(?<![\d.])`;
+  out.push(...scale(figuresBefore(rest, IMPERIAL_FIG, String.raw`(?:oz|ounces?)\b`, imperialStart), OZ_G));
+  out.push(...scale(figuresBefore(rest, IMPERIAL_FIG, String.raw`(?:lbs?|pounds?)\b`, imperialStart), LB_G));
+  return out;
+}
+
+/** Every figure a quote states, in grams: each weight quoteWeights reads, a range by its
+ *  two ends. */
+export const weightsInQuote = (q: string): number[] =>
+  quoteWeights(q).flatMap(({ lo, hi }) => (lo === hi ? [lo] : [lo, hi]));
 
 /** How far a quoted figure may sit from the weight it backs: 8 g or 5%, whichever is
  *  more. The research audit's tolerance, so a rounded ounce figure still agrees. */
 export const quoteTolerance = (grams: number) => Math.max(8, 0.05 * grams);
 
+/** The quoted figure closest to `grams` (a range's nearest point, `grams` itself when it
+ *  falls inside one), or null when the quote states no weight. */
+export function nearestQuoteFigure(quote: string, grams: number): number | null {
+  let nearest: number | null = null;
+  for (const { lo, hi } of quoteWeights(quote)) {
+    const at = Math.min(hi, Math.max(lo, grams));
+    if (nearest == null || Math.abs(at - grams) < Math.abs(nearest - grams)) nearest = at;
+  }
+  return nearest;
+}
+
 /** Whether a quote states this weight: some figure in it within quoteTolerance. */
 export const quoteBacksWeight = (quote: string, grams: number) =>
-  weightsInQuote(quote).some((f) => Math.abs(f - grams) <= quoteTolerance(f));
+  quoteWeights(quote).some(({ lo, hi }) => {
+    const at = Math.min(hi, Math.max(lo, grams));
+    return Math.abs(at - grams) <= quoteTolerance(at);
+  });
 
 /** A row the seed owns: verified, and not by an admin in the app. Only these may be
  *  renamed or retired for the CSV not naming them; a community row and an in-app

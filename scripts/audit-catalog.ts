@@ -51,7 +51,7 @@ function main() {
   console.log(`\n=== Catalog accuracy audit (stage 1) ===`);
   console.log(`research rows: ${researchRows} | csv rows: ${csvChecked}`);
   if (warns.length) {
-    console.log(`\nWARNINGS (${warns.length}) — a human's list: weight plausibility, food rows still at net weight or without kcal, tents still at trail weight, packs still at a minimum weight, rows missing an axis their gear type is sold by:`);
+    console.log(`\nWARNINGS (${warns.length}) — a human's list: weight plausibility, food rows still at net weight or without kcal, tents still at trail weight, packs still at a minimum weight, rows missing an axis their gear type is sold by, rows whose weight isn't held to their quote (quote_unchecked):`);
     // grouped by code, so the 800-row attribute to-do list sits under one heading
     // instead of burying the dozen plausibility calls a human actually re-reads
     const byCode = new Map<string, Finding[]>();
