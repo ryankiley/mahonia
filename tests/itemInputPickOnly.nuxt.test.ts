@@ -1,4 +1,4 @@
-// /gear's add row uses the list editor's name field in two narrower modes. Catalog-only:
+// /gear's add row uses the list editor's name field in its pick mode, narrower two ways. Catalog-only:
 // the add row adds TO My Gear, so offering your own gear back would only offer a
 // duplicate, and water isn't gear. Pick-only: the row is a name AND a weight, so the
 // list row's commit-on-blur would fire on tabbing across to the weight; typed text
@@ -24,7 +24,7 @@ const REGULAR = { id: 2, brand: "Zpacks", name: "Duplex", variant: "Regular", we
 const MINE = { id: 9, brand: "Zpacks", name: "Duplex", variant: "Mine", weightMg: 600_000, normKey: "zpacksduplexmine", timesSeen: 1, lastUsedAt: "", createdAt: "" };
 
 function mountAddField() {
-  const w = mount(ItemInput, { props: { unit: "g", sources: "catalog", pickOnly: true }, attachTo: document.body });
+  const w = mount(ItemInput, { props: { unit: "g", mode: "pick" }, attachTo: document.body });
   const input = w.find<HTMLInputElement>("input").element;
   return {
     w,
