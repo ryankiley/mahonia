@@ -168,6 +168,46 @@ describe("a menu set on its trigger's middle", () => {
   });
 });
 
+// A menu that hangs from its trigger's LEADING edge by preference (the lists switcher at
+// the start of the bar, the trip dates under their button) flips to the trailing edge
+// only when it would run off the right of the window there and fits the other way.
+// The trigger here is 40 wide and the menu 120.
+describe("a menu that prefers the leading edge", () => {
+  function fromStartAt(left: number, width = 1000) {
+    viewport(800, width);
+    const anchor = document.createElement("div");
+    anchor.getBoundingClientRect = () => rect(100, 120, left, left + 40);
+    const list = document.createElement("ul");
+    Object.defineProperties(list, {
+      offsetParent: { get: () => anchor },
+      offsetWidth: { get: () => 120 },
+      offsetHeight: { get: () => 100 },
+      scrollHeight: { get: () => 100 },
+    });
+    anchor.append(list);
+    document.body.append(anchor);
+    const p = useMenuPlacement(ref(list), { side: "start" });
+    p.place();
+    return p.atStart.value;
+  }
+
+  it("hangs from the leading edge where it fits", () => {
+    expect(fromStartAt(500)).toBe(true);
+    // 872 + 120 = 992, exactly the edge: still a fit
+    expect(fromStartAt(872)).toBe(true);
+  });
+
+  it("flips to the trailing edge when it would run off the right", () => {
+    // from the leading edge it would end at 993; from the trailing one it starts at 793
+    expect(fromStartAt(873)).toBe(false);
+  });
+
+  it("keeps the leading edge when the trailing one doesn't fit either", () => {
+    // a 100px window: 120 overruns from both edges, so flipping only moves the cut
+    expect(fromStartAt(10, 100)).toBe(true);
+  });
+});
+
 // A menu left open while the window changes size: the row reflows and the trigger moves,
 // so the card is placed again rather than left where the old layout put it.
 describe("a menu left open while the window resizes", () => {
