@@ -14,6 +14,7 @@
 
 import type { VaultEntry, VaultKitPart } from "./vault";
 import { vaultTabOf } from "./vaultView";
+import { counted } from "./tidyText";
 
 /** What a shared page receives: the owner's chosen name, when they have one, and the
  *  pieces and kits, each shaped as a VaultEntry so the page draws them with My Gear's own
@@ -80,4 +81,22 @@ export function sharedGear(
   });
   const name = owner?.trim();
   return name ? { owner: name, items } : { items };
+}
+
+/** What a shared page is called: "Sam’s gear" when the owner set a name, else "Shared
+ *  gear". The page's heading, its tab title, its preview and its card all say this. */
+export function sharedGearTitle(gear: Pick<SharedGear, "owner">): string {
+  return gear.owner ? `${gear.owner}’s gear` : "Shared gear";
+}
+
+/** The counts a shared page leads with, as the preview's sentence says them: "18 pieces ·
+ *  3 kits". Pieces are what the Gear tab lists; kits only when there are some. */
+export function sharedGearCounts(gear: Pick<SharedGear, "items">): { pieces: number; kits: number } {
+  const kits = gear.items.filter((e) => e.kind === "kit").length;
+  return { pieces: gear.items.length - kits, kits };
+}
+
+export function sharedGearSummary(gear: Pick<SharedGear, "items">): string {
+  const { pieces, kits } = sharedGearCounts(gear);
+  return [counted(pieces, "piece"), ...(kits ? [counted(kits, "kit")] : [])].join(" · ");
 }

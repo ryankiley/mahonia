@@ -2,7 +2,9 @@
 import { IconBackpack, IconSafeSimple, IconToolbox } from "~/icons/central";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
-import type { SharedGear } from "~~/shared/vaultShare";
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "~~/shared/ogCard";
+import { counted } from "~~/shared/tidyText";
+import { sharedGearSummary, sharedGearTitle, type SharedGear } from "~~/shared/vaultShare";
 import { vaultSections } from "~~/shared/vaultView";
 
 // Someone's My Gear, through the read-only link they turned on (/g/{code}). What it may
@@ -58,16 +60,30 @@ const partEntry = (
 // kept, as on a shared list
 const unit = ref<Unit>("g");
 
-const title = computed(() =>
-  data.value?.owner ? `${data.value.owner}’s gear` : "Shared gear",
-);
-const count = computed(
-  () =>
-    `${pieces.value.length} ${pieces.value.length === 1 ? "piece" : "pieces"}`,
-);
+const title = computed(() => (data.value ? sharedGearTitle(data.value) : ""));
+const summary = computed(() => (data.value ? sharedGearSummary(data.value) : ""));
 useHead({
   title: () => (data.value ? `${title.value} — Mahonia` : "Mahonia"),
   meta: [{ name: "robots", content: "noindex" }],
+});
+
+// THE PREVIEW a pasted link unfurls into (iMessage, Slack): the page's own title, its
+// counts as a sentence, and the card /og/g draws. Noindex still keeps the page out of
+// search; these tags only feed previews. While the link is off, every getter is empty and
+// the app's static site card stands, so a turned-off link advertises nothing.
+const origin = useSiteOrigin();
+const description = computed(() => (data.value ? `${title.value} on Mahonia: ${summary.value}.` : undefined));
+useSeoMeta({
+  description: () => description.value,
+  ogTitle: () => (data.value ? title.value : undefined),
+  ogDescription: () => description.value,
+  ogType: "website",
+  ogImage: () => (data.value ? `${origin}/og/g/${code.value}` : undefined),
+  ogImageAlt: () => (data.value ? `${title.value}: ${summary.value}. On Mahonia.` : undefined),
+  ogImageWidth: OG_IMAGE_WIDTH,
+  ogImageHeight: OG_IMAGE_HEIGHT,
+  ogImageType: () => (data.value ? "image/png" : undefined),
+  twitterImage: () => (data.value ? `${origin}/og/g/${code.value}` : undefined),
 });
 </script>
 
@@ -95,7 +111,7 @@ useHead({
       </div>
 
       <template v-if="tab === 'gear'">
-        <p class="t-sm t-muted sharedgear__count">{{ count }}</p>
+        <p class="t-sm t-muted sharedgear__count">{{ counted(pieces.length, "piece") }}</p>
         <VaultSection
           v-for="section in sections"
           :key="section.key"
