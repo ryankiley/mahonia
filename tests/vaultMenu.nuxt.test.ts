@@ -20,7 +20,6 @@ describe("My Gear's ⋯ menu", () => {
     expect(rows(await openMenu({ signedIn: true, canExport: true }))).toEqual([
       "Create a list",
       "Import gear…",
-      "Share my gear…",
       "Download CSV",
       "Download JSON",
       "Send feedback…",
@@ -28,13 +27,6 @@ describe("My Gear's ⋯ menu", () => {
       "About",
       "Legal",
     ]);
-  });
-
-  it("offers the gear link only when there is gear to share", async () => {
-    expect(rows(await openMenu({ signedIn: true, canExport: false }))).not.toContain("Share my gear…");
-    const w = await openMenu({ signedIn: true, canExport: true });
-    await w.findAll('[role="menuitem"]').find((r) => r.text() === "Share my gear…")!.trigger("click");
-    expect(w.emitted("pick")).toEqual([["share"]]);
   });
 
   it("closes and tells the page which row was picked", async () => {

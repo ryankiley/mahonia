@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBrackets1, IconBug, IconEyeOpen, IconFileArrowLeftIn, IconFileExcel, IconSquareChecklist } from "~/icons/central";
+import { IconBrackets1, IconBug, IconFileArrowLeftIn, IconFileExcel, IconSquareChecklist } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import { SITE_LINKS } from "~/utils/siteLinks";
 // My Gear's ⋯ actions menu — the same quiet kebab the editor and the read views
@@ -63,12 +63,6 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
                keeps one picture wherever you meet it -->
           <SvgIcon :icon="IconFileArrowLeftIn" aria-hidden="true" />
           Import gear…
-        </button>
-        <!-- the read-only link to your gear: the eye the editor's "Copy read-only link"
-             wears, so a link someone can only look through keeps one picture -->
-        <button v-if="canExport" type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'share')">
-          <SvgIcon :icon="IconEyeOpen" aria-hidden="true" />
-          Share my gear…
         </button>
         <!-- the same two words the editor's and the read views' export rows use, so
              one action keeps one name wherever you meet it -->

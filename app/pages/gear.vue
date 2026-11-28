@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconForkKnife, IconLightningBolt, IconPlusMedium, IconSafeSimple, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
+import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconForkKnife, IconLightningBolt, IconPlusMedium, IconSafeSimple, IconShareAndroid, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
@@ -565,7 +565,6 @@ const shareOpen = ref(false);
 const shareEverOpened = useLatch(() => shareOpen.value);
 function onMenuPick(action: string) {
   if (action === "feedback") return openFeedback();
-  if (action === "share") return void (shareOpen.value = true);
   if (action !== "import") return void exportGear(action);
   importOpen.value = true;
 }
@@ -622,6 +621,22 @@ async function exportGear(kind: string) {
            a signed-in browser hydrates with one, so a v-if on it mismatches. -->
       <template #end>
         <ClientOnly>
+          <!-- Sharing is a glyph in the bar, where the editor keeps its own (account,
+               share, ⋯), not a row in the ⋯: one act, one place, on every page. Only
+               when there is gear to share and an account to share it from. -->
+          <Tooltip v-if="hasVault && !offline && hasGear && items.length > 0" text="Share my gear" preferred-placement="bottom" :disabled="shareOpen">
+            <button
+              type="button"
+              class="btn btn--icon btn--ghost"
+              :class="{ 'is-on': shareOpen }"
+              aria-label="Share my gear"
+              aria-haspopup="dialog"
+              :aria-expanded="shareOpen"
+              @click="shareOpen = true"
+            >
+              <SvgIcon :icon="IconShareAndroid" />
+            </button>
+          </Tooltip>
           <VaultMenu
             :signed-in="hasVault && !offline"
             :can-export="hasGear && items.length > 0"

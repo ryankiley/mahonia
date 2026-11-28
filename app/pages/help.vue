@@ -231,7 +231,7 @@ useHead({
             bring it back, add it again in My Gear.
           </li>
           <li>
-            “Share my gear” in My Gear’s menu turns on a read-only link to your gear and kits, without
+            The share button at the top of My Gear turns on a read-only link to your gear and kits, without
             prices or food. Turning it off stops the link at once, and turning it on again makes a new
             one.
           </li>
