@@ -1,24 +1,7 @@
 import type { H3Event } from "h3";
 import { describe, expect, it } from "vitest";
-import {
-  consumeRateLimit,
-  rateLimitScope,
-  getClientIp,
-  type KvStorage,
-} from "../server/utils/rateLimit";
-
-// A Map-backed fake of the KV store. This also mirrors the prod fix itself: one
-// shared store that every "instance" reads/writes, vs the old per-process Map.
-function fakeKv(): KvStorage {
-  const map = new Map<string, unknown>();
-  return {
-    getItem: async <T>(key: string) => (map.has(key) ? (map.get(key) as T) : null),
-    setItem: async <T>(key: string, value: T) => {
-      map.set(key, value);
-    },
-    removeItem: async (key: string) => void map.delete(key),
-  };
-}
+import { consumeRateLimit, rateLimitScope, getClientIp } from "../server/utils/rateLimit";
+import { memoryKv } from "./helpers/kv";
 
 // Minimal duck-typed H3 event: getClientIp only reads request headers + the
 // socket address through h3's accessors (event.node.req.headers / socket).
@@ -59,7 +42,7 @@ describe("getClientIp — trusted-header IP derivation (anti-spoof)", () => {
 
 describe("consumeRateLimit — shared-store fixed-window counter", () => {
   it("allows up to the limit, then reports over", async () => {
-    const kv = fakeKv();
+    const kv = memoryKv();
     const hit = () => consumeRateLimit(kv, "rl:create:ip", 2, 60_000, 0);
     expect(await hit()).toBe(false); // 1st
     expect(await hit()).toBe(false); // 2nd (== limit)
@@ -67,14 +50,16 @@ describe("consumeRateLimit — shared-store fixed-window counter", () => {
   });
 
   it("resets once the window elapses", async () => {
-    const kv = fakeKv();
+    const kv = memoryKv();
     expect(await consumeRateLimit(kv, "k", 1, 1_000, 0)).toBe(false); // count 1
     expect(await consumeRateLimit(kv, "k", 1, 1_000, 500)).toBe(true); // count 2, over, same window
     expect(await consumeRateLimit(kv, "k", 1, 1_000, 1_000)).toBe(false); // window rolled over → fresh
   });
 
   it("shares one counter across callers (the per-instance-Map fix)", async () => {
-    const kv = fakeKv(); // one store, like Upstash shared across serverless instances
+    // one store that every "instance" reads and writes, like Upstash shared across
+    // serverless instances, where the old limiter kept a Map per process
+    const kv = memoryKv();
     for (let i = 0; i < 3; i++) expect(await consumeRateLimit(kv, "k", 3, 60_000, 0)).toBe(false);
     expect(await consumeRateLimit(kv, "k", 3, 60_000, 0)).toBe(true); // 4th over — count survived across calls
     // an independent key (different action/IP) keeps an independent budget
@@ -82,16 +67,9 @@ describe("consumeRateLimit — shared-store fixed-window counter", () => {
   });
 
   it("sets a TTL bounded by the remaining window", async () => {
-    const ttls: number[] = [];
-    const kv: KvStorage = {
-      getItem: async <T>() => null as T | null,
-      setItem: async <T>(_k: string, _v: T, opts?: { ttl?: number }) => {
-        if (opts?.ttl !== undefined) ttls.push(opts.ttl);
-      },
-      removeItem: async () => {},
-    };
+    const kv = memoryKv();
     await consumeRateLimit(kv, "k", 5, 60_000, 0);
-    expect(ttls[0]).toBe(60); // ceil(60000 / 1000)
+    expect(kv.ttls.get("k")).toBe(60); // ceil(60000 / 1000)
   });
 });
 

@@ -11,6 +11,7 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { catalogRow, seedCatalogRow } from "./helpers/catalog";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
+import { sortedKeys } from "./helpers/fields";
 import { makeEvent } from "./helpers/http";
 
 // The admin tools (verify_catalog_item, get_catalog_edits, revert_catalog_edit), driven
@@ -23,10 +24,10 @@ import { makeEvent } from "./helpers/http";
 // undoes one by its id.
 
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
-vi.mock("../server/utils/rateLimit", () => ({
+vi.mock("../server/utils/rateLimit", async () => ({
   rateLimit: async () => {},
   rateLimitSubject: async () => {},
-  useKv: () => ({ getItem: async () => null, setItem: async () => {}, removeItem: async () => {} }),
+  useKv: (await import("./helpers/kv")).forgetfulKv,
 }));
 // the catalog reads pick their SQL by DATABASE_URL at call time
 vi.stubEnv("DATABASE_URL", "");
@@ -772,7 +773,6 @@ describe("linking the person's own piece in the same call", () => {
 // The field set of each admin tool's answer, held exactly, as mcp.test.ts holds the
 // list tools': a producer that grows or loses a field fails here.
 describe("the fields each admin tool answers with", () => {
-  const keys = (value: unknown) => Object.keys(value as object).sort();
   const ROW = ["brand", "category", "display_name", "gear_type", "id", "name", "source_url", "variant", "verified", "weight_g", "weight_source"];
   let rowId = 0;
   let done: Awaited<ReturnType<typeof adminCall>>;
@@ -786,20 +786,20 @@ describe("the fields each admin tool answers with", () => {
 
   it("verify_catalog_item: the answer, with a warning and a linked piece, and its row", () => {
     expect(done.refused, done.text).toBe(false);
-    expect(keys(done.data)).toEqual(["created", "edit_id", "gear", "revived", "row", "unchanged", "warnings"]);
-    expect(keys(done.data.row)).toEqual(ROW);
+    expect(sortedKeys(done.data)).toEqual(["created", "edit_id", "gear", "revived", "row", "unchanged", "warnings"]);
+    expect(sortedKeys(done.data.row)).toEqual(ROW);
   });
 
   it("get_catalog_edits: the answer and an edit", async () => {
     const history = await adminCall("get_catalog_edits", { catalog_id: rowId });
-    expect(keys(history.data)).toEqual(["edits"]);
-    expect(keys(history.data.edits[0])).toEqual(["at", "catalog_id", "id", "item", "kind", "new_weight_g", "old_weight_g", "reason", "source_url", "status"]);
+    expect(sortedKeys(history.data)).toEqual(["edits"]);
+    expect(sortedKeys(history.data.edits[0])).toEqual(["at", "catalog_id", "id", "item", "kind", "new_weight_g", "old_weight_g", "reason", "source_url", "status"]);
   });
 
   it("revert_catalog_edit: the answer and its row", async () => {
     const undone = await adminCall("revert_catalog_edit", { edit_id: done.data.edit_id });
     expect(undone.refused, undone.text).toBe(false);
-    expect(keys(undone.data)).toEqual(["edit_id", "rejected", "retired", "row"]);
-    expect(keys(undone.data.row)).toEqual(ROW);
+    expect(sortedKeys(undone.data)).toEqual(["edit_id", "rejected", "retired", "row"]);
+    expect(sortedKeys(undone.data.row)).toEqual(ROW);
   });
 });

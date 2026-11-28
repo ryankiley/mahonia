@@ -12,15 +12,10 @@ import { nextTick } from "vue";
 import ListHead from "~/components/ListHead.vue";
 import { CLEARS_WITH_LINK } from "~~/shared/trailLink";
 import type { ListSnapshot } from "~~/shared/types";
-import { snapshotFor } from "./helpers/list";
+import { headSnapshot } from "./helpers/listHead";
 
 const setMeta = vi.fn();
 mockNuxtImport("useGearList", () => () => ({ setMeta }));
-
-const snap = (over: Partial<ListSnapshot> = {}): ListSnapshot => ({
-  ...snapshotFor({ shareCode: "SNAPCODE0001", slug: "test-list-aaa111", title: "Timberline" }),
-  ...over,
-});
 
 let wrapper: VueWrapper;
 const panel = () => wrapper.find(".head__panel");
@@ -28,7 +23,7 @@ const field = () => wrapper.get<HTMLInputElement>("input[type=url]");
 const line = () => wrapper.find(".head__gpxerr[role=alert]");
 
 async function open(over: Partial<ListSnapshot> = {}) {
-  wrapper = mount(ListHead, { props: { snapshot: snap(over) }, attachTo: document.body });
+  wrapper = mount(ListHead, { props: { snapshot: headSnapshot(over) }, attachTo: document.body });
   if (over.trailUrl) {
     await wrapper.get("button.head__link").trigger("click");
     await wrapper.findAll(".head__card button").find((b) => b.text() === "Edit")!.trigger("click");

@@ -78,9 +78,6 @@ export async function catalogGearTypeCategories(db: Db): Promise<Map<string, str
 
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 
-/** catalog_edits.status's values, as its CHECK lists them (schema.ts says what each means). */
-const EDIT_STATUSES = ["applied", "proposed", "reverted", "rejected", "superseded"].map((s) => `'${s}'`).join(",");
-
 // Safe on BOTH PGlite and Neon. Single source of truth; also spread into db.ts's
 // local idempotent DDL. The pg_trgm and unaccent extensions are created separately (Neon only).
 export const CATALOG_DDL: string[] = [
@@ -134,7 +131,7 @@ export const CATALOG_DDL: string[] = [
     new_weight_mg bigint NOT NULL,
     source_url text,
     reason text,
-    status text NOT NULL DEFAULT 'applied' CHECK (status IN (${EDIT_STATUSES})),
+    status text NOT NULL DEFAULT 'applied' CHECK (status IN ('applied','proposed','reverted','rejected','superseded')),
     created_at timestamptz NOT NULL DEFAULT now(),
     undo jsonb
   )`,

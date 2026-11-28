@@ -1,9 +1,8 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import llms from "../server/routes/llms.txt";
 import robots from "../server/routes/robots.txt";
+import sitemap from "../server/routes/sitemap.xml";
 import { makeEvent } from "./helpers/http";
-import { ROOT } from "./helpers/sources";
 
 // The two plain-text files a fetcher reads before it reads anything else, and the
 // one thing about them that is easy to get wrong in either direction.
@@ -14,8 +13,10 @@ import { ROOT } from "./helpers/sources";
 // elsewhere. It also stops every well-behaved user-initiated fetcher (an assistant
 // asked to read a pasted share link) before it reads a byte, which is what people
 // noticed. So robots.txt leaves /s open, and that is safe only for as long as the
-// page keeps its tag. This file holds both halves together, so a future edit that
-// drops the meta tag (or re-adds the block) fails here rather than in the wild.
+// page keeps its tag. This file holds the robots half; the other half, every share
+// surface saying noindex itself, is held where each one runs: the pages in
+// shareNoIndexPages.nuxt.test.ts, the APIs and social cards in shareNoIndex.test.ts,
+// the Markdown twin in shareMarkdown.test.ts and the connector in mcp.test.ts.
 
 describe("robots.txt", () => {
   it("keeps the capability, redirect and API paths out, and lets a share link be fetched", async () => {
@@ -37,27 +38,10 @@ describe("robots.txt", () => {
     expect(event.node.res.getHeader("content-type")).toBe("text/plain; charset=utf-8");
   });
 
-  it("…which is safe only while every share surface says noindex itself", () => {
-    // Source canaries: the page's meta tag, the header on everything else a share code
-    // resolves (the API, the Markdown twin, the social-card image), and a sitemap that
-    // lists no list at all. Remove any one of them and the open robots rule above becomes
-    // a leak, so they fail together.
-    for (const p of ["app/pages/s/[code].vue", "app/pages/g/[code].vue"]) {
-      expect(readFileSync(`${ROOT}${p}`, "utf8"), p).toMatch(/name: "robots", content: "noindex"/);
-    }
-    for (const file of [
-      "server/api/s/[code].get.ts",
-      "server/api/g/[code].get.ts",
-      "server/routes/og/g/[code].get.ts",
-      "server/middleware/shareMarkdown.ts",
-      "server/routes/og/s/[code].get.ts",
-      "server/routes/mcp.get.ts",
-      "server/routes/mcp.post.ts",
-    ]) {
-      expect(readFileSync(`${ROOT}${file}`, "utf8"), file).toContain("setNoIndex(event)");
-    }
-    const sitemap = readFileSync(`${ROOT}server/routes/sitemap.xml.ts`, "utf8");
-    expect(sitemap).not.toMatch(/shareCode|slug|\/s\/|\/l\//);
+  it("…and a sitemap that lists no list, only the pages meant to be found", () => {
+    const body = String(sitemap(makeEvent("/sitemap.xml")));
+    const locs = [...body.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
+    expect(locs).toEqual(["http://mahonia.test/", "http://mahonia.test/about", "http://mahonia.test/help"]);
   });
 });
 

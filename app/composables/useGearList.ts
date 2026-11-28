@@ -122,7 +122,8 @@ function create() {
   // Bumped on every load/dispose so in-flight responses for a previous list are ignored.
   // A ref, for the one consumer that has to REACT to the list changing rather than
   // compare once after an await — the route import's held pin offer, which outlives a
-  // `dispose(); startDraft()` that never unmounts ListHead.
+  // `dispose(); startDraft()` that never unmounts ListHead. Read as `epochRef.value` by
+  // everyone else too (the editor's session key), so one count has one name.
   const epochRef = shallowRef(0);
   function bumpEpoch(): number {
     return ++epochRef.value;
@@ -1403,7 +1404,6 @@ function create() {
     snapshot, totals, status,
     get editToken() { return editToken(); },
     get claimCode() { return claimCode(); },
-    get epoch() { return epochRef.value; },
     epochRef,
     openedByCode,
     keylessCode,

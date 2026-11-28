@@ -44,12 +44,7 @@ import { typeScale } from "~/utils/typeScale";
 //    belonging to whatever is beside the icon, and it covers that neighbour. Centred, it
 //    points at the thing that opened it (Ryan, 2026-11-27: "shouldn't menu fire from
 //    center when it can?"). At a trigger hard against an edge the slide brings the card
-//    in to the edge padding, which is where the other two modes put it too.
-//  • `shift` slides it right by exactly the overflow and leaves it hanging from the
-//    trailing edge. For the row's classification popovers, whose trigger sits mid-
-//    row on a phone: a 13rem card flipped to the leading edge of a trigger at
-//    x≈180 on a 375px screen overruns the OTHER side, so the flip test fails and
-//    the card would stay cut off at the left — while a slide of a few pixels fits.
+//    in to the edge padding, which is where a flip puts it too.
 
 // VERTICALLY a menu can also live inside a card that clips it — the My Gear sheet on a
 // phone is a 440px card with `overflow: hidden`, and its "Add to" folder picker sits
@@ -93,7 +88,7 @@ const ANCHOR_GAP = 4;
 export function useMenuPlacement(
   listRef: Readonly<Ref<HTMLElement | null>>,
   opts: {
-    fit?: "flip" | "shift" | "center";
+    fit?: "flip" | "center";
     within?: boolean;
     /** under `flip`: the edge the card hangs from when both fit. "end" is the atom's
      *  default; "start" is for a card whose trigger opens the bar or the row (the lists
@@ -107,9 +102,8 @@ export function useMenuPlacement(
    *  is wider than the window, when the default stands) */
   centered: Ref<boolean>;
   above: Ref<boolean>;
-  /** px to translate rightward: non-zero only under `fit: "shift"`, and under
-   *  `fit: "center"` (where it may be negative) when the centred card would leave the
-   *  window */
+  /** px to slide sideways, negative for leftward: non-zero only under `fit: "center"`,
+   *  when the centred card would leave the window */
   shift: Ref<number>;
   /** px the card may be tall, or null for its own height — only ever set under
    *  `within`, when neither side of the trigger has room for the whole menu */
@@ -132,8 +126,9 @@ export function useMenuPlacement(
   // Placed again, NOT closed: on engines where the on-screen keyboard resizes the window,
   // closing would shut a card the moment its own field was tapped.
   // The listener exists only from a menu's first place() until the first resize that
-  // finds its list gone, so a list of 150 rows carries one for each menu that is or was
-  // lately open, not one per row.
+  // finds its list gone (or the scope ends), so a list of 150 rows carries one for each
+  // menu that is or was lately open, not one per row. A card that is hidden rather than
+  // unmounted (ListHead's link card) keeps its one listener for the page's life.
   let watching = false;
   const unwatch = () => {
     window.removeEventListener("resize", onResize);
@@ -189,11 +184,6 @@ export function useMenuPlacement(
       centered.value = true;
       atStart.value = false;
       shift.value = Math.round(kept - centredLeft);
-    } else if (opts.fit === "shift") {
-      // slide by the exact overrun, measured off the rendered card rather than a
-      // constant: its width is set in CSS (rem), so a hardcoded pixel twin is wrong
-      // the moment the root font size isn't 16, and drifts if the rule is retuned
-      shift.value = trailingLeft < edge ? edge - trailingLeft : 0;
     } else {
       // Prefer the side asked for. Only flip when it would overrun its edge AND the
       // flip actually fits — a menu wider than the viewport is beyond helping, and

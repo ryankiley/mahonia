@@ -36,10 +36,10 @@ import { signInCookie } from "./helpers/session";
 // answer would let a stranger in.
 
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
-vi.mock("../server/utils/rateLimit", () => ({
+vi.mock("../server/utils/rateLimit", async () => ({
   rateLimit: async () => {},
   rateLimitSubject: async () => {},
-  useKv: () => ({ getItem: async () => null, setItem: async () => {}, removeItem: async () => {} }),
+  useKv: (await import("./helpers/kv")).forgetfulKv,
 }));
 // the metadata document's host resolves to a public address; the private one is the
 // SSRF case

@@ -110,17 +110,11 @@ function readFragment(name: string): ChangelogRelease {
   return parseChangelogRelease(parsed, `content/changelog.d/${name}`);
 }
 
-// Newest first. localeCompare on ISO dates sorts chronologically; Array.sort is
-// stable, so same-day batches keep their authored order. Sorts a copy — never
-// mutates the input.
-export function sortReleases(releases: ChangelogRelease[]): ChangelogRelease[] {
-  return [...releases].sort((a, b) => b.date.localeCompare(a.date));
-}
-
-// Fold many releases into one per date, newest first. A day is usually several
-// fragments (five PRs shipped on Tuesday are five files that have to read as one
-// Tuesday), so each group's entries concatenate in the order given, which
-// readFragments fixes by filename: same files, same release, every run.
+// Fold many releases into one per date. A day is usually several fragments (five PRs
+// shipped on Tuesday are five files that have to read as one Tuesday), so each group's
+// entries concatenate in the order given, which readFragments fixes by filename: same
+// files, same release, every run. The days come back in the order they first appear;
+// settledReleases sorts the ones the release workflow cuts.
 //
 // Pure: never mutates the input or the releases inside it.
 export function mergeReleases(releases: ChangelogRelease[]): ChangelogRelease[] {
@@ -132,5 +126,5 @@ export function mergeReleases(releases: ChangelogRelease[]): ChangelogRelease[] 
       if (rel[key]?.length) day[key] = [...(day[key] ?? []), ...rel[key]];
     }
   }
-  return sortReleases([...byDate.values()]);
+  return [...byDate.values()];
 }
