@@ -760,9 +760,9 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
           />
           <!-- the Link field's own line, directly under it and in the map file's error
                style: under "Import map file" it read as a word about the file -->
-          <p v-if="linkField.error" :id="`${fieldsId}-urlerr`" class="head__gpxerr t-sm" role="alert">{{ linkField.error }}</p>
+          <p v-if="linkField.error" :id="`${fieldsId}-urlerr`" class="head__gpxerr" role="alert">{{ linkField.error }}</p>
 
-          <p class="head__gpx t-sm">
+          <p class="head__gpx">
             <label class="head__gpxbtn">
               <input type="file" accept=".gpx,.kml,.kmz,.tcx,.fit,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/vnd.ant.fit,application/geo+json,application/json,text/xml" @change="onGpx" />
               {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
@@ -776,13 +776,13 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
               </button>
             </Tooltip>
           </p>
-          <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
+          <p v-if="gpxError" class="head__gpxerr">{{ gpxError }}</p>
           <!-- An OFFER, not an import. The route is already in by the time this appears —
                this is only the pins the file also carried, as many as the list still has room
                for, and they wait because a file can hold thousands and undoing them would be
                one tap each. Phrased with the count so the answer is informed: "add 11" is a
                different question from "add 98" — and 98 is what a yes will do, not a guess. -->
-          <p v-if="pending" class="head__gpxerr t-sm">
+          <p v-if="pending" class="head__gpxerr">
             This route can add {{ counted(pending.pins.length, "waypoint") }}.
             <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
             <button type="button" class="head__gpxno foreground-quiet" @click="pending = null">No thanks</button>
@@ -843,7 +843,7 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
               @pick="pickDistanceUnit"
             >
               <template #trigger="{ open }">
-                <span class="t-sm t-muted">{{ distanceUnit }}</span>
+                <span class="t-muted">{{ distanceUnit }}</span>
                 <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
                      total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
                 <SvgIcon

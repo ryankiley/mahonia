@@ -21,7 +21,7 @@ watch(
   <div>
     <BaseModal :open="confirmState.open" :label="confirmState.title || 'Confirm'" @close="settleConfirm(false)">
       <h2 v-if="confirmState.title" class="t-label panel__title">{{ confirmState.title }}</h2>
-      <p class="t-sm t-muted dlg__lede">{{ confirmState.message }}</p>
+      <p class="t-muted dlg__lede">{{ confirmState.message }}</p>
       <!-- the optional second decision, asked here rather than in a follow-up dialog -->
       <label v-if="confirmState.checkboxLabel" class="dlg__opt">
         <span class="check">
@@ -31,7 +31,7 @@ watch(
         </span>
         <span class="dlg__opttext">
           {{ confirmState.checkboxLabel }}
-          <span v-if="confirmState.checkboxHint" class="t-sm t-muted dlg__opthint">{{ confirmState.checkboxHint }}</span>
+          <span v-if="confirmState.checkboxHint" class="t-muted dlg__opthint">{{ confirmState.checkboxHint }}</span>
         </span>
       </label>
       <div class="dlg__actions">
@@ -42,7 +42,7 @@ watch(
 
     <BaseModal :open="linkState.open" :label="linkState.title" @close="closeLinkFallback">
       <h2 class="t-label panel__title">{{ linkState.title }}</h2>
-      <p class="t-sm t-muted dlg__lede">Copying isn’t available here. Select the link below and copy it.</p>
+      <p class="t-muted dlg__lede">Copying isn’t available here. Select the link below and copy it.</p>
       <input ref="linkInput" class="field well dlg__linkfield" :value="linkState.url" readonly @focus="linkInput?.select()" />
       <div class="dlg__actions">
         <button class="btn btn--primary" @click="closeLinkFallback">Done</button>

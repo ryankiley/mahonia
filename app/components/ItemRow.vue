@@ -1255,12 +1255,12 @@ function dismissFix() {
         <SvgIcon v-if="isParent" :icon="IconSquareMinus" class="check__icon check__icon--mixed" aria-hidden="true" />
         <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" aria-hidden="true" />
       </span>
-      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
+      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
           the carrier, riding the name cell (display-only — this face is a <label>
           over a checkbox, so a control here would toggle the tick). Only their own
           claim is tagged: children of a claimed group inherit silently, or a
           six-item group would say the same name seven times.
-       --><span v-if="ownPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ ownPerson.name }}</span></span><NestChevron
+       --><span v-if="ownPerson" class="item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ ownPerson.name }}</span></span><NestChevron
           v-if="isParent"
           :collapsed="nestCollapsed"
           :label="item.name || 'group'"
@@ -1279,7 +1279,7 @@ function dismissFix() {
            `hideSingle` blanks a plain "×1", as the share row does and for its reason
            (itemQtyLabel): a column where nearly every cell says the same thing has to
            be read past to find the rows that carry a count. -->
-      <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit && !bareGroup }">{{ itemQtyLabel(item, effClass, { hideSingle: true, group: bareGroup }) }}</span>
+      <span class="t-num t-muted item__cqty" :class="{ 'item__qty--split': activeSplit && !bareGroup }">{{ itemQtyLabel(item, effClass, { hideSingle: true, group: bareGroup }) }}</span>
       <!-- the empty unit slot keeps the zero placeholder in the number's place rather
            than out at the cell's edge — same as the read row's -->
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
@@ -1288,7 +1288,7 @@ function dismissFix() {
            variant rides it in the aside voice, where the list holds the product in two
            variants (variantOnRow); the dot goes with the gear type, so a variant alone
            doesn't open with a stray one, as on the edit face's sub-line. -->
-      <span v-if="item.commonName || variantOnRow" class="t-sm item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span></span>
+      <span v-if="item.commonName || variantOnRow" class="item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span></span>
     </label>
 
     <div v-if="everEdit" class="item-row item" @focusin="onFieldFocus">
@@ -1331,7 +1331,7 @@ function dismissFix() {
           <!-- a group that keeps its class marks (#299: one carrying a line of its own)
                reads its calories here, on the name line; a bare group's go in the class
                column below, where its rows' consumable marks are. -->
-          <span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline" title="Calories in this group">· {{ formatKcal(rowKcal) }} kcal</span>
+          <span v-if="isParent && rowKcal > 0" class="t-muted item__gkcalinline" title="Calories in this group">· {{ formatKcal(rowKcal) }} kcal</span>
         </div>
         <!-- sub-line: the gear type (a quiet upright label) and, after it where it fits
              and under it where it doesn't (.item__subfields), the freeform note;
@@ -1503,7 +1503,7 @@ function dismissFix() {
               spellcheck="false"
               @change="onWaterLiters"
             />
-            <span class="t-sm t-muted item__unit">L</span>
+            <span class="t-muted item__unit">L</span>
           </template>
           <template v-else>
             <!-- mousedown.prevent for the reason the action icons carry it: on
@@ -1548,7 +1548,7 @@ function dismissFix() {
                  do that job (and where a fourth thing wouldn't fit the track). It
                  trails the number in the markup because that is where it reads —
                  the + beside it is the one that stands down below $bp-stack. -->
-            <span class="t-sm t-muted item__unit">×</span>
+            <span class="t-muted item__unit">×</span>
             <button
               class="btn btn--icon btn--ghost item__qtybtn foreground-quiet"
               type="button"
@@ -1653,7 +1653,7 @@ function dismissFix() {
             @pick="(u) => onRowUnit(u as Unit)"
           >
             <template #trigger="{ open }">
-              <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
+              <span class="t-muted item__unit">{{ rowUnit }}</span>
               <!-- The mark that says "this is a control". Without it the unit was text
                    that looked exactly like a caption, so the picker was only ever found
                    by accident. Same chevron the total's unit carries, at row scale —
@@ -1769,7 +1769,7 @@ function dismissFix() {
                        day: "let's go no animation on this, bad idea" (Ryan,
                        2026-11-25). The options keep the tab chip's own colour fade. -->
                   <template v-if="splitOffered">
-                    <p class="t-sm t-muted item__poplabel">{{ wornCount }} worn · {{ Math.max(0, item.qty - wornCount) }} packed</p>
+                    <p class="t-muted item__poplabel">{{ wornCount }} worn · {{ Math.max(0, item.qty - wornCount) }} packed</p>
                     <div class="item__splits">
                       <div class="item__wornstep">
                         <button
@@ -1823,7 +1823,7 @@ function dismissFix() {
                   <template v-if="kcalOffered">
                     <!-- "each" only where there are several: on a row of one it asked
                          "each of what?" -->
-                    <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">{{ item.qty === 1 ? "kcal" : "kcal each" }}</label>
+                    <label class="t-muted item__poplabel" :for="`${item.id}-kcal`">{{ item.qty === 1 ? "kcal" : "kcal each" }}</label>
                     <input
                       :id="`${item.id}-kcal`"
                       class="field field--num well item__popinput"
@@ -1839,14 +1839,14 @@ function dismissFix() {
                          head. The icon marks it as DERIVED — everything above it in this
                          popover is something you typed, this is the one line the app
                          worked out. -->
-                    <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
+                    <p v-if="item.kcal && item.qty > 1" class="t-muted item__popline">
                       <SvgIcon :icon="IconCalculator" class="item__poplineicon" aria-hidden="true" />
                       {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
                     </p>
                   </template>
                   <template v-if="cookingOffered">
                     <div class="switch-row">
-                      <span class="t-sm">Needs cooking</span>
+                      <span>Needs cooking</span>
                       <button class="switch" type="button" role="switch" :aria-checked="!!item.needsCooking"
                         aria-label="Needs cooking" @click="c.updateItem(item.id, { needsCooking: !item.needsCooking })" />
                     </div>
@@ -1854,7 +1854,7 @@ function dismissFix() {
                          It was a hover title only, which a phone never shows, and the
                          bare "~30 g fuel" read as a figure from nowhere. Same shape as
                          the calorie total above ("750 kcal for 3"), same derived mark. -->
-                    <p v-if="item.needsCooking && !bareGroup" class="t-sm t-muted item__popline" role="status"
+                    <p v-if="item.needsCooking && !bareGroup" class="t-muted item__popline" role="status"
                       :title="`Assumes one boil per item, at ${ASSUMED_FUEL_PER_BOIL_G} g per boil.`">
                       <SvgIcon :icon="IconCalculator" class="item__poplineicon" aria-hidden="true" />
                       ~{{ item.qty * ASSUMED_FUEL_PER_BOIL_G }} g fuel for {{ item.qty }} {{ item.qty === 1 ? "boil" : "boils" }}

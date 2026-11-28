@@ -28,7 +28,7 @@ watch(
     @focusin="focused = true"
     @focusout="focused = false"
   >
-    <span class="t-sm">{{ undo.verb ?? "Removed" }} <strong>{{ undo.label }}</strong>{{ undo.tail ?? "" }}</span>
-    <button type="button" class="undobar__btn t-sm" @click="emit('take')">Undo</button>
+    <span>{{ undo.verb ?? "Removed" }} <strong>{{ undo.label }}</strong>{{ undo.tail ?? "" }}</span>
+    <button type="button" class="undobar__btn" @click="emit('take')">Undo</button>
   </div>
 </template>

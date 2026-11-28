@@ -156,7 +156,7 @@ const MENU_ACTIONS = [
        the pill + its motion come from the shared .toast atom (controls.scss) -->
   <Teleport to="body">
     <Transition name="toast">
-      <div v-if="toast" class="toast t-sm" role="status">{{ toast }}</div>
+      <div v-if="toast" class="toast" role="status">{{ toast }}</div>
     </Transition>
   </Teleport>
 </template>

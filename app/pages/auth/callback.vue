@@ -53,7 +53,7 @@ onBeforeUnmount(() => clearTimeout(waiting));
     <BaseModal :open="slow" label="Signing you in…">
       <SignInHead>Signing you in…</SignInHead>
       <div class="signin__body">
-        <p class="t-sm t-muted">One moment.</p>
+        <p class="t-muted">One moment.</p>
       </div>
     </BaseModal>
   </div>

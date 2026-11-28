@@ -192,7 +192,7 @@ watch(
                   <SvgIcon :icon="IconMinusMedium" size="sm" aria-hidden="true" />
                 </button>
               </Tooltip>
-              <span class="t-sm t-num kitsec__count" :aria-label="`${part.qty} in the kit`">{{ part.qty }}</span>
+              <span class="t-num kitsec__count" :aria-label="`${part.qty} in the kit`">{{ part.qty }}</span>
               <!-- at the cap it says why: a kit holds no more than you own -->
               <Tooltip :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. To add another, edit this piece and raise “Number owned”.` : 'One more'">
                 <button
@@ -272,11 +272,11 @@ watch(
           <li v-for="g in choices" :key="g.id">
             <button type="button" class="kitsec__choice" @click="add(g)">
               <span class="t-clip">{{ itemDisplayName(g.brand, g.name, g.variant) }}</span>
-              <span class="t-sm t-num t-muted">{{ formatWeight(g.weightMg, g.entryUnit ?? unit) }}</span>
+              <span class="t-num t-muted">{{ formatWeight(g.weightMg, g.entryUnit ?? unit) }}</span>
             </button>
           </li>
         </ul>
-        <p v-else-if="addQuery.trim()" class="t-sm t-muted kitsec__none">None of your gear matches. Add it to My Gear first.</p>
+        <p v-else-if="addQuery.trim()" class="t-muted kitsec__none">None of your gear matches. Add it to My Gear first.</p>
       </div>
     </template>
   </VaultSection>

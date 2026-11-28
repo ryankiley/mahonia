@@ -697,11 +697,11 @@ async function exportGear(kind: string) {
 
           <!-- offline, how old the gear on screen is (or that there is none to show),
                quieter than an error: nothing went wrong that the reader can fix -->
-          <p v-if="offline" class="t-sm t-muted">{{ offlineNote }}</p>
+          <p v-if="offline" class="t-muted">{{ offlineNote }}</p>
           <!-- a change's failure shows offline too: Undo, pressed after the signal went,
                failed in silence while this line was the note's alternative. The load's
                own failure is in the note then. -->
-          <p v-if="opError || (loadError && !offline)" class="t-sm vault__error">{{ opError || loadError }}</p>
+          <p v-if="opError || (loadError && !offline)" class="vault__error">{{ opError || loadError }}</p>
 
           <!-- only while there is nothing to show yet. An add reloads the gear, and
                blanking a page you are working on for the length of a round trip
@@ -709,7 +709,7 @@ async function exportGear(kind: string) {
           <p v-if="loading && !items.length && !offline" class="t-muted vault__mid">Loading your gear…</p>
 
           <template v-else-if="items.length">
-            <p v-if="onTab.length" class="t-sm t-muted vault__count">
+            <p v-if="onTab.length" class="t-muted vault__count">
               <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(onTab.length) }}</template>
               <template v-else>{{ formatCount(onTab.length) }}</template>
               {{ pluralNoun(onTab.length, countNoun) }}

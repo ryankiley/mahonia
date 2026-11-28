@@ -523,7 +523,7 @@ const id = useId();
          you're already looking, and the scale stays a fixed frame of reference. -->
     <div
       v-if="hover"
-      class="tprofile__read t-sm"
+      class="tprofile__read"
       :class="{ 'is-start': hover.x / VB_W < EDGE_F, 'is-end': hover.x / VB_W > 1 - EDGE_F }"
       :style="{ '--at': `${(hover.x / VB_W) * 100}%` }"
       aria-hidden="true"
@@ -556,7 +556,7 @@ const id = useId();
     <!-- All twenty-five ticks are always rendered and CSS chooses how many to show, so
          there is no resize listener and no layout read — the count is a question about
          available width, which is the one question CSS is better at than we are. -->
-    <figcaption class="tprofile__scale t-sm" aria-hidden="true">
+    <figcaption class="tprofile__scale" aria-hidden="true">
       <span v-for="(m, i) in scaleTicks" :key="i">{{ i === 0 ? `0 ${distanceUnit}` : formatDistance(m, distanceUnit) }}</span>
     </figcaption>
 

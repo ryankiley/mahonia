@@ -118,8 +118,8 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
          and a column that doesn't line up is just text at the end of a line. The coordinate
          leads, a step quieter: it answers "where exactly", asked once when you are copying
          it somewhere else, where the distance is what you scan the list by. -->
-    <span class="t-sm wprow__coord">{{ coord }}</span>
-    <span class="t-sm wprow__dist">{{ at }}</span>
+    <span class="wprow__coord">{{ coord }}</span>
+    <span class="wprow__dist">{{ at }}</span>
     <!-- the cell stays either way, empty for the route's ends, so every column above and
          below still lines up through this row -->
     <button

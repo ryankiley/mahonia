@@ -567,7 +567,7 @@ async function onSignOut() {
              said back, since a typo is the likeliest reason no mail arrives, with the way
              to fix one beside it. -->
         <template v-if="sentTo">
-          <p ref="sentLine" class="t-sm t-muted acct__sent" tabindex="-1">
+          <p ref="sentLine" class="t-muted acct__sent" tabindex="-1">
             We sent a sign-in link to <span class="acct__sentto">{{ sentTo }}</span>. It works once and lasts 15
             minutes.
           </p>
@@ -581,13 +581,13 @@ async function onSignOut() {
           <!-- the one line that says what an account is FOR, before it asks for one: your
                gear is the whole reason, and a stranger who tapped the person icon has not
                been told. Lists never needing it is the half that keeps the promise. -->
-          <p v-if="notice === 'expired'" class="t-sm t-muted acct__why">
+          <p v-if="notice === 'expired'" class="t-muted acct__why">
             Sign-in links work once and last 15 minutes. Enter your email for a new one.
           </p>
-          <p v-else-if="notice === 'failed'" class="t-sm t-muted acct__why">
+          <p v-else-if="notice === 'failed'" class="t-muted acct__why">
             That link isn’t working. Enter your email for a new one.
           </p>
-          <p v-else-if="!asStep" class="t-sm t-muted acct__why">
+          <p v-else-if="!asStep" class="t-muted acct__why">
             An account saves your gear across lists and devices. Lists work without one.
           </p>
 
@@ -628,7 +628,7 @@ async function onSignOut() {
           <section class="acct__section">
             <h2 class="t-label acct__label">Email</h2>
             <p class="acct__value">{{ user?.email }}</p>
-            <p class="t-sm t-muted">How you get back in if you lose your devices.</p>
+            <p class="t-muted">How you get back in if you lose your devices.</p>
           </section>
 
           <section class="acct__section">
@@ -646,10 +646,10 @@ async function onSignOut() {
                 {{ nameSaving ? "Saving…" : "Save" }}
               </button>
             </form>
-            <p class="t-sm t-muted">
+            <p class="t-muted">
               Shown on lists you share. Leave it empty to stay anonymous.
             </p>
-            <p v-if="nameNote" class="t-sm acct__note">{{ nameNote }}</p>
+            <p v-if="nameNote" class="acct__note">{{ nameNote }}</p>
           </section>
 
           <section v-if="canPasskey" class="acct__section">
@@ -662,15 +662,15 @@ async function onSignOut() {
             <ul v-if="passkeys.length" class="acct__list">
               <li v-for="k in passkeys" :key="k.id" class="acct__item">
                 <span class="acct__name">{{ k.label || "Passkey" }}</span>
-                <span class="t-sm t-muted acct__meta">{{ usedAgo(k.lastUsedAt) }}</span>
+                <span class="t-muted acct__meta">{{ usedAgo(k.lastUsedAt) }}</span>
                 <button type="button" class="btn btn--quiet" @click="removePasskey(k.id)">Remove</button>
               </li>
             </ul>
-            <p class="t-sm t-muted">
+            <p class="t-muted">
               Sign in with your fingerprint or screen lock. An emailed link always works too, so
               it’s safe to remove them all.
             </p>
-            <p v-if="pkNote" class="t-sm acct__note">{{ pkNote }}</p>
+            <p v-if="pkNote" class="acct__note">{{ pkNote }}</p>
           </section>
 
           <!-- ASSISTANT ACCESS: the connector. Below the passkeys because what it leaves
@@ -693,17 +693,17 @@ async function onSignOut() {
                 <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" /> Copy address
               </button>
             </div>
-            <p class="t-sm t-muted">Any other MCP client takes the address. Each one asks you to sign in here the first time.</p>
+            <p class="t-muted">Any other MCP client takes the address. Each one asks you to sign in here the first time.</p>
             <ul v-if="tokens.length" class="acct__list">
               <li v-for="t in tokens" :key="t.id" class="acct__item">
                 <span class="acct__name">{{ t.label || "Token" }}</span>
-                <span class="t-sm t-muted acct__meta">
+                <span class="t-muted acct__meta">
                   {{ t.kind === "app" ? "signed in" : "token" }} · {{ scopeName(t.scope) }} · {{ usedAgo(t.lastUsedAt) }}
                 </span>
                 <button type="button" class="btn btn--quiet" @click="revokeToken(t)">{{ t.kind === "app" ? "Disconnect" : "Revoke" }}</button>
               </li>
             </ul>
-            <p v-if="!tokenForm" class="t-sm t-muted">
+            <p v-if="!tokenForm" class="t-muted">
               Using a client that can’t sign in?
               <button type="button" class="acct__switch" @click="tokenForm = true">Make a token</button>
             </p>
@@ -734,28 +734,28 @@ async function onSignOut() {
               </button>
             </form>
             <div v-if="tokenForm && freshToken" class="acct__fresh">
-              <p class="t-sm acct__note">Shown once. Copy it before you leave this page.</p>
+              <p class="acct__note">Shown once. Copy it before you leave this page.</p>
               <code class="acct__secret">{{ freshToken }}</code>
-              <p class="t-sm t-muted">For Claude Code, this one line adds the connector with the token:</p>
+              <p class="t-muted">For Claude Code, this one line adds the connector with the token:</p>
               <code class="acct__secret">{{ claudeCommand }}</code>
               <div class="acct__copies">
                 <button type="button" class="btn btn--ghost acct__btn" @click="copy(freshToken)">Copy token</button>
                 <button type="button" class="btn btn--ghost acct__btn" @click="copy(claudeCommand)">Copy command</button>
               </div>
             </div>
-            <p v-if="tokenNote" class="t-sm acct__note">{{ tokenNote }}</p>
+            <p v-if="tokenNote" class="acct__note">{{ tokenNote }}</p>
           </section>
 
           <section class="acct__section">
             <h2 class="t-label acct__label">Take your data with you</h2>
-            <p class="t-sm t-muted">
+            <p class="t-muted">
               One file with every list on this account, plus My Gear. Import can restore any list in
               it.
             </p>
             <button type="button" class="btn btn--ghost acct__btn" :disabled="exporting" @click="exportEverything">
               {{ exporting ? "Building the file…" : "Download everything" }}
             </button>
-            <p v-if="exportNote" class="t-sm acct__note">{{ exportNote }}</p>
+            <p v-if="exportNote" class="acct__note">{{ exportNote }}</p>
           </section>
 
           <!-- Signing out, at the end with the account's other way out (delete, below):
@@ -775,7 +775,7 @@ async function onSignOut() {
 
           <section class="acct__section">
             <h2 class="t-label acct__label">Delete your account</h2>
-            <p class="t-sm t-muted">
+            <p class="t-muted">
               Your email, passkeys, and My Gear are deleted for good. Your lists and their links
               keep working unless you choose to delete them too.
             </p>
@@ -787,7 +787,7 @@ async function onSignOut() {
             >
               {{ deleting ? "Deleting…" : "Delete account" }}
             </button>
-            <p v-if="deleteNote" class="t-sm acct__note">{{ deleteNote }}</p>
+            <p v-if="deleteNote" class="acct__note">{{ deleteNote }}</p>
           </section>
         </div>
 
@@ -806,7 +806,7 @@ async function onSignOut() {
          may not announce. Empty, it is a block of no height. -->
     <div role="status">
       <Transition name="toast">
-        <div v-if="gone" class="toast t-sm">{{ gone }}</div>
+        <div v-if="gone" class="toast">{{ gone }}</div>
       </Transition>
     </div>
   </div>

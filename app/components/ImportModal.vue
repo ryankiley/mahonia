@@ -184,7 +184,7 @@ function importFile(text: string, file: File) {
          own JSON backup (its accept filter is invisible until the picker opens), and
          that an import ARRIVES as a new list rather than merging into the one you're
          looking at. The (?) beside the file button carries the CSV shape. -->
-    <p class="t-sm t-muted dlg__lede">
+    <p class="t-muted dlg__lede">
       Paste a LighterPack link or a CSV, or choose a file. It becomes a new list.
     </p>
 
@@ -223,7 +223,7 @@ function importFile(text: string, file: File) {
       </Tooltip>
     </div>
 
-    <p v-if="error" class="t-sm import__err">{{ error }}</p>
+    <p v-if="error" class="import__err">{{ error }}</p>
 
     <div class="dlg__actions">
       <button class="btn btn--soft" @click="emit('close')">Cancel</button>
