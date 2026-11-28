@@ -42,28 +42,21 @@ const props = defineProps<{
 }>();
 const menu = useItemMenu();
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
-// The card is <MenuList>'s element, handed out through its exposed `el`. MenuList and
-// not a <ul> of this component's own, as it was: that is what carries the travelling
-// plate, and without it these three were the only menus in the app whose rows lit one
-// at a time instead of the wash sliding between them (Ryan, 2026-11-25). It mounts
-// with the open menu, so a list pays for one plate, not three per row.
-const menuList = useTemplateRef<{ el: HTMLElement | null }>("menuList");
-const listRef = computed(() => menuList.value?.el ?? null);
-// Where to hang, measured per open (useMenuPlacement). UNDER THE MIDDLE of the trigger:
-// every one of these opens off a small icon in a row, and a card flush to one of the
-// icon's edges reads as its neighbour's. It slides only as far as the window makes it,
-// which for the ⋯ at a row's far end is the old right-aligned place. Rows are the one
-// place the atom's default was reliably wrong: a list is long, so its LAST rows sit
-// at the viewport floor, and a menu anchored below them opened off the bottom of
-// the screen — 144px past it, measured. One placement per menu; only one of a
-// row's menus is ever open (the singleton), so nothing is measured that isn't up.
-const { centered, above, shift, place } = useMenuPlacement(listRef, { fit: "center" });
+// The card is <MenuList>. MenuList and not a <ul> of this component's own, as it was:
+// that is what carries the travelling plate, and without it these three were the only
+// menus in the app whose rows lit one at a time instead of the wash sliding between
+// them (Ryan, 2026-11-25). It mounts with the open menu, so a list pays for one plate,
+// not three per row, and it places itself on that mount, a row remounted with its menu
+// still open included.
+//
+// Placed UNDER THE MIDDLE of the trigger (`fit="center"`): every one of these opens off
+// a small icon in a row, and a card flush to one of the icon's edges reads as its
+// neighbour's. It slides only as far as the window makes it, which for the ⋯ at a row's
+// far end is the old right-aligned place. Rows are the one place the atom's default was
+// reliably wrong: a list is long, so its LAST rows sit at the viewport floor, and a menu
+// anchored below them opened off the bottom of the screen — 144px past it, measured.
 const id = computed(() => `${props.rowId}:${props.kind}`);
 const isOpen = computed(() => menu.openId.value === id.value);
-// measured on the tick the list mounts — it has no size to measure before that
-watch(isOpen, (open) => open && nextTick(place), {
-  immediate: true, // a row remounted with this menu still open places it too
-});
 function toggle() {
   menu.toggle(id.value, rootRef.value);
 }
@@ -99,13 +92,7 @@ function toggle() {
       </button>
     </Tooltip>
     <Transition name="menu">
-      <MenuList
-        v-if="isOpen"
-        ref="menuList"
-        :class="{ 'menu__list--center': centered, 'menu__list--above': above }"
-        :style="shift ? { '--menu-shift': `${shift}px` } : undefined"
-        :aria-label="menuLabel ?? label"
-      >
+      <MenuList v-if="isOpen" fit="center" :aria-label="menuLabel ?? label">
         <slot />
       </MenuList>
     </Transition>

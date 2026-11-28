@@ -73,6 +73,33 @@ const fieldsId = useId();
 const fieldsEl = useTemplateRef<HTMLElement>("fieldsEl");
 const trailEl = useTemplateRef<HTMLElement>("trailEl");
 
+// WHERE THE THREE SURFACES HANG: below the row unless only above has room, by the rule
+// every menu is placed with (useMenuPlacement), and placed again if the window resizes
+// while one is up. Each is measured as it is asked for. Sideways only the calendar has a
+// choice to make: the card and the panel are capped to the row's width, so they can't
+// run off it, and their start-edge anchoring is all they need. The calendar is a fixed
+// grid hung off its own button, so it takes the button's trailing edge when the leading
+// one would carry it past the right of the window.
+const cardEl = useTemplateRef<HTMLElement>("cardEl");
+const datesPanelEl = useTemplateRef<HTMLElement>("datesPanelEl");
+const { above: cardAbove, place: placeCard } = useMenuPlacement(cardEl);
+const { atStart: datesAtStart, above: datesAbove, place: placeDates } = useMenuPlacement(datesPanelEl, {
+  side: "start",
+});
+const { above: fieldsAbove, place: placeFields } = useMenuPlacement(fieldsEl);
+// the card is always laid out (hidden, not unmounted), so it measures the moment it
+// is asked for: a hover or focus on the link (the template), or a press that pins it
+watch(pinned, (p) => p && placeCard());
+// The two panels are placed BEFORE focus moves into them. Focus scrolls a target that is
+// off screen into view, so placed after it, a panel opened at the foot of the window was
+// always found to fit below: the page had scrolled to make room, rather than the panel
+// flipping into the room it had above. The link panel measures in the flush that
+// renders it (`post`), and openFields focuses its field once that flush is done. The
+// calendar is placed as its grid mounts (the template), which on the first open is
+// once the chunk has landed: measured as it opens it would be only its own padding.
+// The grid takes focus a tick after that (DateRangePicker).
+watch(open, (o) => o && placeFields(), { flush: "post" });
+
 const link = computed(() => parseTrailLink(props.snapshot.trailUrl, props.snapshot.trailLabel));
 // what the card SHOWS — the destination without the scheme or `www.`, so the
 // characters that fit are the ones that say which trail it is. The href is
@@ -571,7 +598,7 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
       <!-- the resolved link: the site's mark + the trail's name. No hostname — the mark
            identifies the site, an opaque URL falls back to showing the hostname AS the
            name, and the card below carries the destination in full. -->
-      <span v-else class="head__anchor">
+      <span v-else class="head__anchor" @pointerenter="placeCard" @focusin="placeCard">
         <!-- A BUTTON, not a link: in the editor this opens the card rather than
              navigating. Tapping the name used to leave the page, which on a phone (no
              hover) meant Edit and Remove were unreachable — you'd have to come back to
@@ -608,7 +635,12 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
              sitting in the layout, because the link is the content and Edit/Remove are
              only ever wanted deliberately. The press is what carries a phone, which has
              no hover; it means one card at every pointer instead of two layouts. -->
-        <span v-if="!open" class="head__card popover" :class="{ 'is-pinned': pinned }">
+        <span
+          v-if="!open"
+          ref="cardEl"
+          class="head__card popover"
+          :class="{ 'is-pinned': pinned, 'is-above': cardAbove }"
+        >
           <img
             v-if="icon"
             class="head__cardicon"
@@ -671,7 +703,14 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
           {{ dateLabel || "Add dates" }}
         </button>
         <Transition name="menu">
-          <span v-if="datesOpen" class="popover head__datespanel" role="dialog" aria-label="Trip dates">
+          <span
+            v-if="datesOpen"
+            ref="datesPanelEl"
+            class="popover head__datespanel"
+            :class="{ 'is-end': !datesAtStart, 'is-above': datesAbove }"
+            role="dialog"
+            aria-label="Trip dates"
+          >
             <!-- Lazy: ListHead is on the editor's first load, but a month grid is
                  only ever seen by someone who opened this popover. It's already
                  behind the v-if, so deferring the CHUNK too costs nothing — the
@@ -680,6 +719,7 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
               :start="snapshot.startDate"
               :end="snapshot.endDate"
               @update="commitDates"
+              @vue:mounted="placeDates"
             />
             <!-- No summary line here. The range is already said twice over: the grid
                  fills its two ends and tints between them, and the affordance this
@@ -728,6 +768,7 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
           :id="fieldsId"
           ref="fieldsEl"
           class="head__panel popover"
+          :class="{ 'is-above': fieldsAbove }"
           tabindex="-1"
           @focusout="onFocusOut"
         >
@@ -760,9 +801,9 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
           />
           <!-- the Link field's own line, directly under it and in the map file's error
                style: under "Import map file" it read as a word about the file -->
-          <p v-if="linkField.error" :id="`${fieldsId}-urlerr`" class="head__gpxerr t-sm" role="alert">{{ linkField.error }}</p>
+          <p v-if="linkField.error" :id="`${fieldsId}-urlerr`" class="head__gpxerr" role="alert">{{ linkField.error }}</p>
 
-          <p class="head__gpx t-sm">
+          <p class="head__gpx">
             <label class="head__gpxbtn">
               <input type="file" accept=".gpx,.kml,.kmz,.tcx,.fit,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/vnd.ant.fit,application/geo+json,application/json,text/xml" @change="onGpx" />
               {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
@@ -776,13 +817,13 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
               </button>
             </Tooltip>
           </p>
-          <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
+          <p v-if="gpxError" class="head__gpxerr">{{ gpxError }}</p>
           <!-- An OFFER, not an import. The route is already in by the time this appears —
                this is only the pins the file also carried, as many as the list still has room
                for, and they wait because a file can hold thousands and undoing them would be
                one tap each. Phrased with the count so the answer is informed: "add 11" is a
                different question from "add 98" — and 98 is what a yes will do, not a guess. -->
-          <p v-if="pending" class="head__gpxerr t-sm">
+          <p v-if="pending" class="head__gpxerr">
             This route can add {{ counted(pending.pins.length, "waypoint") }}.
             <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
             <button type="button" class="head__gpxno foreground-quiet" @click="pending = null">No thanks</button>
@@ -843,7 +884,7 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
               @pick="pickDistanceUnit"
             >
               <template #trigger="{ open }">
-                <span class="t-sm t-muted">{{ distanceUnit }}</span>
+                <span class="t-muted">{{ distanceUnit }}</span>
                 <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
                      total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
                 <SvgIcon
@@ -1108,6 +1149,11 @@ img.head__icon {
 /* A press on the name pins it open, and keyboard focus reveals it — both at every
    pointer type, so a phone and a tabbing user can reach Edit and Remove. Hover is the
    fine-pointer addition, further down. */
+/* over the row instead, when only above has room for it (cardAbove, in the script) */
+.head__card.is-above {
+  top: auto;
+  bottom: 100%;
+}
 .head__anchor:focus-within .head__card,
 .head__card.is-pinned {
   opacity: 1;
@@ -1405,6 +1451,23 @@ img.head__icon {
   display: grid;
   padding: var(--space-3);
   width: max-content;
+}
+/* The two panels flipped over the row, and the calendar hung from its button's trailing
+   edge, when their usual side would run them off the window (useMenuPlacement, in the
+   script). Each grows from the corner that faces the control, as before. */
+.head__panel.is-above,
+.head__datespanel.is-above {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+  transform-origin: bottom left;
+}
+.head__datespanel.is-end {
+  left: auto;
+  right: 0;
+  transform-origin: top right;
+}
+.head__datespanel.is-above.is-end {
+  transform-origin: bottom right;
 }
 /* the gap above Clear is the row's own, so it folds away with the row (.reveal's
    --reveal-offset): a grid gap would stay behind, 8px under the calendar */

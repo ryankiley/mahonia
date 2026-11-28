@@ -60,13 +60,13 @@ async function copy() {
   <BaseModal :open="open" label="Share my gear" @close="emit('close')">
     <h2 class="t-label panel__title">Share my gear</h2>
 
-    <p class="t-sm t-muted dlg__lede">
+    <p class="t-muted dlg__lede">
       A read-only link to your gear and kits. Anyone with it can see names,
       weights, and specs, never prices or food. Your name shows only if you’ve
       set one on your account.
     </p>
 
-    <p v-if="state === 'error'" class="t-sm vshare__err">
+    <p v-if="state === 'error'" class="vshare__err">
       That didn’t work. Try again in a moment.
     </p>
 
@@ -78,7 +78,7 @@ async function copy() {
         aria-label="Link to your gear"
         @focus="($event.target as HTMLInputElement).select()"
       />
-      <p class="t-sm t-muted vshare__note" aria-live="polite">
+      <p class="t-muted vshare__note" aria-live="polite">
         {{
           note ||
           "Turning it off stops this link at once. Turning it on again makes a new one."

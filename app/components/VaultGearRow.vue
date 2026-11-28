@@ -149,14 +149,14 @@ const meta = computed(() => {
       </p>
       <!-- the sub-line: the gear type, the calories and calories for the weight on
            food, then what it cost (see `meta`) -->
-      <p v-if="meta.length" class="t-sm t-muted">
+      <p v-if="meta.length" class="t-muted">
         <template v-for="(part, i) in meta" :key="i"
           ><span v-if="i" class="sep"> · </span>{{ part }}</template
         >
       </p>
       <!-- an item that is in a kit says which — one line, clipped. A piece in a kit is
            still a row of its own kind, so every view shows it. -->
-      <p v-if="inKits" class="t-sm t-muted t-clip" :title="`In ${inKits}`">In {{ inKits }}</p>
+      <p v-if="inKits" class="t-muted t-clip" :title="`In ${inKits}`">In {{ inKits }}</p>
     </div>
     <!-- The weight in this piece's own unit, and the unit is a picker:
          the list row's own (ItemRow), unit text and a quiet chevron, so one gesture
@@ -182,7 +182,7 @@ const meta = computed(() => {
           @pick="(u) => emit('unit', u as Unit)"
       >
         <template #trigger="{ open }">
-          <span class="t-sm t-muted">{{ rowUnit }}</span>
+          <span class="t-muted">{{ rowUnit }}</span>
           <SvgIcon
             :icon="IconChevronDownMedium"
             class="chev vault__unitchev"

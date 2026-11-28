@@ -81,7 +81,7 @@ const onAddLists = () => ready.value && void addLists();
              asked, and a second sentence about passkeys being removed. That one went:
              the browser that asked for the link signs in with no question and so never
              saw it, and the removal it described happens there just the same. -->
-        <p class="t-sm t-muted">
+        <p class="t-muted">
           {{
             state.asking.asked
               ? "Only sign in if you asked for this link in another browser."
@@ -101,7 +101,7 @@ const onAddLists = () => ready.value && void addLists();
              account stays named: this is asked after a sign-in that may have been one
              press on a link someone else sent, and it is what the lists are being given
              to. It was two sentences, the first only announcing the sign-in. -->
-        <p class="t-sm t-muted">
+        <p class="t-muted">
           {{ one ? "It’ll" : "They’ll" }} open anywhere you sign in as {{ state.asking.email }}.
         </p>
         <!-- the sign-in form's red callout, with no point: there is no field here to point
@@ -123,7 +123,7 @@ const onAddLists = () => ready.value && void addLists();
              button; a retry that fails too goes on by itself to the form for a new
              link (useSignInLink). The line says what happened and vouches for nothing:
              a failed request cannot know whether the link survived it. -->
-        <p class="t-sm t-muted">
+        <p class="t-muted">
           {{ state.offline ? "You’ll be signed in when you’re back online." : "Something went wrong on the way." }}
         </p>
         <div class="signin__actions">

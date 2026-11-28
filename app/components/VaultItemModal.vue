@@ -426,7 +426,7 @@ async function add(p: VaultItemPatch) {
       <div class="vitem">
       <div class="vitem__pair">
         <label class="dlg__field">
-          <span class="t-sm t-muted">Brand</span>
+          <span class="t-muted">Brand</span>
           <!-- "Add a …" like the note's placeholder: these fields have no border, so an
                empty one was blank space under its label. Not an example ("Patagonia"),
                which reads as data the way "399" did as a price. -->
@@ -445,7 +445,7 @@ async function add(p: VaultItemPatch) {
         <label class="dlg__field">
           <!-- the same words as the editor row's field for this value (ItemRow):
                "variant" is the catalog's word, not a person's -->
-          <span class="t-sm t-muted">Size or version</span>
+          <span class="t-muted">Size or version</span>
           <input v-model="form.variant" class="field" placeholder="Add a size" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
         </label>
       </div>
@@ -453,7 +453,7 @@ async function add(p: VaultItemPatch) {
       <label class="dlg__field">
         <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
              is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
-        <span class="t-sm t-muted">Product</span>
+        <span class="t-muted">Product</span>
         <input v-model="form.name" class="field" placeholder="Add a product" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
@@ -465,7 +465,7 @@ async function add(p: VaultItemPatch) {
         <!-- the placeholder is ItemRow's, word for word, so the field is named the same
              way in both places -->
         <label class="dlg__field">
-          <span class="t-sm t-muted">Gear type</span>
+          <span class="t-muted">Gear type</span>
           <input
             v-model="form.commonName"
             class="field"
@@ -476,7 +476,7 @@ async function add(p: VaultItemPatch) {
           />
         </label>
         <div class="dlg__field">
-          <span class="t-sm t-muted">Icon</span>
+          <span class="t-muted">Icon</span>
           <!-- a popover over the box, as on the row's own icon -->
           <GearIconPicker v-model="form.icon" class="vitem__iconpick" :auto="autoIcon" label="Icons">
             <template #trigger="{ open, toggle, attrs }">
@@ -498,7 +498,7 @@ async function add(p: VaultItemPatch) {
 
       <div class="vitem__pair">
         <label class="dlg__field">
-          <span class="t-sm t-muted">Weight</span>
+          <span class="t-muted">Weight</span>
           <input
             v-model="form.weight"
             class="field"
@@ -514,7 +514,7 @@ async function add(p: VaultItemPatch) {
         <div class="dlg__field">
           <!-- "Counts as", not "Type": the field above is the GEAR type, and two labels
                saying "type" asked which was which -->
-          <span class="t-sm t-muted">Counts as</span>
+          <span class="t-muted">Counts as</span>
           <OptionMenu
             class="vitem__cls field"
             :options="classOptions"
@@ -538,11 +538,11 @@ async function add(p: VaultItemPatch) {
           <!-- "Number owned", not "How many" or "Quantity": either reads as how many a
                trip takes, which is the list row's qty (and a kit's count), never this.
                A noun, like the dialog's other labels. -->
-          <span class="t-sm t-muted">Number owned</span>
+          <span class="t-muted">Number owned</span>
           <input v-model="form.owned" class="field" inputmode="numeric" placeholder="1" @keydown.enter="onSubmit" />
         </label>
         <label v-if="kcalOffered" class="dlg__field">
-          <span class="t-sm t-muted">kcal each</span>
+          <span class="t-muted">kcal each</span>
           <input v-model="form.kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
         </label>
       </div>
@@ -552,7 +552,7 @@ async function add(p: VaultItemPatch) {
            of every other second column in the dialog -->
       <div class="vitem__pair">
         <label class="dlg__field">
-          <span class="t-sm t-muted">Price</span>
+          <span class="t-muted">Price</span>
           <!-- inputmode text, not decimal: a currency symbol is part of what this
                field reads, and a numeric keypad can't type one -->
           <!-- zero, like the weight and kcal beside it (an example figure, "399", read as a
@@ -570,7 +570,7 @@ async function add(p: VaultItemPatch) {
           />
         </label>
         <label class="dlg__field">
-          <span class="t-sm t-muted">
+          <span class="t-muted">
             Product link
             <a v-if="urlOk" :href="form.productUrl.trim()" class="link" target="_blank" rel="noopener noreferrer">Open</a>
           </span>
@@ -579,7 +579,7 @@ async function add(p: VaultItemPatch) {
       </div>
       </div>
 
-      <p v-if="error" class="t-sm vitem__err">{{ error }}</p>
+      <p v-if="error" class="vitem__err">{{ error }}</p>
 
       <!-- the two suggestion lists, yours first: native datalists, the editor's own
            gear-type mechanism (GearEditor's #gear-types) -->

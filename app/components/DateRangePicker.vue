@@ -160,8 +160,12 @@ function onKey(e: KeyboardEvent) {
 // behind a Lazy async component, so its own `await nextTick()` runs a tick before the
 // grid exists and the cell lookup there found nothing on the very first open — the
 // keyboard did nothing at all until you had opened the popover once before.
+// A tick after it mounts, not on the mount: the panel around it is placed in that tick
+// (ListHead's placeDates), and may be about to flip above its button. Focus scrolls a
+// cell that is off screen into view, so focused first, the page scrolled to make room
+// below instead of the panel taking the room it had above.
 onMounted(() => {
-  gridEl.value?.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]')?.focus();
+  nextTick(() => gridEl.value?.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]')?.focus());
 });
 </script>
 
@@ -178,7 +182,7 @@ onMounted(() => {
       </button>
       <!-- polite, not assertive: the month changing is feedback on an action the
            reader just took, not an interruption -->
-      <span class="t-sm cal__month" aria-live="polite">{{ monthLabel }}</span>
+      <span class="cal__month" aria-live="polite">{{ monthLabel }}</span>
       <button
         type="button"
         class="btn btn--icon btn--ghost cal__nav foreground-quiet"
@@ -209,7 +213,7 @@ onMounted(() => {
           translate: `calc(var(--icon-btn) * ${pip.col}) calc((var(--icon-btn) + var(--space-half)) * ${pip.row})`,
         }"
       />
-      <span v-for="(w, i) in WEEKDAYS" :key="i" class="t-sm t-muted cal__wd" aria-hidden="true">{{ w }}</span>
+      <span v-for="(w, i) in WEEKDAYS" :key="i" class="t-muted cal__wd" aria-hidden="true">{{ w }}</span>
       <!-- keyed by DATE, not index: a month change must replace these nodes, not
            repaint them in place under whatever still holds focus -->
       <template v-for="(c, i) in cells" :key="c ? c.iso : `pad-${i}`">

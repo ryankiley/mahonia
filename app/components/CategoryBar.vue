@@ -97,8 +97,8 @@ watch(
         <span class="swatch" :style="{ background: categoryColor(s.colorKey) }" />
         <span class="catbar__name">{{ s.name }}</span>
         <span class="catbar__wt">
-          <span class="t-num t-sm catbar__num">{{ formatWeight(s.mg, list.displayUnit, { withUnit: false }) }}</span>
-          <span class="t-sm catbar__unit">{{ list.displayUnit }}</span>
+          <span class="t-num catbar__num">{{ formatWeight(s.mg, list.displayUnit, { withUnit: false }) }}</span>
+          <span class="catbar__unit">{{ list.displayUnit }}</span>
         </span>
       </li>
     </ul>

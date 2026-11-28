@@ -20,7 +20,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated November 27, 2026</p>
+        <p class="t-muted">Last updated November 27, 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.

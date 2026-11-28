@@ -250,8 +250,21 @@ async function saveDraftKit(name: string, parts: { id: number; qty: number }[]) 
     return;
   }
   busy.delete(DRAFT_ID);
+  // THE CURSOR FOLLOWS THE KIT. The draft's section and the saved kit's are two
+  // sections (the list is keyed by id, and the kit has only now been given one), so the
+  // "Add an item" field you were typing in is unmounted here and focus fell to the page:
+  // the second item typed went nowhere. A kit already saved puts its cursor back itself
+  // (VaultKitSection, after each save); this is the one add it cannot see. Only when
+  // focus was in the draft's field, or has already fallen: a click somewhere else while
+  // the kit saved is left where it is.
+  const draftAdd = document.querySelector(`[data-kit-add="${DRAFT_ID}"]`);
+  const follow = document.activeElement === draftAdd || document.activeElement === document.body;
   draftKit.value = null;
   items.value = [kit.item, ...items.value];
+  if (follow) {
+    await nextTick();
+    document.querySelector<HTMLInputElement>(`[data-kit-add="${kit.item.id}"]`)?.focus();
+  }
 }
 // "New kit", at the foot of the Kits tab the way "Add folder" ends a list (AddFolder):
 // the name opens a section there, on its "Add an item" line, and nothing is saved until
@@ -697,11 +710,11 @@ async function exportGear(kind: string) {
 
           <!-- offline, how old the gear on screen is (or that there is none to show),
                quieter than an error: nothing went wrong that the reader can fix -->
-          <p v-if="offline" class="t-sm t-muted">{{ offlineNote }}</p>
+          <p v-if="offline" class="t-muted">{{ offlineNote }}</p>
           <!-- a change's failure shows offline too: Undo, pressed after the signal went,
                failed in silence while this line was the note's alternative. The load's
                own failure is in the note then. -->
-          <p v-if="opError || (loadError && !offline)" class="t-sm vault__error">{{ opError || loadError }}</p>
+          <p v-if="opError || (loadError && !offline)" class="vault__error">{{ opError || loadError }}</p>
 
           <!-- only while there is nothing to show yet. An add reloads the gear, and
                blanking a page you are working on for the length of a round trip
@@ -709,7 +722,7 @@ async function exportGear(kind: string) {
           <p v-if="loading && !items.length && !offline" class="t-muted vault__mid">Loading your gear…</p>
 
           <template v-else-if="items.length">
-            <p v-if="onTab.length" class="t-sm t-muted vault__count">
+            <p v-if="onTab.length" class="t-muted vault__count">
               <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(onTab.length) }}</template>
               <template v-else>{{ formatCount(onTab.length) }}</template>
               {{ pluralNoun(onTab.length, countNoun) }}

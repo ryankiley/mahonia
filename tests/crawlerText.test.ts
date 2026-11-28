@@ -48,6 +48,7 @@ describe("robots.txt", () => {
     for (const file of [
       "server/api/s/[code].get.ts",
       "server/api/g/[code].get.ts",
+      "server/routes/og/g/[code].get.ts",
       "server/middleware/shareMarkdown.ts",
       "server/routes/og/s/[code].get.ts",
       "server/routes/mcp.get.ts",

@@ -8,7 +8,7 @@ defineEmits<{ clear: [] }>();
 </script>
 
 <template>
-  <p class="t-sm t-muted filterempty">
+  <p class="t-muted filterempty">
     Nothing is {{ name }}’s yet.
     <button type="button" class="btn btn--quiet filterempty__clear" @click="$emit('clear')">Show everyone</button>
   </p>

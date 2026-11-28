@@ -290,12 +290,23 @@ export const renderOgCard = (m: OgCardModel, fonts: SatoriOptions["fonts"]) => p
  * rate-limit-and-headers wrapper server/utils/http.ts warns against: rateLimit and
  * its ordering stay at the call sites.)
  */
-export async function sendOgCard(event: H3Event, list: OgCardSource): Promise<Buffer | void> {
+export function sendOgCard(event: H3Event, list: OgCardSource): Promise<Buffer | void> {
+  // same edge window as the page — the pair a crawler fetches goes stale together
+  return sendOgCardModel(event, ogCardModel(list), "edge");
+}
+
+/**
+ * Render any card model and send it, falling back to the static site card. `cache` is
+ * the page's own policy, so a card never outlives what it shows: "edge" for a list's
+ * (the read window), "none" for a gear link's, which must stop the moment its owner
+ * turns the link off.
+ */
+export async function sendOgCardModel(event: H3Event, model: OgCardModel, cache: "edge" | "none"): Promise<Buffer | void> {
   try {
-    const png = await renderOgCard(ogCardModel(list), await ogFonts());
+    const png = await renderOgCard(model, await ogFonts());
     setHeader(event, "Content-Type", "image/png");
-    // same edge window as the page — the pair a crawler fetches goes stale together
-    setReadEdgeCache(event);
+    if (cache === "edge") setReadEdgeCache(event);
+    else setNoStore(event);
     return png;
   } catch (e) {
     // The card is best-effort chrome — a render failure falls back to the

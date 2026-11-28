@@ -507,7 +507,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            WORD FOR WORD the /vault page's prompt. It is the same question asked in
            two places, and answering it twice in two voices is how a product starts
            sounding like two products. Change one, change both. -->
-      <p class="t-sm t-muted">{{ VAULT_ASK }}</p>
+      <p class="t-muted">{{ VAULT_ASK }}</p>
       <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
     </div>
 
@@ -553,7 +553,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
           @pick="(k) => (targetFolderId = k)"
         >
           <template #trigger="{ active, open }">
-            <span class="t-sm t-muted vp__targetlabel">Add to</span>
+            <span class="t-muted vp__targetlabel">Add to</span>
             <span class="t-clip">{{ active?.label }}</span>
             <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
           </template>
@@ -570,18 +570,18 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 
       <!-- offline: how old the copy is, or that there is none (with a failed read's own
            words). The copy itself still lists below and still adds to the list. -->
-      <p v-if="offline" class="t-sm t-muted vp__offline">{{ offlineNote }}</p>
+      <p v-if="offline" class="t-muted vp__offline">{{ offlineNote }}</p>
       <!-- nothing to list offline is said by the note alone: the empty states below
            would tell someone who lost signal that they have no gear -->
       <template v-if="!offline || items.length">
       <!-- only while there is nothing to show: a copy on the device paints at once and
            the server's answer replaces it -->
-      <p v-if="loading && !items.length" class="t-sm t-muted vp__note">Loading your gear…</p>
+      <p v-if="loading && !items.length" class="t-muted vp__note">Loading your gear…</p>
 
       <!-- both tabs: a piece adds as a row; a KIT adds as a group, its items under it -->
       <ul v-else-if="filtered.length" ref="listEl" class="vp__list">
         <template v-for="section in sections" :key="section.key">
-        <li v-if="section.label" class="vp__kind"><h3 class="t-sm t-muted vp__kindname">{{ section.label }}</h3></li>
+        <li v-if="section.label" class="vp__kind"><h3 class="t-muted vp__kindname">{{ section.label }}</h3></li>
         <li v-for="entry in section.entries" :key="entry.id">
           <!-- Click adds to the "Add to" folder; press and drag puts it in whichever
                folder you let go over. See onRowPointerDown for how the two are told
@@ -623,12 +623,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
                    per piece of gear is the rule, the number was answering a question
                    nobody can act on. A KIT's count is a different fact — how many
                    rows it unfolds into — and worth a line. -->
-              <span v-if="isInList(entry)" class="t-sm vp__inlist">Already added</span>
-              <span v-else-if="isKit(entry)" class="t-sm vp__inlist">Kit · {{ counted(itemCount(entry), "item") }}</span>
+              <span v-if="isInList(entry)" class="vp__inlist">Already added</span>
+              <span v-else-if="isKit(entry)" class="vp__inlist">Kit · {{ counted(itemCount(entry), "item") }}</span>
               <!-- food says its calories, the number it's picked by (its weight is beside it) -->
-              <span v-else-if="tab === 'food' && entry.kcal" class="t-sm t-muted">{{ formatKcal(entry.kcal) }} kcal</span>
+              <span v-else-if="tab === 'food' && entry.kcal" class="t-muted">{{ formatKcal(entry.kcal) }} kcal</span>
             </span>
-            <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, entry.entryUnit ?? unit, { withUnit: false }) }}<span class="t-muted vp__unit">{{ entry.entryUnit ?? unit }}</span></span>
+            <span class="t-num vp__w">{{ formatWeight(entry.weightMg, entry.entryUnit ?? unit, { withUnit: false }) }}<span class="t-muted vp__unit">{{ entry.entryUnit ?? unit }}</span></span>
           </button>
         </li>
         </template>
@@ -636,7 +636,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 
       <VaultElsewhere
         v-else-if="query.trim()"
-        class="t-sm t-muted vp__note"
+        class="t-muted vp__note"
         :query="query"
         none
         :matches="elsewhere"
@@ -645,19 +645,19 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       <!-- the tabs fail differently: an empty vault has no gear yet, an empty Kits tab
            has gear that hasn't been made into a set, an empty Food tab no food packed -->
       <div v-else-if="tab === 'kits'" class="vp__empty">
-        <p class="t-sm t-muted">
+        <p class="t-muted">
           No kits yet. Make one on
           <NuxtLink to="/gear" class="link vp__pagelink">the My Gear page</NuxtLink>, or save a group from
           a list as a kit.
         </p>
       </div>
       <div v-else-if="tab === 'food'" class="vp__empty">
-        <p class="t-sm t-muted">
+        <p class="t-muted">
           No food yet. Food you add to a list is saved here, with its calories.
         </p>
       </div>
       <div v-else class="vp__empty">
-        <p class="t-sm t-muted">
+        <p class="t-muted">
           No gear yet. Gear you add to a list is saved here.
         </p>
       </div>
@@ -666,7 +666,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            rather than at the end of it, so it is in view however long the list runs -->
       <VaultElsewhere
         v-if="filtered.length && elsewhere.length"
-        class="t-sm t-muted vp__note"
+        class="t-muted vp__note"
         :query="query"
         :none="false"
         :matches="elsewhere"
@@ -1057,6 +1057,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   padding-top: var(--space-1);
 }
 .vp__kindname {
+  font-size: var(--text-base); /* an <h3>: undo the browser's larger heading size */
   font-weight: var(--font-weight-semibold);
 }
 /* the whole row is the button — a small "+" target would be a poor tap area on the

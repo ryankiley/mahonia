@@ -50,6 +50,7 @@ const c = useGearList();
 const router = useRouter();
 const my = useMyLists();
 const session = useSession();
+const accountModal = useAccountModal();
 const { names: gearTypes, load: loadGearTypes } = useGearTypes();
 // app-wide dialogs (replace native confirm()/the copy dead-end) — see useDialogs
 const { confirm: askConfirm, showLinkFallback } = useDialogs();
@@ -892,8 +893,22 @@ const missingMessage = computed(() =>
       : keylessCode.value
         // a fragment-less /e/{code}: the key that opens it for editing is gone from
         // the link, not the list — the read-only view still opens with the same code
-        ? "This edit link is incomplete, so it can’t open the list for editing. Ask for the whole link again, or open the read-only view."
+        // …or the list is one of an account's and nobody is signed in on this device:
+        // its address in the switcher is exactly this shape, and a session that has
+        // lapsed leaves you here. So signing in is one of the ways on, and said first,
+        // since it is the one the owner needs.
+        ? "This edit link is incomplete, so it can’t open the list for editing. If the list is on your account, sign in. Otherwise ask for the whole link again, or open the read-only view."
         : "This link doesn’t open a list. Check you have the whole link, or ask for it again.",
+);
+// SIGNED IN FROM THE DEAD END: try the same address as one of the account's lists. The
+// route watcher decides keyless-or-claimed when the address changes, and signing in
+// through the dialog changes no address (a passkey signs in on the spot; an emailed
+// link comes back here by a reload, which runs the watcher anyway).
+watch(
+  () => session.signedIn.value,
+  (signedIn) => {
+    if (signedIn && status.value === "missing" && keylessCode.value) startSession({ code: keylessCode.value });
+  },
 );
 // A load that ended with nothing to show and no verdict: no copy on the device and
 // either no network — it loads itself when the network returns (the controller's
@@ -1308,7 +1323,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            re-rendering. The browser now runs the same slide at frame time for free.
            v-if only on the DATA condition (an empty list has no bar in any mode). -->
       <div v-if="packProgress.total" :key="listKey" class="packbar-reveal">
-        <div class="packbar t-sm">
+        <div class="packbar">
           <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
           <button
             v-if="anyPacked"
@@ -1400,6 +1415,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- a truncated edit link: the read-only view is the way back to THIS list, so
            it takes the primary and starting over steps down beside it -->
       <NuxtLink v-if="keylessCode" :to="`/s/${keylessCode}`" class="btn btn--primary">Open the read-only view</NuxtLink>
+      <!-- A keyless address is only ever reached signed out (signed in, the same address
+           is a claimed open), so the offer needs no check of its own. Once someone is
+           signed in the list is tried again from their account: see the watch on the
+           session below the message. -->
+      <button v-if="keylessCode" class="btn btn--soft" @click="accountModal.open()">Sign in</button>
       <button :class="['btn', keylessCode ? 'btn--soft' : 'btn--primary']" @click="newList({ replace: true })">Create a list</button>
       <!-- quiet, under the primary: the way forward stays the page's loudest offer,
            and retiring the row that led here is the calm cleanup beside it -->
@@ -1427,7 +1447,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         @take="c.undoRemove()"
         @hold="(held: boolean) => (held ? c.holdUndo() : c.releaseUndo())"
       />
-      <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
+      <div v-else-if="toast" class="toast">{{ toast }}</div>
     </Transition>
 
     <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own

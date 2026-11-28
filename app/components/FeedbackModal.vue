@@ -64,14 +64,14 @@ async function send() {
       <h2 class="t-label panel__title">{{ title ?? "Send feedback" }}</h2>
 
       <template v-if="state === 'sent'">
-        <p class="t-sm">Thanks. That’s been sent.</p>
+        <p>Thanks. That’s been sent.</p>
         <div class="dlg__actions">
           <button type="button" class="btn btn--primary" @click="emit('close')">Close</button>
         </div>
       </template>
 
       <template v-else>
-        <p class="t-sm t-muted">Bugs, missing gear, ideas. Anything.</p>
+        <p class="t-muted">Bugs, missing gear, ideas. Anything.</p>
 
         <textarea
           ref="boxRef"
@@ -90,15 +90,15 @@ async function send() {
                words, is the whole point: someone will otherwise paste an email
                address or a whole gear list into a repository anyone can read. It is a
                requirement of the feature, not a disclaimer. -->
-          <p class="t-sm t-muted t-num fb__count" :class="{ 'is-low': remaining <= 50 }">
+          <p class="t-muted t-num fb__count" :class="{ 'is-low': remaining <= 50 }">
             {{ remaining }}
           </p>
-          <p class="t-sm t-muted">
+          <p class="t-muted">
             This is posted publicly, so leave out anything private.
           </p>
         </div>
 
-        <p v-if="error" class="t-sm fb__error">{{ error }}</p>
+        <p v-if="error" class="fb__error">{{ error }}</p>
 
         <div class="dlg__actions">
           <button type="button" class="btn btn--soft" @click="emit('close')">Cancel</button>

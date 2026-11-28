@@ -103,7 +103,7 @@ const summary = computed(() => {
     <template v-else>
       <!-- The one thing worth saying before you press the button, and the reason
            the result screen needs no second paragraph: what an import will NOT do. -->
-      <p class="t-sm t-muted dlg__lede">
+      <p class="t-muted dlg__lede">
         Paste a CSV or a JSON backup, or choose a file. Gear you already have is left
         as it is.
       </p>
@@ -120,7 +120,7 @@ const summary = computed(() => {
            it (FilePickButton); choosing a file imports immediately -->
       <FilePickButton @text="send" />
 
-      <p v-if="error" class="t-sm vimport__err">{{ error }}</p>
+      <p v-if="error" class="vimport__err">{{ error }}</p>
 
       <div class="dlg__actions">
         <button class="btn btn--soft" @click="emit('close')">Cancel</button>

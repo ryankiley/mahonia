@@ -77,7 +77,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
               </template>
               <kbd v-for="k in r.keys" :key="k" class="keys__kbd">{{ k }}</kbd>
             </dt>
-            <dd class="t-sm keys__what">{{ r.what }}</dd>
+            <dd class="keys__what">{{ r.what }}</dd>
           </template>
         </dl>
       </div>
@@ -86,7 +86,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     <!-- Not a keystroke, but the same kind of thing: true, useful, and invisible
          unless somebody says it out loud. One line, and only one — a shortcut sheet
          that starts collecting tips stops being a shortcut sheet. -->
-    <p class="t-sm t-muted keys__note">
+    <p class="t-muted keys__note">
       A weight field also takes its unit: type <em>32.5 oz</em> on a gram list and that item keeps ounces.
     </p>
 

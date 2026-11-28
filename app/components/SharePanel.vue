@@ -60,6 +60,12 @@ const emit = defineEmits<{
 const flash = inject(ROW_FLASH, () => {});
 
 const { plateRef, listRef, rest, on } = useMenuPlate();
+// Placed on the tick it mounts, which is every open, by the same rule as every menu
+// (MenuList does this for the ones built on it; this card is its own element). On a
+// phone the card measures from the bar, sitting --space-4 in from its end, an inset the
+// fit test doesn't see: at the trailing end of the bar it never changes the answer.
+const { atStart, above, place } = useMenuPlacement(listRef);
+onMounted(place);
 
 // A draft is a list with no server row yet: nothing real in it, or its first save
 // hasn't landed. It has no links, but asking for one is what makes them: the copy
@@ -273,7 +279,14 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   <!-- The card is the menu's (.popover.menu__list: the anchor, the lift, the 8px inset
        the travelling plate is measured against), widened to a panel. A dialog, not a
        menu: it holds tabs, a card of prose and rows that aren't all menuitems. -->
-  <div ref="listRef" class="popover menu__list share" role="dialog" aria-label="Sharing" v-on="on">
+  <div
+    ref="listRef"
+    class="popover menu__list share"
+    :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
+    role="dialog"
+    aria-label="Sharing"
+    v-on="on"
+  >
     <span ref="plateRef" class="menu__plate" aria-hidden="true" />
 
     <div class="share__tabs" role="tablist" aria-label="Sharing" @keydown="onKey">
