@@ -119,6 +119,21 @@ export function useSession() {
     document.cookie = `${SESSION_OWNER_COOKIE}=; Max-Age=0; path=/`;
   }
 
+  /**
+   * Whether the browser's cookies name a session other than the one this tab's answer
+   * is about: another tab signed in, signed out, or changed accounts since. One cookie
+   * read and no request: the owner marker for a tab that knows a session (a sign-out
+   * takes it away), the hint for one that knows there is none. Never while unresolved:
+   * nothing has answered yet, or the last ask failed, and useSessionReask is the one
+   * asking.
+   */
+  function movedElsewhere(): boolean {
+    const known = session.value;
+    if (known.state === "unresolved") return false;
+    if (known.state === "signedOut") return hasSessionHint();
+    return known.user.owner !== sessionCacheOwner();
+  }
+
   /** Fetch the current session. Idempotent and de-duped: several components
    *  calling it on the same page produce one request. `force` re-reads after a
    *  sign-in/out has changed the answer.
@@ -324,6 +339,7 @@ export function useSession() {
      *  answer it settles into when the ask fails. */
     pending: readonly(pending),
     refresh,
+    movedElsewhere,
     requestLink,
     signOut,
     allowListSweep,
@@ -346,4 +362,36 @@ export function useSessionReask(): void {
   const askFailed = useAskFailed();
   const missing = computed(() => presence.value === "presumed" && !pending.value && askFailed.value);
   useRetryWhile(missing, () => void refresh());
+}
+
+/**
+ * Hear of a session another tab changed. A sign-in or a sign-out in one tab changes
+ * the cookies under every other, and each went on with the answer it had: the account
+ * menu named the last account, and a list held by its edit link went on showing which
+ * of its gear that account's My Gear holds. A list opened through an account finds out
+ * for itself at its next request (useGearList's accountIsHere); nothing else did.
+ *
+ * So when the tab comes back into view or takes focus, the cookies are compared with
+ * the session it holds, and only a difference asks again. Nothing changed costs no
+ * request at all. A session that was signed out costs none either: refresh settles
+ * that from the missing hint. Another account, or a new sign-in, costs the one
+ * request that says who it is, and not a second behind one already out, whose answer
+ * is about the cookies as they are now (see `stale` in ask).
+ */
+export function useSessionFollow(): void {
+  if (!import.meta.client) return;
+  const { movedElsewhere, pending, refresh } = useSession();
+  const look = () => {
+    if (document.visibilityState === "visible" && !pending.value && movedElsewhere()) void refresh(true);
+  };
+  window.addEventListener("focus", look);
+  // a DOCUMENT event, so it doesn't fit useWindowEvent's WindowEventMap signature
+  document.addEventListener("visibilitychange", look);
+  // a plugin's lives as long as the app; a component's (or a test's) goes with it
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      window.removeEventListener("focus", look);
+      document.removeEventListener("visibilitychange", look);
+    });
+  }
 }
