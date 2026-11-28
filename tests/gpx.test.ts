@@ -812,3 +812,47 @@ describe("geoJsonName", () => {
     expect(geoJsonName(line)).toBeUndefined();
   });
 });
+
+describe("pitfalls other route tools warn about", () => {
+  it("reads a Garmin-planned route's snapped path, not just its via points", () => {
+    // BaseCamp and Garmin's devices write the via points as <rtept> and the path between
+    // each and the next as <gpxx:rpt> inside its extensions
+    const garmin = `<gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" version="1.1"><rte>
+      <rtept lat="45.33" lon="-121.71"><ele>1800</ele><extensions><gpxx:RoutePointExtension><gpxx:rpt lat="45.34" lon="-121.70"/></gpxx:RoutePointExtension></extensions></rtept>
+      <rtept lat="45.35" lon="-121.69"><ele>1900</ele></rtept>
+    </rte></gpx>`;
+    expect(gpxPoints(xml(garmin)).map((p) => [p.lat, p.lon])).toEqual([[45.33, -121.71], [45.34, -121.7], [45.35, -121.69]]);
+  });
+
+  it("reads KML coordinates written with a space after each comma", () => {
+    const spaced = KML.replace(/,/g, ", ");
+    expect(gpxPoints(xml(spaced))).toEqual(gpxPoints(xml(KML)));
+  });
+
+  const named = (enc: string) =>
+    `<?xml version="1.0" encoding="${enc}"?>` + GPX.replace("<trk>", "<trk><name>Señal Peak Loop</name>");
+  const read = async (bytes: Uint8Array<ArrayBuffer>) => {
+    const had = globalThis.DOMParser;
+    globalThis.DOMParser = new Window().DOMParser as unknown as typeof DOMParser;
+    try {
+      return await readRouteFile(new Blob([bytes]));
+    } finally {
+      globalThis.DOMParser = had;
+    }
+  };
+
+  it("reads a GPX saved as UTF-16 with a byte-order mark, as some Windows tools write one", async () => {
+    const text = "\ufeff" + named("UTF-16");
+    const bytes = new Uint8Array(text.length * 2);
+    for (let i = 0; i < text.length; i++) new DataView(bytes.buffer).setUint16(i * 2, text.charCodeAt(i), true);
+    const r = await read(bytes);
+    expect(r !== "too-big" && [r.points.length, r.name]).toEqual([3, "Señal Peak Loop"]);
+  });
+
+  it("reads an accented name in the encoding the file declares, not as UTF-8", async () => {
+    const text = named("ISO-8859-1");
+    const bytes = Uint8Array.from(text, (c) => c.charCodeAt(0));
+    const r = await read(bytes);
+    expect(r !== "too-big" && r.name).toBe("Señal Peak Loop");
+  });
+});

@@ -42,6 +42,8 @@ import { MAX_WAYPOINTS } from "./ops";
 /** degrees per semicircle: the format stores 180° as 2^31 */
 const SEMICIRCLE_DEG = 180 / 2 ** 31;
 const RECORD = 20;
+/** a course file's header message, which carries the course's name */
+const COURSE = 31;
 const COURSE_POINT = 32;
 /** the header's signature: ".FIT" at bytes 8–11 */
 const SIGNATURE = [0x2e, 0x46, 0x49, 0x54];
@@ -114,6 +116,8 @@ export function isFit(head: Uint8Array): boolean {
 export interface FitRoute {
   points: TrackPoint[];
   pins: FilePin[];
+  /** a course's name (the course message's field 5); an activity file has none */
+  name?: string;
 }
 
 /**
@@ -176,6 +180,8 @@ function readRecords(view: DataView, bytes: Uint8Array, start: number, end: numb
           else if (f.num === 1) def.lon = slot;
           else if (f.num === 2) def.altitude = slot;
           else if (f.num === 78) def.enhanced = slot;
+        } else if (global === COURSE) {
+          if (f.num === 5 && f.base === 0x07) def.name = slot;
         } else if (global === COURSE_POINT) {
           if (f.num === 2) def.lat = slot;
           else if (f.num === 3) def.lon = slot;
@@ -210,6 +216,11 @@ function readRecords(view: DataView, bytes: Uint8Array, start: number, end: numb
 
 /** One data message. Only a record or a course point with a position has anything for us. */
 function readData(view: DataView, bytes: Uint8Array, at: number, def: Definition, out: FitRoute): void {
+  if (def.global === COURSE) {
+    // a course planned on Garmin Connect, Komoot or Ride with GPS arrives named
+    if (def.name && !out.name) out.name = readString(bytes, at + def.name.at, def.name.f.size);
+    return;
+  }
   if (!def.lat || !def.lon) return;
   const le = def.littleEndian;
   const lat = readNumber(view, at + def.lat.at, def.lat.f, le);

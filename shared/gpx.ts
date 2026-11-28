@@ -83,12 +83,20 @@ export function gpxPoints(doc: Document): TrackPoint[] {
   const track = byLocalName(doc, "trkpt");
   const nodes = track.length ? track : byLocalName(doc, "rtept");
   const out: TrackPoint[] = [];
-  for (const n of nodes) {
+  const add = (n: Element) => {
     const lat = finiteTextNumber(n.getAttribute("lat"));
     const lon = finiteTextNumber(n.getAttribute("lon"));
-    if (!validLatLon(lat, lon)) continue;
+    if (!validLatLon(lat, lon)) return;
     const ele = finiteTextNumber(localText(n, "ele"));
     out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
+  };
+  for (const n of nodes) {
+    add(n);
+    // A route a Garmin planned (BaseCamp, Explore, a device's own routing) is a handful
+    // of via points as <rtept>, with the path between each and the next, snapped to the
+    // trail or road, as <gpxx:rpt> points inside its extensions. Read without them, a
+    // 39.8-mile loop was 13 straight lines and 19.4 miles.
+    if (!track.length) for (const rpt of n.querySelectorAll("*")) if (rpt.localName.toLowerCase() === "rpt") add(rpt);
   }
   // GeoRSS LAST, and only when the file had no track of its own. It reads any element
   // named `line`, and a GPX file's style extension is one: <line><color>000000</color>
@@ -433,7 +441,10 @@ function kmlLinePoints(doc: Document): TrackPoint[] {
   for (const block of byLocalName(doc, "coordinates")) {
     // a marker's coordinates hang off <Point>; only a line's are route geometry
     if (!LINES.has(block.parentElement?.localName.toLowerCase() ?? "")) continue;
-    for (const triple of (block.textContent ?? "").trim().split(/\s+/)) {
+    // a space either side of a comma inside a tuple is against the spec and written anyway
+    // (Google Earth reads it, so its makers never found out); closed up, the tuples still
+    // split on the whitespace between them
+    for (const triple of (block.textContent ?? "").replace(/\s*,\s*/g, ",").trim().split(/\s+/)) {
       if (!triple) continue;
       const [rawLon, rawLat, rawEle] = triple.split(",");
       const lon = finiteTextNumber(rawLon);
@@ -634,6 +645,29 @@ export interface RouteFile {
  * Two pages read route files, the Trip tab and /trail-spin, and they read them alike: every
  * dialect one page learns, the other gets.
  */
+/**
+ * A text file's characters, in the encoding it is in: a byte-order mark first (UTF-8, or
+ * UTF-16 either way round, which some Windows tools write), then the encoding an XML
+ * declaration names (an older exporter's ISO-8859-1 or windows-1252, whose accented names
+ * came out as "Se\uFFFDal" read as UTF-8), then UTF-8. A declared name the browser doesn't
+ * know falls back to UTF-8 too.
+ */
+function decodeText(bytes: Uint8Array): string {
+  const label =
+    bytes[0] === 0xff && bytes[1] === 0xfe
+      ? "utf-16le"
+      : bytes[0] === 0xfe && bytes[1] === 0xff
+        ? "utf-16be"
+        : bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf
+          ? "utf-8"
+          : (/^\s*<\?xml[^>]*\bencoding\s*=\s*["']([\w.:-]+)["']/.exec(new TextDecoder("latin1").decode(bytes.subarray(0, 256)))?.[1] ?? "utf-8");
+  try {
+    return new TextDecoder(label).decode(bytes);
+  } catch {
+    return new TextDecoder().decode(bytes);
+  }
+}
+
 /** The members of a zip worth opening: the route files readRouteFile reads bare. */
 const ZIPPED_ROUTE = /\.(kml|fit|gpx|tcx|geojson|json)$/i;
 
@@ -652,9 +686,9 @@ export async function readRouteFile(file: Blob): Promise<RouteFile | "too-big"> 
   if (!fit && head[0] === 0x50 && head[1] === 0x4b) {
     const member = await zipMember(await file.arrayBuffer(), (name) => ZIPPED_ROUTE.test(name));
     if (member && isFit(member.bytes)) fit = member.bytes;
-    else if (member) text = new TextDecoder().decode(member.bytes);
+    else if (member) text = decodeText(member.bytes);
   } else if (!fit) {
-    text = await file.text();
+    text = decodeText(new Uint8Array(await file.arrayBuffer()));
   }
   const read = parseRoute(fit, text);
   const stats = gpxStats(read.points);

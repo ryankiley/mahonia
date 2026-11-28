@@ -475,3 +475,22 @@ describe("a FIT inside a zip, which is how Garmin Connect exports the original",
     expect(await zipMember(zip("readme.txt", new TextEncoder().encode("hi")), (n) => /\.(kml|fit)$/i.test(n))).toBeNull();
   });
 });
+
+describe("a course's name", () => {
+  // the course message (global 31) carries the name a planner gave the course, field 5
+  it("names the route from the course message, as a course planned on Komoot or Garmin arrives", () => {
+    const file = fitFile([
+      definition(1, 31, [{ num: 5, base: "string", size: 24 }]),
+      data(1, [{ num: 5, base: "string", size: 24 }], ["Timberline Trail"]),
+      definition(0, 20, RECORD_FIELDS),
+      ...HOOD.map(([la, lo, e]) => record(la, lo, e)),
+    ]);
+    const read = fitRoute(file);
+    expect(read.name).toBe("Timberline Trail");
+    expect(read.points).toHaveLength(3);
+  });
+
+  it("leaves an activity file unnamed", () => {
+    expect(fitRoute(hoodFile()).name).toBeUndefined();
+  });
+});

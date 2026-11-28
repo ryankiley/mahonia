@@ -30,11 +30,14 @@ const trackWithPins = track.replace(
 // the input only needs this much File; holding `text()` keeps a real parse in flight
 function fileOf(text: string, hold?: (release: (t: string) => void) => void) {
   const bytes = new TextEncoder().encode(text);
+  // `hold` keeps the browser's read of the whole file pending until it's released, however
+  // the reader asks for it (the twelve-byte sniff of its head stays immediate)
+  const held = () => new Promise<string>((resolve) => hold!(resolve));
   const file = {
     size: bytes.length,
     slice: () => ({ arrayBuffer: async () => bytes.buffer }),
-    arrayBuffer: async () => bytes.buffer,
-    text: () => (hold ? new Promise<string>((resolve) => hold(resolve)) : Promise.resolve(text)),
+    arrayBuffer: () => (hold ? held().then((t) => new TextEncoder().encode(t).buffer) : Promise.resolve(bytes.buffer)),
+    text: () => (hold ? held() : Promise.resolve(text)),
   };
   const input = document.createElement("input");
   Object.defineProperty(input, "files", { value: [file] });
