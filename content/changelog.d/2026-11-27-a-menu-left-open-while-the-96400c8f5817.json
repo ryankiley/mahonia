@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "A menu left open while the window changes size now moves to stay on screen."
+  ]
+}

@@ -167,3 +167,51 @@ describe("a menu set on its trigger's middle", () => {
     expect(centredAt(20, 100).centered).toBe(false);
   });
 });
+
+// A menu left open while the window changes size: the row reflows and the trigger moves,
+// so the card is placed again rather than left where the old layout put it.
+describe("a menu left open while the window resizes", () => {
+  it("is placed again for the new window and the trigger's new place", () => {
+    viewport(800, 1024);
+    let left = 669;
+    const anchor = document.createElement("div");
+    anchor.getBoundingClientRect = () => rect(100, 120, left, left + 20);
+    const list = document.createElement("ul");
+    Object.defineProperties(list, {
+      offsetParent: { get: () => anchor },
+      offsetWidth: { get: () => 260 },
+      offsetHeight: { get: () => 100 },
+      scrollHeight: { get: () => 100 },
+    });
+    anchor.append(list);
+    document.body.append(anchor);
+    const p = useMenuPlacement(ref(list), { fit: "center" });
+    p.place();
+    expect(p.shift.value).toBe(0);
+
+    // the window drops to a phone's width and the mark moves with the row
+    viewport(800, 405);
+    left = 113;
+    window.dispatchEvent(new Event("resize"));
+    // centred it would start at -7; the 8px edge padding takes it to 8
+    expect(p.shift.value).toBe(15);
+  });
+
+  it("stops listening once its list is gone", () => {
+    viewport(800, 1024);
+    const anchor = document.createElement("div");
+    anchor.getBoundingClientRect = () => rect(100, 120, 500, 520);
+    const list = document.createElement("ul");
+    Object.defineProperties(list, { offsetParent: { get: () => anchor }, offsetWidth: { get: () => 120 }, offsetHeight: { get: () => 100 } });
+    anchor.append(list);
+    document.body.append(anchor);
+    const held = ref<HTMLElement | null>(list);
+    const p = useMenuPlacement(held, { fit: "center" });
+    p.place();
+    held.value = null;
+    anchor.remove();
+    viewport(800, 300);
+    window.dispatchEvent(new Event("resize"));
+    expect(p.shift.value).toBe(0);
+  });
+});

@@ -21,7 +21,8 @@ import { typeScale } from "~/utils/typeScale";
 // travelling plate (see useMenuPlate, which reads offsetTop inside the list) and scroll
 // with the page, and both of those would have to be rebuilt to make them fixed.
 //
-// Usage — measure once per open, since a menu can't resize while it's up:
+// Usage — measure on open; the composable measures again itself if the window resizes
+// while the menu is up:
 //   const { atStart, above, place } = useMenuPlacement(listRef);
 //   watch(open, (o) => o && nextTick(place));
 //   <ul ref="listRef" :class="{ 'menu__list--start': atStart, 'menu__list--above': above }">
@@ -106,10 +107,37 @@ export function useMenuPlacement(
   const shift = ref(0);
   const maxHeight = ref<number | null>(null);
 
+  // A MENU LEFT OPEN WHILE THE WINDOW CHANGES SIZE IS PLACED AGAIN. It was measured once
+  // per open on the argument that a menu can't resize while it is up, which is true of
+  // the menu and not of the window: a phone turned on its side, a desktop window dragged
+  // narrower, a browser pane snapping from one width to another. The row reflows, the
+  // trigger moves, and the card stayed where the old layout had put it: one opened under
+  // a mark at 1024px was 7px off the left edge when the window dropped to 405 and the
+  // mark moved to x=122 (2026-11-27, and how it was found).
+  // Placed again, NOT closed: on engines where the on-screen keyboard resizes the window,
+  // closing would shut a card the moment its own field was tapped.
+  // The listener exists only from a menu's first place() until the first resize that
+  // finds its list gone, so a list of 150 rows carries one for each menu that is or was
+  // lately open, not one per row.
+  let watching = false;
+  const unwatch = () => {
+    window.removeEventListener("resize", onResize);
+    watching = false;
+  };
+  function onResize(): void {
+    if (listRef.value?.isConnected) place();
+    else unwatch();
+  }
+  if (getCurrentScope()) onScopeDispose(unwatch);
+
   function place(): void {
     const list = listRef.value;
     const anchor = list?.offsetParent as HTMLElement | null;
     if (!list || !anchor) return;
+    if (!watching) {
+      window.addEventListener("resize", onResize, { passive: true });
+      watching = true;
+    }
 
     // Measure the anchor, and the list's own WIDTH and HEIGHT only — its current top
     // and left depend on whichever sides it is hanging from right now, so compute the
