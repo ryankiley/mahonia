@@ -15,6 +15,12 @@ import SyncStatus from "~/components/SyncStatus.vue";
 stubLocalStorage();
 enableAutoUnmount(afterEach);
 
+// The account card is AccountMenuCard, mounted Lazy on the first open: wait for it.
+async function cardLoaded() {
+  await vi.dynamicImportSettled();
+  await flushPromises();
+}
+
 const presence = ref<Presence>("signedOut");
 const user = ref<{ email: string | null; displayName: string | null } | null>(null);
 mockNuxtImport("useSession", () => () => ({
@@ -85,6 +91,7 @@ describe("the bar's account control, offline", () => {
     goOffline();
     const w = await bar();
     await w.get("button.menu__btn").trigger("click");
+    await cardLoaded();
     const card = w.get(".acct__offline");
     expect(card.get(".acct__offhead").text()).toBe("You’re offline");
     expect(card.get(".acct__offline-line").text()).toBe("Sign in when you’re back online.");
@@ -98,6 +105,7 @@ describe("the bar's account control, offline", () => {
     useSyncOffline().value = "saved";
     const w = await bar();
     await w.get("button.menu__btn").trigger("click");
+    await cardLoaded();
     expect(w.get(".acct__offline-line").text()).toBe(
       "This list is saved on this device. Sign in when you’re back online.",
     );
@@ -115,6 +123,7 @@ describe("the bar's account control, offline", () => {
     expect(cloud.attributes("aria-label")).toBe("Can’t reach Mahonia");
 
     await cloud.trigger("click");
+    await cardLoaded();
     expect(w.get(".acct__offhead").text()).toBe("Can’t reach Mahonia");
     expect(w.get(".acct__offline-line").text()).toBe("This list is saved on this device.");
     const rows = w.findAll('[role="menuitem"]');
@@ -128,6 +137,7 @@ describe("the bar's account control, offline", () => {
     goOffline();
     const w = await bar();
     await w.get("button.menu__btn").trigger("click");
+    await cardLoaded();
     goOnline();
     await nextTick();
     expect(w.find(".acct__offline").exists()).toBe(false);
@@ -145,6 +155,7 @@ describe("the bar's account control, offline", () => {
     expect(drawn(trigger.element)).toBe(pathOf(IconCloudOff));
     expect(trigger.attributes("aria-label")).toBe("Your account. You’re offline.");
     await trigger.trigger("click");
+    await cardLoaded();
     expect(w.get(".acct__offline-line").text()).toBe(
       "This list is saved on this device. It syncs when you’re back online.",
     );
@@ -162,6 +173,7 @@ describe("the bar's account control, offline", () => {
     useSyncOffline().value = "saved";
     await nextTick();
     await w.get("button.menu__btn").trigger("click");
+    await cardLoaded();
     expect(w.get(".acct__offhead").text()).toBe("Can’t reach Mahonia");
     expect(w.findAll('[role="menuitem"]').map((r) => r.text())).toEqual(
       expect.arrayContaining(["Your account", "Sign out"]),

@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { IconArrowBoxLeft, IconCloudOff, IconUser, IconUserKey, IconSafeSimple } from "~/icons/central";
+import { IconCloudOff, IconUserKey } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 // UserKey: a person with credentials, for the private account.
-// Vault is the editor toolbar's own My Gear glyph — the same thing named the same
-// way, so the row and the button can't read as two different destinations.
 
 // The account affordance in the top bar. Two shapes, because signed in and signed
 // out are different jobs:
@@ -58,6 +56,10 @@ const route = useRoute();
 const known = computed(() => presence.value !== "signedOut");
 
 const open = ref(false);
+// The card's rows are AccountMenuCard, mounted on the first open and kept after it so
+// that closing still plays its leave: they load with that first press, not the page.
+const everOpened = ref(false);
+watch(open, (o) => o && (everOpened.value = true));
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 // same close behaviour as the editor kebab and ReadonlyMenu: the action itself, an
 // outside tap, a scroll gesture on mobile, or Escape
@@ -92,7 +94,6 @@ const { open: openAccount } = useAccountModal();
 // This is where the bar says "offline" at all. The status line beside it used to
 // ("Offline · saved on device"), and a phone cut that off mid-word.
 const offline = useOffline();
-const sync = useSyncOffline();
 // TWO KINDS OF OFFLINE, and only one of them rules out signing in. With no network at
 // all the card says so and offers nothing: the sign-in form could only say no. But the
 // list's sync also says "offline" when the browser has a connection and the server did
@@ -102,14 +103,6 @@ const sync = useSyncOffline();
 const online = useOnline();
 const unreachable = computed(() => offline.value && online.value);
 const offlineHead = computed(() => (unreachable.value ? "Can’t reach Mahonia" : "You’re offline"));
-/** what the card says under that */
-const offlineLine = computed(() => {
-  const saved = sync.value === "saved" ? "This list is saved on this device." : "";
-  const next = known.value
-    ? saved && "It syncs when you’re back online."
-    : !unreachable.value && "Sign in when you’re back online.";
-  return [saved, next].filter(Boolean).join(" ");
-});
 // the card belongs to being offline: back online, a signed-out control is a button again
 watch(offline, (off) => {
   if (!off && !known.value) open.value = false;
@@ -165,52 +158,19 @@ watch(offline, (off) => {
         <span v-else class="avatar" aria-hidden="true"><span class="avatar__letter">{{ initial }}</span></span>
       </button>
       </Tooltip>
-      <Transition name="menu">
-        <MenuList v-if="open" :aria-label="offline ? offlineHead : 'Your account'">
-          <!-- what the struck cloud means, said in full where it was pressed. Not a row:
-               nothing here is pressed, so it takes no hover. The shared
-               menu callout, the Export tab's card (Ryan, 2026-11-25): bare words above
-               the account's rows read as a heading for them. -->
-          <li v-if="offline" role="none" class="menu__callout acct__offline">
-            <SvgIcon :icon="IconCloudOff" aria-hidden="true" />
-            <div class="menu__callout-body">
-              <p class="menu__callout-title acct__offhead">{{ offlineHead }}</p>
-              <p v-if="offlineLine" class="menu__callout-text acct__offline-line">{{ offlineLine }}</p>
-            </div>
-          </li>
-          <li v-if="!known && unreachable" role="none">
-            <button type="button" role="menuitem" class="menu__item" @click="open = false; openAccount()">
-              <SvgIcon :icon="IconUserKey" aria-hidden="true" />
-              Sign in
-            </button>
-          </li>
-          <li v-if="known && showGear" role="none">
-            <NuxtLink to="/gear" role="menuitem" class="menu__item" @click="open = false">
-              <SvgIcon :icon="IconSafeSimple" aria-hidden="true" />
-              My Gear
-            </NuxtLink>
-          </li>
-          <!-- The account's own two rows need the server, so with no connection they are
-               not here: "Your account" opened a dialog that could only say it opens once
-               you're back online, and "Sign out" could not reach the server to end the
-               session (it signed the page out and left the cookie). An inert row is
-               absent, not disabled. Offline the card is then one thing, signed in or out:
-               what the cloud means. `online`, not `offline`: when it is only Mahonia that
-               can't be reached, either may well work, and they stay. -->
-          <li v-if="known && online" role="none">
-            <button type="button" role="menuitem" class="menu__item" @click="open = false; openAccount()">
-              <SvgIcon :icon="IconUser" aria-hidden="true" />
-              Your account
-            </button>
-          </li>
-          <li v-if="known && online" role="none">
-            <button type="button" role="menuitem" class="menu__item" @click="onSignOut">
-              <SvgIcon :icon="IconArrowBoxLeft" aria-hidden="true" />
-              Sign out
-            </button>
-          </li>
-        </MenuList>
-      </Transition>
+      <!-- the card and its rows: AccountMenuCard, so they load on the first open -->
+      <LazyAccountMenuCard
+        v-if="everOpened"
+        :open="open"
+        :known="known"
+        :offline="offline"
+        :unreachable="unreachable"
+        :offline-head="offlineHead"
+        :show-gear="showGear"
+        @close="open = false"
+        @account="openAccount"
+        @sign-out="onSignOut"
+      />
     </div>
   </ClientOnly>
 </template>
@@ -221,19 +181,7 @@ watch(offline, (off) => {
 .acct__signin {
   white-space: nowrap;
 }
-/* The offline card's words are the shared .menu__callout (atoms/controls.scss). What is
-   this card's own is a measure: a card is as wide as its longest row, and with no rows,
-   or two short ones, that is nothing for a sentence to go by. */
-.acct__offline {
-  width: 15rem;
-  max-width: calc(100vw - var(--space-6));
-}
-/* Alone in the card, which is every offline card with no connection, it wears no mark
-   either: the cloud that opened it is right above, and with no rows there is no glyph
-   column for a second one to sit in. */
-.acct__offline:last-child > svg {
-  display: none;
-}
+/* The offline card's own measure is AccountMenuCard's. */
 /* ON A PHONE THE OFFLINE CARD HANGS FROM THE BAR'S EDGE, as the sharing panel does. A
    menu's card hangs from the right of its own button, which suits a control at the end
    of the bar. This one is two icons in, so its card hung off to the left of the cloud,
