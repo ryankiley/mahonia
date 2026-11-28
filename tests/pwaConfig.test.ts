@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { runInNewContext } from "node:vm";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { PWA_OPTIONS } from "../config/pwa";
 import { applyOps, type Op } from "../shared/ops";
+import { stubCacheStorage } from "./helpers/cacheStorage";
 import { blankState, folder, item } from "./helpers/list";
 
 const rules = PWA_OPTIONS.workbox?.runtimeCaching ?? [];
@@ -85,6 +87,37 @@ describe("the shared read view offline", () => {
   it("keeps no copy of a list in the worker, as a page or as data", () => {
     const keeping = rules.filter((r) => r.handler !== "NetworkOnly" || r.options?.cacheName);
     expect(keeping.map((r) => String(r.urlPattern))).toEqual([]);
+  });
+});
+
+// The worker before this one kept share pages and their data in two caches of its own.
+// The scripts the config has the worker import are run here as the worker runs them,
+// then told the worker has activated.
+describe("the caches the worker used to keep", () => {
+  it("are deleted when the worker activates, with their record of ages, and nothing else is", async () => {
+    const kept = stubCacheStorage();
+    onTestFinished(() => void vi.unstubAllGlobals());
+    for (const name of ["mahonia-list-data", "mahonia-list-pages", "mahonia-shared-lists", "workbox-precache-v2-https://mahonia.app/"]) {
+      await (await caches.open(name)).put("/s/T1MBER11NE00", new Response("kept"));
+    }
+    const listeners: Record<string, ((event: { waitUntil: (work: Promise<unknown>) => void }) => void)[]> = {};
+    const deleteDatabase = vi.fn();
+    const scope = { addEventListener: (type: string, fn: (typeof listeners)[string][number]) => (listeners[type] ??= []).push(fn) };
+    for (const script of PWA_OPTIONS.workbox?.importScripts ?? []) {
+      runInNewContext(readFileSync(resolve(__dirname, "../public", `.${script}`), "utf8"), { self: scope, caches, indexedDB: { deleteDatabase } });
+    }
+
+    // loading the script deletes nothing: the worker that serves from them may still be the one in control
+    expect([...kept.keys()]).toHaveLength(4);
+    expect(Object.keys(listeners)).toEqual(["activate"]);
+    const work: Promise<unknown>[] = [];
+    for (const fn of listeners.activate!) fn({ waitUntil: (p) => void work.push(p) });
+    expect(work).toHaveLength(1);
+    await Promise.all(work);
+
+    // the page's own copy of a share link and the precache stay
+    expect([...kept.keys()]).toEqual(["mahonia-shared-lists", "workbox-precache-v2-https://mahonia.app/"]);
+    expect(deleteDatabase.mock.calls).toEqual([["workbox-expiration"]]);
   });
 });
 

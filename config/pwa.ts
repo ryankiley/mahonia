@@ -51,6 +51,10 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
     // registration itself, so with injectRegister:false they are stated here.
     skipWaiting: false,
     clientsClaim: true,
+    // One-off: deletes the two caches the worker kept share pages in, once the worker
+    // that served from them is gone. Safe to delete after 2027-01-15, with the file
+    // (public/sw-retired-caches.js) and its test.
+    importScripts: ["/sw-retired-caches.js"],
     // precache the client shell (hashed JS/CSS/fonts) so it boots from cache
     globPatterns: ["**/*.{js,css,woff2}"],
     // …plus the bare address, the manifest's start_url, by name. It is a prerendered
