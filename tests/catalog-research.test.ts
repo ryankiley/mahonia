@@ -4,6 +4,7 @@
 // `npm run catalog:audit`; here they fail `npm test`, and so CI on every PR.
 
 import { describe, expect, it } from "vitest";
+import { findingText } from "../scripts/catalogChecks";
 import { runResearchChecks } from "../scripts/researchChecks";
 import { COMMON_NAMES_JSON, RESEARCH_DIR } from "../scripts/paths";
 import { formatResearchFile, loadCommonNames, readResearchFiles, researchFileNames } from "../scripts/research";
@@ -22,6 +23,6 @@ describe("seed/_research data quality", () => {
   });
 
   it("has NO error-level defects (quote mismatches, kcal not in its panel, unstated food weight basis, a tent at trail weight, dup identities)", () => {
-    expect(findings.filter((f) => f.level === "error").map((f) => `[${f.code}] ${f.message}`)).toEqual([]);
+    expect(findings.filter((f) => f.level === "error").map((f) => `[${f.code}] ${findingText(f)}`)).toEqual([]);
   });
 });

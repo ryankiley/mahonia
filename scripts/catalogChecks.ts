@@ -22,7 +22,24 @@ export interface Finding {
   level: "error" | "warning";
   code: string;
   message: string;
+  /** What the finding is about, stable while the rest of the catalog changes: the rule's
+   *  code and the row (or rows, token, or gear type) it names. A message can carry counts
+   *  ("32 of 33 rows"), so it can't be one; houseRuleProblems tells a finding the catalog
+   *  already had from one a new row brings by this. */
+  key: string;
+  /** The research file a research finding is about; findingText puts it in front. */
+  file?: string;
 }
+
+/** A finding as the audit prints it: the file it is about, then its message. */
+export const findingText = (f: Finding) => (f.file ? `${f.file}: ${f.message}` : f.message);
+
+/** A row in a finding's key: its exact identity, case kept as case-collision keeps it. */
+const rowKey = (r: { brand?: string | null; name?: string | null; variant?: string | null }) => identity(r.brand ?? null, r.name ?? "", r.variant ?? null);
+/** Two rows in a finding's key, in one order whichever came first. */
+const pairKey = (a: CatalogCsvRow, b: CatalogCsvRow) => [rowKey(a), rowKey(b)].sort().join("|");
+/** A set of spellings in a finding's key, in one order: a further spelling is a new finding. */
+const spellingsKey = (spellings: Set<string>) => [...spellings].sort().join("|");
 
 // Prose that should never appear in a variant (variant = clean size/config only).
 const VARIANT_COMMENTARY =
@@ -86,15 +103,16 @@ function tokenRunIncludes(long: string[], short: string[]): boolean {
 /** Run all standing checks over the parsed catalog rows. */
 export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const out: Finding[] = [];
-  const err = (code: string, message: string) => out.push({ level: "error", code, message });
-  const warn = (code: string, message: string) => out.push({ level: "warning", code, message });
+  // `about` is what the finding names: a row's identity, a pair of rows, a token, a gear type
+  const err = (code: string, about: string, message: string) => out.push({ level: "error", code, message, key: `${code}|${about}` });
+  const warn = (code: string, about: string, message: string) => out.push({ level: "warning", code, message, key: `${code}|${about}` });
 
   // --- ERROR: a row shipped without a gear type ------------------------------
   // It's the label a pick pre-fills onto the user's item, so a blank one silently
   // costs every future list that adds this row. catalogBuild.ts already fails the
   // build on it; this makes the committed CSV answer for it too.
   for (const r of rows) {
-    if (!r.commonName?.trim()) err("common-name-missing", `${gearLabel(r)}: no gear type`);
+    if (!r.commonName?.trim()) err("common-name-missing", rowKey(r), `${gearLabel(r)}: no gear type`);
   }
 
   // --- ERROR: a gear type that the drift map should have collapsed -----------
@@ -102,7 +120,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // hand-edited into the CSV afterwards), so the vocabulary has two words for one thing.
   for (const r of rows) {
     const canon = r.commonName && GEAR_TYPE_ALIASES[r.commonName.trim().toLowerCase()];
-    if (canon) err("common-name-drift", `${gearLabel(r)}: gear type "${r.commonName}" → canonical "${canon}"`);
+    if (canon) err("common-name-drift", rowKey(r), `${gearLabel(r)}: gear type "${r.commonName}" → canonical "${canon}"`);
   }
 
   // --- ERROR: the name starts with its own brand ------------------------------
@@ -112,7 +130,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const b = (r.brand ?? "").trim();
     if (b && new RegExp(`^${b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(r.name.trim())) {
-      err("name-repeats-brand", `${gearLabel(r)}: name starts with the brand — drop it from the name (or make the collab the brand)`);
+      err("name-repeats-brand", rowKey(r), `${gearLabel(r)}: name starts with the brand — drop it from the name (or make the collab the brand)`);
     }
   }
 
@@ -121,9 +139,9 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // `variant`. Parentheses are allowed on food rows (the flavor convention:
   // "Energy Bar (Chocolate Chip)").
   for (const r of rows) {
-    if (/\s[-–]\s/.test(r.name)) err("name-qualifier", `${gearLabel(r)}: " - " suffix in the name belongs in the variant`);
+    if (/\s[-–]\s/.test(r.name)) err("name-qualifier", rowKey(r), `${gearLabel(r)}: " - " suffix in the name belongs in the variant`);
     else if (/\(/.test(r.name) && r.categoryHint !== "consumable") {
-      err("name-qualifier", `${gearLabel(r)}: parenthetical in the name belongs in the variant (parens are for a food row's flavor)`);
+      err("name-qualifier", rowKey(r), `${gearLabel(r)}: parenthetical in the name belongs in the variant (parens are for a food row's flavor)`);
     }
   }
 
@@ -133,7 +151,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // product into two names ("Women's Tarn Down Jacket" beside "Men's Tarn Down Jacket").
   for (const r of rows) {
     if (/\b(?:Men|Women)'s\b/i.test(r.name)) {
-      err("name-gender", `${gearLabel(r)}: Men's / Women's goes in the variant ("Women's Medium"), where it is read as the fit`);
+      err("name-gender", rowKey(r), `${gearLabel(r)}: Men's / Women's goes in the variant ("Women's Medium"), where it is read as the fit`);
     }
   }
 
@@ -142,7 +160,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // 15F, not 15°F; 5/8in, not ⅝". A size the maker sells several of is a variant.
   for (const r of rows) {
     if (NAME_UNIT_MARK.test(r.name)) {
-      err("name-unit-mark", `${gearLabel(r)}: a unit mark in the name — spell the unit ("8in", "7ft", "15F", "5/8in"), or move a size to the variant`);
+      err("name-unit-mark", rowKey(r), `${gearLabel(r)}: a unit mark in the name — spell the unit ("8in", "7ft", "15F", "5/8in"), or move a size to the variant`);
     }
   }
 
@@ -152,7 +170,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const v = r.variant ?? "";
     if (v && VARIANT_COMMENTARY.test(v)) {
-      err("variant-commentary", `${gearLabel(r)}: variant reads like a note, not a config: "${v}"`);
+      err("variant-commentary", rowKey(r), `${gearLabel(r)}: variant reads like a note, not a config: "${v}"`);
     }
   }
 
@@ -183,6 +201,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         if (subset) {
           err(
             "duplicate-row",
+            pairKey(group[a]!, group[b]!),
             `${group[a]!.brand} ${group[a]!.name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a]!.variant ?? ""}" and "${group[b]!.variant ?? ""}" — likely the same product twice`,
           );
         }
@@ -217,6 +236,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         if (extra.length > 0 && extra.every((t) => VERSION.test(t))) continue;
         err(
           "duplicate-name",
+          pairKey(group[a]!, group[b]!),
           `${group[a]!.brand}: "${group[a]!.name}" and "${group[b]!.name}" — same weight (${group[a]!.weightMg} mg), one name contains the other; likely the same product`,
         );
       }
@@ -242,6 +262,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
       if (twin && twin !== r) {
         err(
           "split-convention",
+          pairKey(r, twin),
           `${r.brand}: "${r.name}" + variant "${r.variant}" and "${twin.name}" are one product modelled two ways — keep one convention`,
         );
       }
@@ -257,7 +278,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     brandSpellings.getOrInsertComputed(normKey(b), () => new Set()).add(b);
   }
   for (const spellings of brandSpellings.values()) {
-    if (spellings.size > 1) err("brand-case-split", `one brand, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
+    if (spellings.size > 1) err("brand-case-split", spellingsKey(spellings), `one brand, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
   }
 
   // --- ERROR: one variant token spelled two ways ("Standard" / "standard") ------
@@ -269,14 +290,14 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
   for (const spellings of tokenSpellings.values()) {
-    if (spellings.size > 1) err("variant-case-split", `one variant token, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
+    if (spellings.size > 1) err("variant-case-split", spellingsKey(spellings), `one variant token, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
   }
 
   // --- ERROR: a size word leading the name ("Large Food Bag") -------------------
   // A size-named family is ONE product with size variants: "Food Bag" [L].
   for (const r of rows) {
     if (/^(?:X-Small|Small|Small-Plus|Medium|Medium-Plus|Large|X-Large|XX-Large)\b/i.test(r.name.trim())) {
-      err("name-size-prefix", `${gearLabel(r)}: the size belongs in the variant — one name for the family, a letter per size`);
+      err("name-size-prefix", rowKey(r), `${gearLabel(r)}: the size belongs in the variant — one name for the family, a letter per size`);
     }
   }
 
@@ -290,7 +311,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const sized = (r.variant ?? "").split(/,\s*/).some((d) => SIZE_LIKE.test(d));
     if (FAMILY_PLURAL.test(r.name.trim()) && sized) {
-      err("name-plural-family", `${gearLabel(r)}: a family name is singular — "${r.name.trim().replace(/(ie)s$/, "y").replace(/(ch|sh|x|s)es$/, "$1").replace(/s$/, "")}" with a size in the variant`);
+      err("name-plural-family", rowKey(r), `${gearLabel(r)}: a family name is singular — "${r.name.trim().replace(/(ie)s$/, "y").replace(/(ch|sh|x|s)es$/, "$1").replace(/s$/, "")}" with a size in the variant`);
     }
   }
 
@@ -316,7 +337,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const total = [...m.values()].reduce((a, b) => a + b, 0);
     const [[home, n], [, runnerUp]] = [...m.entries()].sort((a, b) => b[1] - a[1]) as [[string, number], [string, number]];
     if ((r.categoryHint ?? "other") !== home || n === runnerUp) {
-      err("category-outlier", `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — one gear type, one category (move it, or give it its own gear type)`);
+      err("category-outlier", `${(r.commonName ?? "").toLowerCase()}|${rowKey(r)}`, `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — one gear type, one category (move it, or give it its own gear type)`);
     }
   }
 
@@ -331,7 +352,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
       VARIANT_UNIT_MARK.test(v.replace(/\b\w+'s\b/g, "")) ||
       /\b\d+\.0(?=[A-Za-z])|\dft 0in\b|\b\d+(?:\.\d+)? x \d+(?:\.\d+)?\b/.test(v)
     ) {
-      err("variant-unit-spacing", `${gearLabel(r)}: "${v}" — a number and its unit are one token ("6ft", "400ml", "5/8in"), plainly written ("1L", "6ft", "20x72"), with no unit marks`);
+      err("variant-unit-spacing", rowKey(r), `${gearLabel(r)}: "${v}" — a number and its unit are one token ("6ft", "400ml", "5/8in"), plainly written ("1L", "6ft", "20x72"), with no unit marks`);
     }
   }
 
@@ -345,7 +366,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const prev = byCI.get(ci);
     if (prev) {
       if (identity(prev.brand, prev.name, prev.variant) !== exact) {
-        err("case-collision", `${gearLabel(r)} collides case-insensitively with ${gearLabel(prev)} (normalize casing)`);
+        err("case-collision", [rowKey(r), rowKey(prev)].sort().join("|"), `${gearLabel(r)} collides case-insensitively with ${gearLabel(prev)} (normalize casing)`);
       }
     } else {
       byCI.set(ci, r);
@@ -357,7 +378,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (r.weightSource !== "manufacturer") continue;
     const host = hostOf(r.sourceUrl);
     if (host && REVIEW_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) {
-      err("provenance", `${gearLabel(r)}: weight_source=manufacturer but cited to a review site (${host}) — re-source or mark measured`);
+      err("provenance", rowKey(r), `${gearLabel(r)}: weight_source=manufacturer but cited to a review site (${host}) — re-source or mark measured`);
     }
   }
 
@@ -369,7 +390,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const colours = [...new Set(r.variant?.match(COLOUR_WORDS) ?? [])];
     if (colours.length) {
       const named = colours.map((c) => `"${c}"`).join(", ");
-      err("colour-variant", `${gearLabel(r)}: ${named} in variant "${r.variant}" ${colours.length > 1 ? "are colours" : "is a colour"} — colour rarely affects weight, so drop ${colours.length > 1 ? "them" : "it"}`);
+      err("colour-variant", rowKey(r), `${gearLabel(r)}: ${named} in variant "${r.variant}" ${colours.length > 1 ? "are colours" : "is a colour"} — colour rarely affects weight, so drop ${colours.length > 1 ? "them" : "it"}`);
     }
   }
 
@@ -381,7 +402,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // that has one already does.
   for (const r of rows) {
     if (/\beditions?\b/i.test(r.variant ?? "")) {
-      err("variant-edition", `${gearLabel(r)}: "${r.variant}" — an edition isn't a size; one that weighs the same is the base product (no variant), one sold as its own build names the edition in the name`);
+      err("variant-edition", rowKey(r), `${gearLabel(r)}: "${r.variant}" — an edition isn't a size; one that weighs the same is the base product (no variant), one sold as its own build names the edition in the name`);
     }
   }
 
@@ -395,7 +416,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // Holsters" is an accessory FOR poles, not a pair of them.
   for (const r of rows) {
     if (/\btrekking\s+poles?$/i.test(r.name.trim()) && !/\bper pair\b/i.test(r.variant ?? "")) {
-      err("pole-unit", `${gearLabel(r)}: trekking poles should state "per pair" (the catalog's single pole-weight convention)`);
+      err("pole-unit", rowKey(r), `${gearLabel(r)}: trekking poles should state "per pair" (the catalog's single pole-weight convention)`);
     }
   }
 
@@ -406,7 +427,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // "per pair" on anything else is a leftover to drop.
   for (const r of rows) {
     if (/\bper pair\b/i.test(r.variant ?? "") && !POLE_ITEM.test(r.name)) {
-      err("per-pair-label", `${gearLabel(r)}: drop "per pair" — worn-pair apparel is stored as a pair weight without the label`);
+      err("per-pair-label", rowKey(r), `${gearLabel(r)}: drop "per pair" — worn-pair apparel is stored as a pair weight without the label`);
     }
   }
 
@@ -414,7 +435,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const v = r.variant ?? "";
     if (v && normalizeVariant(v) !== v) {
-      err("variant-noncanonical", `${gearLabel(r)}: variant "${v}" → canonical "${normalizeVariant(v)}"`);
+      err("variant-noncanonical", rowKey(r), `${gearLabel(r)}: variant "${v}" → canonical "${normalizeVariant(v)}"`);
     }
   }
 
@@ -431,8 +452,8 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     if (!r.variant) continue;
     for (const dim of r.variant.split(/,\s*/)) {
-      if (SIZE_LETTER.test(dim)) err("variant-size-style", `${gearLabel(r)}: write the size as a word ("M" → "Medium"), not "${dim}"`);
-      else if (SIZE_MISSPELT.test(dim)) err("variant-size-style", `${gearLabel(r)}: write the size as Small / Medium / Large / X-Small / X-Large, not "${dim}"`);
+      if (SIZE_LETTER.test(dim)) err("variant-size-style", `${rowKey(r)}|${dim}`, `${gearLabel(r)}: write the size as a word ("M" → "Medium"), not "${dim}"`);
+      else if (SIZE_MISSPELT.test(dim)) err("variant-size-style", `${rowKey(r)}|${dim}`, `${gearLabel(r)}: write the size as Small / Medium / Large / X-Small / X-Large, not "${dim}"`);
     }
   }
 
@@ -444,7 +465,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const v = r.variant ?? "";
     if (!traitsOf(r.commonName).footwear || !/\d/.test(v)) continue;
     if (!SHOE_REGION.test(v)) {
-      err("footwear-size", `${gearLabel(r)}: footwear size "${v}" needs a region — "Men's US 9", "Women's US 8", "UK 8"`);
+      err("footwear-size", rowKey(r), `${gearLabel(r)}: footwear size "${v}" needs a region — "Men's US 9", "Women's US 8", "UK 8"`);
     }
   }
 
@@ -465,11 +486,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const single = siblings(r).length === 1;
     const dims = v.split(/,\s*/);
     if (dims.some((d) => /^(one size|unisex|1 serving)$/i.test(d))) {
-      err("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" / "1 serving" distinguish nothing (single-serving is the unmarked default); drop`);
+      err("variant-filler", rowKey(r), `${gearLabel(r)}: "${v}" — "One size" / "Unisex" / "1 serving" distinguish nothing (single-serving is the unmarked default); drop`);
     } else if (single && /^standard$/i.test(v)) {
-      err("variant-filler", `${gearLabel(r)}: "Standard" on a one-row product is filler; drop`);
+      err("variant-filler", rowKey(r), `${gearLabel(r)}: "Standard" on a one-row product is filler; drop`);
     } else if (dims.some((d) => /^per \w+$/i.test(d)) && !/\btrekking\s+poles?$/i.test(r.name.trim()) && !hasPackSibling(r)) {
-      err("variant-filler", `${gearLabel(r)}: unit label in "${v}" restates the row — only trekking poles, or a row beside a multi-pack sibling, carry one`);
+      err("variant-filler", rowKey(r), `${gearLabel(r)}: unit label in "${v}" restates the row — only trekking poles, or a row beside a multi-pack sibling, carry one`);
     }
   }
 
@@ -478,7 +499,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // stays until a nutrition panel can be cited — see researchChecks kcal-quote).
   for (const r of rows) {
     if (r.categoryHint === "consumable" && traitsOf(r.commonName).food && r.kcal == null) {
-      warn("food-kcal-missing", `${gearLabel(r)}: a food row with no kcal — cite a nutrition panel (kcal + kcal_source_url + kcal_quote on the research row)`);
+      warn("food-kcal-missing", rowKey(r), `${gearLabel(r)}: a food row with no kcal — cite a nutrition panel (kcal + kcal_source_url + kcal_quote on the research row)`);
     }
   }
 
@@ -490,7 +511,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // must not be the way it gets in. Food is what GEAR_TRAITS says is food.
   for (const r of rows) {
     if (r.kcal != null && !traitsOf(r.commonName).food) {
-      err("kcal-on-non-food", `${gearLabel(r)}: kcal on a row whose gear type is not food — only food rows carry calories (a canister's energy content is not a ration)`);
+      err("kcal-on-non-food", rowKey(r), `${gearLabel(r)}: kcal on a row whose gear type is not food — only food rows carry calories (a canister's energy content is not a ration)`);
     }
   }
 
@@ -505,7 +526,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const dims = (r.variant ?? "").split(/,\s*/);
     if (dims.includes("net") && r.categoryHint === "consumable") {
-      warn("food-net-weight", `${gearLabel(r)}: weight excludes the pouch — find the packaged weight (maker "total weight", or a scale) and drop "net"`);
+      warn("food-net-weight", rowKey(r), `${gearLabel(r)}: weight excludes the pouch — find the packaged weight (maker "total weight", or a scale) and drop "net"`);
     }
   }
 
@@ -515,7 +536,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const v = r.variant ?? "";
     if (/\b(?:single|one)\s+(?:bar|pouch|sleeve|stick|waffle|packet|serve|serving|bowl|pack|wipe|tablet)\b|\beach\b/i.test(v)) {
-      err("variant-unit-label", `${gearLabel(r)}: "${v}" — say "per <unit>" for one item, "<n>-pack" for several`);
+      err("variant-unit-label", rowKey(r), `${gearLabel(r)}: "${v}" — say "per <unit>" for one item, "<n>-pack" for several`);
     }
   }
 
@@ -527,7 +548,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     if (!r.variant) continue;
     if (isVariantRedundant(r.name, r.variant)) {
-      err("variant-redundant", `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
+      err("variant-redundant", rowKey(r), `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
       continue;
     }
     const nameWords = ` ${normKey(r.name.replace(/'/g, ""))} `;
@@ -536,7 +557,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
       const repeated = rating
         ? new RegExp(` ${rating[1]}(?: ?f)? `).test(nameWords)
         : isVariantRedundant(r.name, part);
-      if (repeated) err("variant-redundant", `${gearLabel(r)}: "${part}" in the variant is already in the name — drop it${rating ? " (the rating goes in attributes)" : ""}`);
+      if (repeated) err("variant-redundant", `${rowKey(r)}|${part}`, `${gearLabel(r)}: "${part}" in the variant is already in the name — drop it${rating ? " (the rating goes in attributes)" : ""}`);
     }
   }
 
@@ -554,7 +575,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const ranks = (r.variant ?? "").split(/,\s*/).map((p) => AXIS_ORDER.findIndex(([re]) => re.test(p))).filter((i) => i >= 0);
     const at = ranks.findIndex((x, i) => i > 0 && x < ranks[i - 1]!);
     if (at > 0) {
-      err("variant-axis-order", `${gearLabel(r)}: "${r.variant}" — ${AXIS_ORDER[ranks[at]!]![1]} goes before ${AXIS_ORDER[ranks[at - 1]!]![1]} (gender, rating, fill power, length or size, then the rest)`);
+      err("variant-axis-order", rowKey(r), `${gearLabel(r)}: "${r.variant}" — ${AXIS_ORDER[ranks[at]!]![1]} goes before ${AXIS_ORDER[ranks[at - 1]!]![1]} (gender, rating, fill power, length or size, then the rest)`);
     }
   }
 
@@ -570,14 +591,14 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // the variant does NOT state (a researched R-value, a rating on a quilt sold one way)
   // is free.
   for (const r of rows) {
-    const stated = extractAttributes(r.variant, r.commonName, r.categoryHint, (c) => err("attr-conflict", `${gearLabel(r)}: the variant claims one axis twice, ${c}`));
+    const stated = extractAttributes(r.variant, r.commonName, r.categoryHint, (c) => err("attr-conflict", `${rowKey(r)}|${c}`, `${gearLabel(r)}: the variant claims one axis twice, ${c}`));
     for (const key of Object.keys(stated) as AttributeKey[]) {
       const want = stated[key];
       const have = r.attributes?.[key];
       if (have === undefined) {
-        err("attr-missing", `${gearLabel(r)}: the variant states ${key}=${want} but the attributes column lacks it — rebuild with catalog:build`);
+        err("attr-missing", `${rowKey(r)}|${key}`, `${gearLabel(r)}: the variant states ${key}=${want} but the attributes column lacks it — rebuild with catalog:build`);
       } else if (have !== want) {
-        err("attr-mismatch", `${gearLabel(r)}: attributes say ${key}=${have} but the variant reads ${key}=${want}`);
+        err("attr-mismatch", `${rowKey(r)}|${key}`, `${gearLabel(r)}: attributes say ${key}=${have} but the variant reads ${key}=${want}`);
       }
     }
   }
@@ -593,7 +614,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // row) is researched, not missing: the list names only rows nobody has read yet.
   for (const r of rows) {
     const missing = soldByOf(r.commonName).filter((k) => r.attributes?.[k] === undefined && !r.attributesUnpublished.includes(k));
-    if (missing.length) warn("attr-gap", `${gearLabel(r)}: a ${(r.commonName ?? "").toLowerCase()} without ${missing.join(", ")} — read the maker's page`);
+    if (missing.length) warn("attr-gap", rowKey(r), `${gearLabel(r)}: a ${(r.commonName ?? "").toLowerCase()} without ${missing.join(", ")} — read the maker's page`);
   }
 
   return out;

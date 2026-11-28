@@ -34,6 +34,7 @@ import {
   type LocalCatalogRow,
 toCatalogResult } from "../../shared/catalogSearch";
 import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
+import { catalogCategories } from "../../shared/catalogQuality";
 
 /** One label column of the VERIFIED active rows, distinct and sorted, blanks dropped:
  *  the read behind both vocabularies below. Labels only, never a product row. */
@@ -64,7 +65,21 @@ export const catalogGearTypes = (db: Db): Promise<string[]> => verifiedLabels(db
  *  Labels only, the same verified-and-active rows. */
 export const catalogBrands = (db: Db): Promise<string[]> => verifiedLabels(db, catalogItems.brand);
 
+/** Where the verified catalog files each gear type it carries (catalogCategories), for
+ *  categoryForGearType: the same verified-and-active rows, their two label columns only. */
+export async function catalogGearTypeCategories(db: Db): Promise<Map<string, string>> {
+  await ensureCatalogSchema(db);
+  const rows = await db
+    .select({ commonName: catalogItems.commonName, categoryHint: catalogItems.categoryHint })
+    .from(catalogItems)
+    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)));
+  return catalogCategories(rows);
+}
+
 const isNeon = () => Boolean(process.env.DATABASE_URL);
+
+/** catalog_edits.status's values, as its CHECK lists them (schema.ts says what each means). */
+const EDIT_STATUSES = ["applied", "proposed", "reverted", "rejected", "superseded"].map((s) => `'${s}'`).join(",");
 
 // Safe on BOTH PGlite and Neon. Single source of truth; also spread into db.ts's
 // local idempotent DDL. The pg_trgm GIN index is created separately (Neon only).
@@ -118,10 +133,24 @@ export const CATALOG_DDL: string[] = [
     new_weight_mg bigint NOT NULL,
     source_url text,
     reason text,
-    status text NOT NULL DEFAULT 'applied' CHECK (status IN ('applied','proposed','reverted','rejected')),
+    status text NOT NULL DEFAULT 'applied' CHECK (status IN (${EDIT_STATUSES})),
     created_at timestamptz NOT NULL DEFAULT now(),
     undo jsonb
   )`,
+  // superseded — a suggested fix closed by a verification of its row. A table made before
+  // that value has a status CHECK without it: dropped and made again with it, once. Reading
+  // the constraint is all a later cold start does, so no lock is taken on the table after.
+  `DO $superseded$
+  DECLARE stale text;
+  BEGIN
+    SELECT conname INTO stale FROM pg_constraint
+    WHERE conrelid = 'catalog_edits'::regclass AND contype = 'c'
+      AND pg_get_constraintdef(oid) LIKE '%status%' AND pg_get_constraintdef(oid) NOT LIKE '%superseded%';
+    IF stale IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE catalog_edits DROP CONSTRAINT %I', stale);
+      ALTER TABLE catalog_edits ADD CONSTRAINT catalog_edits_status_check CHECK (status IN (${EDIT_STATUSES}));
+    END IF;
+  END $superseded$`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_item ON catalog_edits (catalog_item_id, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
 ];

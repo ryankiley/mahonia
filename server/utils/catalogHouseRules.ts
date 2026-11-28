@@ -38,7 +38,10 @@ function asCsvRow(r: RuleRow): CatalogCsvRow {
   };
 }
 
-const errorsOf = (findings: Finding[]) => findings.filter((f) => f.level === "error").map((f) => f.message);
+const errorsOf = (findings: Finding[]) => findings.filter((f) => f.level === "error");
+/** The keys of what the checks refuse in `rows`: what each finding is about, not its words,
+ *  which can carry counts that move when a row is added ("32 of 33 rows" → "33 of 34"). */
+const errorKeys = (rows: RuleRow[]) => new Set(errorsOf(runCatalogChecks(rows.map(asCsvRow))).map((f) => f.key));
 
 /**
  * What the build would refuse in this row, each in the audit's own words; [] when it
@@ -46,22 +49,26 @@ const errorsOf = (findings: Finding[]) => findings.filter((f) => f.level === "er
  * and every verified row the build sees (catalogVerify's comparedRows), because some rules
  * read one product (a filler variant on a one-row product) and some the whole catalog (one
  * spelling per brand and variant token, one category per gear type). A finding the catalog
- * already had is not the new row's; only one the row brings counts. `file` is where
+ * already had is not the new row's; only one the row brings counts, told apart by what each
+ * finding is about (Finding.key), since a message can name counts the new row moves. Run
+ * before and after, not once: the spelling rules name no row to pick out. `file` is where
  * the row graduates to: verified-in-app.json, or for a research row its own research file,
  * where the audit reads a quote's metric figures only (researchChecks).
  */
 export function houseRuleProblems(row: RuleRow, siblings: RuleRow[], file: string = GRADUATED_FILE_NAME, was?: RuleRow): string[] {
-  const before = new Set(errorsOf(runCatalogChecks(siblings.map(asCsvRow))));
+  const before = errorKeys(siblings);
   // `was` is the row as it stands, when the write changes one. A finding it already shared
   // with other rows (a variant token spelled two ways across the catalog) is the catalog's,
   // not this write's: correcting the row's weight isn't refused for it. A finding of the row
   // alone (its name repeating its brand) is still its own to put right.
-  const shared = was ? new Set(errorsOf(runCatalogChecks([...siblings, was].map(asCsvRow)))) : new Set<string>();
-  const alone = new Set(errorsOf(runCatalogChecks([asCsvRow(row)])));
-  const found = errorsOf(runCatalogChecks([...siblings, row].map(asCsvRow))).filter((m) => !before.has(m) && !(shared.has(m) && !alone.has(m)));
+  const shared = was ? errorKeys([...siblings, was]) : new Set<string>();
+  const alone = errorKeys([row]);
+  const found = errorsOf(runCatalogChecks([...siblings, row].map(asCsvRow)))
+    .filter((f) => !before.has(f.key) && !(shared.has(f.key) && !alone.has(f.key)))
+    .map((f) => f.message);
   // the row as catalog:graduate would write it; one with no citation never graduates, so
-  // only the CSV rules hold it
+  // only the CSV rules hold it. A research finding names its file apart from its message.
   const research = asResearchRow(row);
-  if (research) found.push(...errorsOf(runResearchChecks([{ file, rows: [research] }])));
-  return [...new Set(found)].map((m) => m.replace(`${file}: `, ""));
+  if (research) found.push(...errorsOf(runResearchChecks([{ file, rows: [research] }])).map((f) => f.message));
+  return [...new Set(found)];
 }
