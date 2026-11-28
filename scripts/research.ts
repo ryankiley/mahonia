@@ -1,7 +1,6 @@
 // Shared reader for the cited research JSON in seed/_research/*.json — used by both
-// catalogBuild.ts (builds the CSV) and audit-catalog.ts (accuracy gate). The row
-// SHAPE and the read-every-file-and-parse loop were duplicated across the two; the
-// per-row VALIDATION is intentionally different and stays in each script.
+// catalogBuild.ts (builds the CSV) and audit-catalog.ts (accuracy gate). What a row
+// must be to ship is checked once, in researchChecks.ts, which both run.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -176,8 +175,8 @@ export function formatResearchFile(data: { _comment?: unknown; rows: readonly un
 }
 
 /** A parsed research file, or a parse error for it. Rows are `[]` when `parseError`
- *  is set — the CALLER decides how to bucket it (build → skipped/exit 0; audit →
- *  errors/exit 1), so the reader never swallows or logs the failure itself. */
+ *  is set; the research checks report it as an error, which holds the build and fails
+ *  the audit, so the reader never swallows or logs the failure itself. */
 export interface ResearchFile {
   file: string;
   rows: ResearchRow[];
@@ -205,7 +204,7 @@ const RESEARCH_TEXT_FIELDS = [
 /** The reader owns basic JSON shape, so downstream per-row checks can report bad
  * values instead of crashing on an untyped scalar's `.trim()` / `.toLowerCase()`.
  * It deliberately leaves semantic checks (required fields, units, attribute forms)
- * to catalogBuild and researchChecks, where their specific diagnostics belong. */
+ * to researchChecks, where their specific diagnostics belong. */
 function researchRowProblem(raw: unknown, position: number): string | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return `row ${position} must be an object`;
   const row = raw as Record<string, unknown>;

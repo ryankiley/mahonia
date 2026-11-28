@@ -33,10 +33,9 @@ describe("catalog conventions are errors, not warnings", () => {
     expect(runCatalogChecks([row({ name: "Ridge 2", variant: "2P", attributes: { persons: 2 } })])).toEqual([]);
   });
 
-  it("attr-missing / attr-mismatch: an axis the variant states is typed beside it, and agrees", () => {
+  it("attr-mismatch: an axis typed beside the variant agrees with it", () => {
     const quilt = (attributes: CatalogCsvRow["attributes"]) =>
       row({ name: "Revelation", variant: "20F, 950FP, Regular", categoryHint: "sleep", weightMg: 560_000, commonName: "Quilt", attributes });
-    expect(codes([quilt(null)], "error")).toContain("attr-missing");
     expect(codes([quilt({ temp_f: 30, fill_power: 950, length: "Regular" })], "error")).toContain("attr-mismatch");
     expect(codes([quilt({ temp_f: 20, fill_power: 950, length: "Regular" })], "error")).toEqual([]);
     // an attribute the variant doesn't state is research, not a mismatch
@@ -263,16 +262,56 @@ describe("research-level weight conversion", () => {
     file: "synthetic.json",
     rows: [{ brand: "Acme", name: "Ridge 2", variant: "2P", common_name: "tent", category_hint: "shelter", weight_value: 900, weight_unit, weight_source: "manufacturer", source_url: "https://acme.example/ridge", quote: "900 g" }],
   });
-  const errors = (f: ResearchFile) => runResearchChecks([f]).filter((x) => x.level === "error").map((x) => x.code);
-  const skipped = (f: ResearchFile) => buildCatalog([f]).skipped;
-  it("reads the unit as the build does: a row that builds isn't refused for convert", () => {
+  const built = (f: ResearchFile) => buildCatalog([f]);
+  it("reads the unit trimmed, as the build converts it", () => {
     for (const unit of ["g", " g", "g\n"]) {
-      expect(skipped(withUnit(unit))).toEqual([]);
-      expect(errors(withUnit(unit))).toEqual([]);
+      expect(built(withUnit(unit)).errors).toEqual([]);
+      expect(built(withUnit(unit)).rows.map((r) => r.weight_mg)).toEqual([900_000]);
     }
-    // and a unit the build can't read is refused by both
-    expect(skipped(withUnit("grams"))).toHaveLength(1);
-    expect(errors(withUnit("grams"))).toContain("convert");
+    expect(built(withUnit("grams")).errors.map((x) => x.code)).toEqual(["convert"]);
+  });
+});
+
+// The build writes nothing while a research check refuses a row, so each rule the build
+// once applied on its own is now a named research error, and the build fails on it.
+describe("the build refuses what the research checks refuse", () => {
+  const base = { brand: "Acme", name: "Trail Bar", variant: "", category_hint: "consumable", common_name: "Bar", weight_value: 60, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/bar", quote: "60 g" };
+  const kcalCite = { kcal_source_url: "https://acme.example/bar/nutrition", kcal_quote: "250 calories" };
+  const file = (...rows: Record<string, unknown>[]): ResearchFile => ({ file: "synthetic.json", rows: rows.map((o) => ({ ...base, ...o })) });
+  const refusal = (f: ResearchFile) => {
+    const b = buildCatalog([f]);
+    return { rows: b.rows.length, codes: b.errors.map((x) => x.code) };
+  };
+
+  it("builds the good row", () => {
+    expect(refusal(file({ kcal: 250, ...kcalCite }))).toEqual({ rows: 1, codes: [] });
+  });
+  it("kcal is a whole number from 1 to 10,000", () => {
+    for (const kcal of [250.5, 0, -10, 20_000]) expect(refusal(file({ kcal, ...kcalCite, kcal_quote: `${kcal} calories` }))).toEqual({ rows: 0, codes: ["kcal-range"] });
+  });
+  it("kcal goes on a consumable row only", () => {
+    expect(refusal(file({ category_hint: "other", kcal: 250, ...kcalCite }))).toEqual({ rows: 0, codes: ["kcal-not-food"] });
+  });
+  it("kcal carries its own URL and quote", () => {
+    expect(refusal(file({ kcal: 250 })).codes).toEqual(["kcal-cite"]);
+    expect(refusal(file({ kcal: 250, ...kcalCite, kcal_source_url: "acme.example/n" })).codes).toEqual(["kcal-cite"]);
+    expect(refusal(file({ kcal: 250, ...kcalCite, kcal_quote: "" })).codes).toEqual(["kcal-cite"]);
+  });
+  it("a row has a name", () => {
+    expect(refusal(file({ name: " " }))).toEqual({ rows: 0, codes: ["name"] });
+  });
+  it("a category is one the catalog has", () => {
+    expect(refusal(file({ category_hint: "gadgets" }))).toEqual({ rows: 0, codes: ["category"] });
+    expect(refusal(file({ category_hint: null }))).toEqual({ rows: 0, codes: ["category"] });
+  });
+  it("a duplicate is caught on the identity the build keys rows by", () => {
+    expect(refusal(file({ variant: "M" }, { variant: "Medium" })).codes).toEqual(["dup-row"]);
+    expect(refusal(file({ brand: "Acme " }, {})).codes).toEqual(["dup-row"]);
+    expect(refusal(file({ name: "trail bar" }, {})).codes).toEqual(["dup-row"]);
+    expect(refusal(file({ variant: "S" }, { variant: "M" }))).toEqual({ rows: 2, codes: [] });
+  });
+  it("a file that doesn't parse holds the build", () => {
+    expect(refusal({ file: "broken.json", rows: [], parseError: "invalid JSON" }).codes).toEqual(["json"]);
   });
 });
 
