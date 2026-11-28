@@ -101,7 +101,7 @@ function remove(p: Person) {
 <template>
   <BaseModal :open="true" label="People on this trip" @close="emit('close')">
     <h2 class="t-label panel__title">People</h2>
-    <p class="t-sm t-muted dlg__lede">
+    <p class="t-muted dlg__lede">
       Add who’s coming, then mark who carries what. Removing someone leaves their gear unassigned.
     </p>
 
@@ -183,8 +183,8 @@ function remove(p: Person) {
     </form>
     <!-- said at the moment it refuses: the clash first, since it answers a press you
          just made, and the cap only while nothing more pressing is standing -->
-    <p v-if="clash" class="t-sm ppl__clash" role="alert">{{ clash }}</p>
-    <p v-else-if="atCap" class="t-sm t-muted">Up to {{ MAX_PEOPLE }} people on a trip.</p>
+    <p v-if="clash" class="ppl__clash" role="alert">{{ clash }}</p>
+    <p v-else-if="atCap" class="t-muted">Up to {{ MAX_PEOPLE }} people on a trip.</p>
 
     <div class="dlg__actions">
       <button class="btn btn--primary" @click="emit('close')">Done</button>

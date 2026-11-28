@@ -712,7 +712,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              decimal place apart — "8.6 mi" in the key against "8.63 mi" in the row it keys —
              and one number written two ways reads as two numbers. distanceValue is what the
              day's field shows, so the key quotes the row rather than recomputing it. -->
-        <span class="t-sm t-muted daykey__dist">
+        <span class="t-muted daykey__dist">
           {{ distanceValue(dayDistancesM[i]) }} {{ distanceUnit }}
         </span>
       </li>
@@ -722,10 +722,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
          the whole route is one stretch, and that is not a finding. Said ONCE, here,
          rather than on every day. It sits ABOVE the empty-state paragraph so that
          paragraph's v-else (the days list) keeps its partner. -->
-    <p v-if="snapshot.routeGeometry && days.length && !waterPins.length" class="t-sm plan__carryhint">
+    <p v-if="snapshot.routeGeometry && days.length && !waterPins.length" class="plan__carryhint">
       Mark water on the route and each day shows its longest dry carry.
     </p>
-    <p v-if="!days.length" class="plan__note t-sm">
+    <p v-if="!days.length" class="plan__note">
       Add days to see each day’s distance, climb, walking time, and daylight.
     </p>
 
@@ -913,11 +913,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              the climb you'll remember and the steepest bit. Both go quiet when there
              is nothing to say (flat ground, a day with no distance). -->
         <template v-if="dayDistancesM[i] && facts[i]">
-          <p class="t-sm plan__fact">
+          <p class="plan__fact">
             <SvgIcon :icon="i === finishDayIndex ? IconRacingFlag : TentGlyph" class="plan__gl" aria-hidden="true" />
             <span>{{ campSentence(i, facts[i]!) }}</span>
           </p>
-          <p v-if="groundSentence(facts[i]!)" class="t-sm plan__fact">
+          <p v-if="groundSentence(facts[i]!)" class="plan__fact">
             <SvgIcon :icon="MountainGlyph" class="plan__gl" aria-hidden="true" />
             <span>{{ groundSentence(facts[i]!) }}</span>
           </p>
@@ -927,7 +927,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              it names a place. Measured in full even when it straddles the night; the
              hours follow each day's own pace, and are left out when part of the carry
              falls on ground with no estimate. -->
-        <p v-if="dayDistancesM[i] && dayCarries[i]" class="t-sm plan__fact">
+        <p v-if="dayDistancesM[i] && dayCarries[i]" class="plan__fact">
           <SvgIcon :icon="IconDrop" class="plan__gl" aria-hidden="true" />
           <span>
             Longest carry
@@ -998,8 +998,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
               >
                 <SvgIcon :icon="dayEnds[i]!.kind === 'camp' ? TentGlyph : IconRacingFlag" aria-hidden="true" />
               </span>
-              <span class="t-sm wprow__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
-              <span class="t-sm wprow__dist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
+              <span class="wprow__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
+              <span class="wprow__dist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
               <!-- the delete column, left empty: a day's end is the end of a day, and
                    removing it would mean removing the day. The cell stays so every other
                    column in the list still lines up through this row. -->
@@ -1054,7 +1054,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 
     <!-- The assumption, never silent. It sits with the estimates it feeds rather than in
          a footnote, and it retires its own "assuming" the moment a real number is set. -->
-    <p v-if="tripHours > 0" class="plan__assume t-sm">
+    <p v-if="tripHours > 0" class="plan__assume">
       <label :for="`${uid}-body`">Your weight</label>
       <span>
         <input
@@ -1088,7 +1088,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
          same sentence twice. But the tilde still has to be explained somewhere you can't
          miss: a tooltip is discovered, not read, and an unexplained character stuck to a
          number is worse than no mark at all. -->
-    <p v-if="tripHours > 0" class="plan__accuracy t-sm">~ means estimated.</p>
+    <p v-if="tripHours > 0" class="plan__accuracy">~ means estimated.</p>
 
     <!-- Adds a day to the CALENDAR, not a loose row beside it. The date range is the one
          place a trip's length is set, so this pushes the end date out by one rather than

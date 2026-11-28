@@ -177,10 +177,10 @@ const rowPerson = computed(() =>
   <div>
     <div class="item-row item item--ro">
       <span class="item__roname t-clip" :class="{ 'item__roname--group': isParent }">
-        <span class="item__ronametext" :class="{ 't-clip': isParent }"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class" :class="{ 'item__class--derived': isParent }"> · {{ formatKcal(lineKcal) }} kcal</span><!--
+        <span class="item__ronametext" :class="{ 't-clip': isParent }"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="item__class" :class="{ 'item__class--derived': isParent }"> · {{ formatKcal(lineKcal) }} kcal</span><!--
           who carries it — the dot names the person in colour, the hidden text names
           them for flattened readers of this SSR'd page (the class-mark precedent)
-        --><span v-if="rowPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ rowPerson.name }}</span><span class="visually-hidden"> carries this</span></span></span>
+        --><span v-if="rowPerson" class="item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ rowPerson.name }}</span><span class="visually-hidden"> carries this</span></span></span>
         <!-- collapse a group of nested items — trails the name like the folder chevron.
              The name text truncates so a long group name never shoves the chevron off. -->
         <NestChevron v-if="isParent" :collapsed="collapsed" :label="item.name || 'group'" @toggle="collapsed = !collapsed" />
@@ -190,7 +190,7 @@ const rowPerson = computed(() =>
              reads as punctuation, not as three rows folded away. The count goes with
              the chevron rather than into the weight column: it is a fact about the
              control, and it leaves with the rows the moment they're on screen. -->
-        <span v-if="isParent && collapsed" class="t-sm item__rocount">{{ children.length }}</span>
+        <span v-if="isParent && collapsed" class="item__rocount">{{ children.length }}</span>
       </span>
       <!-- `item__qty--split` is what tells the page column this list needs the wider
            amount track (atoms/item.scss): the label grows from "×12" to "×12 · 11 worn"
@@ -198,7 +198,7 @@ const rowPerson = computed(() =>
       <!-- the widening class goes with the LABEL, not with the split: a bare group can carry
            one (qty is not a term in isBareGroup) and prints nothing for it, and the class
            widens the amount track for every row on the page -->
-      <span class="t-num t-sm t-muted item__roqty" :class="{ 'item__qty--split': splitWorn && !bareGroup }">{{ qtyLabel }}</span>
+      <span class="t-num t-muted item__roqty" :class="{ 'item__qty--split': splitWorn && !bareGroup }">{{ qtyLabel }}</span>
       <!-- separate the qty and weight columns in the TEXT stream. On screen they're
            distinct grid cells, but flattened text (crawlers, LLMs, plain scrapers of
            this SSR'd share page) concatenates "×3" + "510" into "3510" — reading the
@@ -240,7 +240,7 @@ const rowPerson = computed(() =>
            same place the editor keeps it), then the owner's note, the last two in the
            italic caption voice. Any may be absent; each dot belongs to the part after it,
            so whatever comes first opens the line without one. -->
-      <p v-if="item.commonName || variantOnRow || item.description" class="t-sm item__rosub">
+      <p v-if="item.commonName || variantOnRow || item.description" class="item__rosub">
         <span v-if="item.commonName" class="item__rogtype">{{ item.commonName }}</span
         ><span v-if="variantOnRow" class="item__rovariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span
         ><span v-if="item.description" class="item__ronote">{{ item.commonName || variantOnRow ? " · " : "" }}{{ item.description }}</span>

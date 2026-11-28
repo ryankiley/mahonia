@@ -35,9 +35,9 @@ const here = (p: string) => route.path === p;
              glyph in the editor, and the account menu on every other page. "What's
              new" went when the changelog became GitHub's Releases; About points there.
              Help sits between About and Legal: what it is, how it works, the terms. -->
-        <NuxtLink v-if="!here('/about')" to="/about" class="foot__link t-sm">About</NuxtLink>
-        <NuxtLink v-if="!here('/help')" to="/help" class="foot__link t-sm">Help</NuxtLink>
-        <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link t-sm">Legal</NuxtLink>
+        <NuxtLink v-if="!here('/about')" to="/about" class="foot__link">About</NuxtLink>
+        <NuxtLink v-if="!here('/help')" to="/help" class="foot__link">Help</NuxtLink>
+        <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link">Legal</NuxtLink>
       </nav>
     </div>
   </footer>

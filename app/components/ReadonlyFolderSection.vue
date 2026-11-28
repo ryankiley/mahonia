@@ -36,7 +36,7 @@ const collapsed = ref(false);
       <div class="folder__bodyinner">
         <div class="folder__items">
           <ReadonlyItemRow v-for="it in items" :key="it.id" :item="it" />
-          <p v-if="!items.length" class="t-sm t-muted folder__empty">—</p>
+          <p v-if="!items.length" class="t-muted folder__empty">—</p>
         </div>
       </div>
     </div>

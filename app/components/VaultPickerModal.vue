@@ -54,7 +54,7 @@ const groups = computed(() =>
   <BaseModal :open="!!caps" label="Choose which gear is yours" @close="emit('cancel')">
     <template v-if="caps">
       <h2 class="t-label panel__title">Add to My Gear</h2>
-      <p class="t-sm t-muted dlg__lede">
+      <p class="t-muted dlg__lede">
         You didn’t start this list, so some of it may not be yours. Uncheck anything that
         isn’t.
       </p>
@@ -63,12 +63,12 @@ const groups = computed(() =>
         <button type="button" class="btn btn--quiet" @click="toggleAll">
           {{ allOn ? "Uncheck all" : "Check all" }}
         </button>
-        <span class="t-sm t-muted">{{ keep.size }} of {{ caps.length }}</span>
+        <span class="t-muted">{{ keep.size }} of {{ caps.length }}</span>
       </div>
 
       <div class="vpick__scroll">
         <div v-for="g in groups" :key="g.folder" class="vpick__group">
-          <p v-if="g.folder" class="t-sm t-muted vpick__folder">{{ g.folder }}</p>
+          <p v-if="g.folder" class="t-muted vpick__folder">{{ g.folder }}</p>
           <label v-for="c in g.rows" :key="c.normKey" class="vpick__row">
             <!-- the site's checkbox: a real <input> laid invisibly over the icon
                  pair, so behaviour and focus stay native while the visuals are the
@@ -87,7 +87,7 @@ const groups = computed(() =>
               <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" aria-hidden="true" />
             </span>
             <span class="vpick__name">{{ itemDisplayName(c.brand, c.name, c.variant) }}</span>
-            <span class="t-sm t-muted t-num vpick__weight">{{
+            <span class="t-muted t-num vpick__weight">{{
               formatWeightAuto(c.weightMg, { system })
             }}</span>
           </label>

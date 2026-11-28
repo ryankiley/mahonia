@@ -111,7 +111,7 @@ useSeoMeta({
       </div>
 
       <template v-if="tab === 'gear'">
-        <p class="t-sm t-muted sharedgear__count">{{ counted(pieces.length, "piece") }}</p>
+        <p class="t-muted sharedgear__count">{{ counted(pieces.length, "piece") }}</p>
         <VaultSection
           v-for="section in sections"
           :key="section.key"
