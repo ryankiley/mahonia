@@ -435,6 +435,7 @@ export const fixtures: Fixture[] = [
   fixture("price-and-currency", [
     row("a", "Tent", { priceCents: 69900, currency: "USD" }),
     row("b", "Pad", { priceCents: 2000, sortOrder: 1 }),
+    // a currency with no amount says nothing: not kept, off a whole row as by patch
     row("c", "Pot", { currency: "EUR", sortOrder: 2 }),
     row("d", "Cup", { priceCents: -5, currency: "LONGCURRENCY", sortOrder: 3 }),
     row("e", "Quilt", { priceCents: 1000, currency: "USD", sortOrder: 4 }),
@@ -450,12 +451,16 @@ export const fixtures: Fixture[] = [
     // free is a price
     row("i", "Bandana", { priceCents: 1000, currency: "USD", sortOrder: 8 }),
     { t: "updateItem", id: "i", patch: { priceCents: 0 } },
+    // and a currency patched onto a row with no amount lands nowhere
+    row("j", "Fork", { sortOrder: 9 }),
+    { t: "updateItem", id: "j", patch: { currency: "GBP" } },
   ]),
 
   // ---- a catalog id is one the database can hold ------------------------------------
 
   fixture("catalog-id-range", [
-    // the id goes; the weight it was linked at is its own field and stays
+    // the id goes, and the weight it was linked at goes with it: the weight describes
+    // the linked product, so a row with no link has none
     row("a", "Zero", { catalogItemId: 0, catalogWeightMgAtLink: 100000 }),
     row("b", "Negative", { catalogItemId: -3, sortOrder: 1 }),
     row("c", "Past the top", { catalogItemId: 2147483648, sortOrder: 2 }),
@@ -466,6 +471,46 @@ export const fixtures: Fixture[] = [
     // …while a weight stamped in the same patch still lands
     row("f", "Restamped", { catalogItemId: 5, catalogWeightMgAtLink: 300000, sortOrder: 5 }),
     { t: "updateItem", id: "f", patch: { catalogItemId: 2147483648, catalogWeightMgAtLink: 123456 } },
+  ]),
+
+  // ---- one rule for a whole row and for a patch --------------------------------------
+  // The reducer read a row's fields by two lists of rules, one for a whole row and one
+  // for a patch, and five fields had drifted between them. Each row here is one of
+  // those, in the form both paths now store.
+
+  fixture("whole-row-and-patch-agree", [
+    { t: "addFolder", folder: { id: "f1", name: "Kit", colorKey: "pack", defaultClassification: "base", sortOrder: 0 } },
+    // a folder keeps a name: a rename to nothing is ignored, as a person's is, and the
+    // colour in the same patch still lands
+    { t: "updateFolder", id: "f1", patch: { name: "  ", colorKey: "sleep" } },
+    // a note cleared by patch is absent, not "": the empty string, and one that only
+    // looks empty
+    row("note", "Stakes", { description: "spare" }),
+    { t: "updateItem", id: "note", patch: { description: "" } },
+    row("blank-note", "Pot", { description: "lid", sortOrder: 1 }),
+    { t: "updateItem", id: "blank-note", patch: { description: " \u2800 " } },
+    // the two "renamed" flags are stored only when set. false clears one that was set…
+    row("flags", "Tent", { nameOverridden: true, commonNameOverridden: true, sortOrder: 2 }),
+    { t: "updateItem", id: "flags", patch: { nameOverridden: false, commonNameOverridden: false } },
+    // …stores nothing on a row that had none (what a catalog pick in a row's name sends)…
+    row("unset", "Pad", { sortOrder: 3 }),
+    { t: "updateItem", id: "unset", patch: { nameOverridden: false, commonNameOverridden: false } },
+    // …and true sets them, by patch and off a whole row
+    row("set", "Quilt", { sortOrder: 4 }),
+    { t: "updateItem", id: "set", patch: { nameOverridden: true, commonNameOverridden: true } },
+    row("whole-set", "Cup", { nameOverridden: true, commonNameOverridden: true, sortOrder: 5 }),
+    row("whole-unset", "Mug", { nameOverridden: false, commonNameOverridden: false, sortOrder: 6 }),
+    // the catalog's weight at link time is kept only beside a link: not off a whole row
+    // that has none, not by a patch onto an unlinked row…
+    row("orphan", "Stove", { catalogWeightMgAtLink: 100000, sortOrder: 7 }),
+    row("bare", "Spoon", { sortOrder: 8 }),
+    { t: "updateItem", id: "bare", patch: { catalogWeightMgAtLink: 100000 } },
+    // …and an unlink takes the weight stamped in the same patch with it
+    row("unlinked", "Fly", { catalogItemId: 5, catalogWeightMgAtLink: 300000, sortOrder: 9 }),
+    { t: "updateItem", id: "unlinked", patch: { catalogItemId: null, catalogWeightMgAtLink: 123456 } },
+    // beside a link it lands, by patch onto a linked row
+    row("linked", "Pole", { catalogItemId: 5, sortOrder: 10 }),
+    { t: "updateItem", id: "linked", patch: { catalogWeightMgAtLink: 250000 } },
   ]),
 
   // ---- text that draws nothing (#565, #568) ----------------------------------------

@@ -850,7 +850,11 @@ export async function getByEditHash(editHash: string): Promise<ListSnapshot | nu
  */
 function normalizeListMeta(raw: Partial<Record<ListMetaKey, unknown>> = {}) {
   return {
-    title: tidyText((typeof raw.title === "string" ? raw.title : "").slice(0, MAX_TITLE_LEN)) || "Untitled list",
+    // Tidied as setMeta tidies it, and blank when there is none, which is a state the
+    // reducer stores (the editor shows its ghosted placeholder). The name a brand-new
+    // list starts with is createList's to give: a restore that gave it too handed a
+    // list back under the words "Untitled list", a title it never had.
+    title: tidyText((typeof raw.title === "string" ? raw.title : "").slice(0, MAX_TITLE_LEN)),
     // tidyProse, matching the setMeta case — apostrophes and invisibles yes, line
     // breaks kept, because this is the one text field that can hold paragraphs
     description: typeof raw.description === "string" && raw.description
@@ -938,7 +942,8 @@ export async function createList(
   // straight apostrophe (and the stray spaces) that the identical rename after saving
   // would have tidied. The `||` fallback still reads the tidied value, so a
   // whitespace-only title is "Untitled list" and not a bare "-a1b2c3" slug.
-  const meta = normalizeListMeta(init);
+  const tidied = normalizeListMeta(init);
+  const meta = { ...tidied, title: tidied.title || "Untitled list" };
   const { title, trailUrl } = meta;
   const data = normalizeListData(init?.data);
   const totals = computeTotals(data);

@@ -42,6 +42,11 @@ describe("importing a JSON backup, then creating the list", () => {
     expect(s.displayUnit).toBe("g");
   });
 
+  it("starts a list that arrives with no name as Untitled list", async () => {
+    const s = await importAndCreate(backup({ title: " \u2800 " }));
+    expect(s.title).toBe("Untitled list");
+  });
+
   it("cuts an over-long title to the cap", async () => {
     const s = await importAndCreate(backup({ title: "x".repeat(500) }));
     expect(s.title).toHaveLength(200);

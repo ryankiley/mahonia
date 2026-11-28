@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "Clearing a folder's name now keeps the name it had, instead of turning into \"Folder\" a moment later."
+  ]
+}
