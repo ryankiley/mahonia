@@ -940,6 +940,87 @@ input[type="search"]::-webkit-search-decoration {
   transform: translateY(2px);
 }
 
+// SUGGESTIONS UNDER A FIELD: the card a list's add row offers its matches on (ItemInput)
+// and a kit's "Add an item" offers your gear on (VaultKitSection). Where it opens and
+// how tall it may be are useSuggestPlacement's (the room the keyboard leaves, worn as
+// --ac-room); each sets its own width, and the list's menu its own exit. On the shared
+// .popover surface.
+.ac__menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + var(--space-1));
+  z-index: var(--z-autocomplete);
+  // inline padding only: the VERTICAL breathing room lives inside the scroller (its
+  // padding-block scrolls with the content), so scrolled rows travel all the way to the
+  // card's edge instead of clipping 8px early at a padding ledge
+  padding: 0 var(--space-2);
+  // clip those full-bleed rows (and the scrollbar's extremes) to the radius
+  overflow: hidden;
+  // the pop-in scales from where the menu hangs off the field
+  transform-origin: top left;
+}
+// No room below the field: it hangs from the anchor's top edge instead, and the shared
+// menu entrance and exit mirror with it, as .menu__list--above's do above.
+.ac__menu--above {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+  transform-origin: bottom left;
+}
+.ac__menu--above.menu-enter-from {
+  transform: translateY(4px) scale(0.98);
+}
+.ac__menu--above.menu-leave-to {
+  transform: translateY(2px);
+}
+// The scroller, INSIDE the card's inline padding, so the (thin, transparent-track)
+// scrollbar sits inset from the edge, never over the rounded corners.
+.ac__list {
+  padding: var(--space-2) 0;
+  // Cap at 10.5 ROWS (+ the resting top padding), not a round length: the half-cropped
+  // row at the fold is the scroll cue, glyphs sliced cleanly AT the card's visual edge
+  // (the .popover outline-not-border fix keeps the overflow clip flush). A full-text fold
+  // read as a complete list and left the card too tall. One row = 2×space-2 padding + a
+  // 1.5-line-height base-size line; phrasing it in the same vars keeps the fold mid-row
+  // past the 1920px anchor where the type (and the rows) scale fluidly. The dvh cap keeps
+  // it on screen on small devices (dvh tracks the collapsing mobile URL bar; the vh line
+  // is the older-browser fallback). The THIRD cap is the one that sees the keyboard,
+  // which dvh doesn't on iOS: --ac-room, the room actually left between the field and the
+  // keyboard (or the topbar, when flipped above). Unset until it is measured.
+  // +2px: an eye-tuned crop point rather than a derived one, a hair more of the fold
+  // row's glyphs, which is what makes the cut read as a fold and not a clip.
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 55vh);
+  max-height: min(
+    calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px),
+    50dvh,
+    var(--ac-room, 50dvh)
+  );
+  overflow-y: auto;
+  // Never a horizontal bar: overflow-y alone computes overflow-x to auto, and with
+  // classic (always-shown) scrollbars the vertical bar narrows the rows, so any sub-pixel
+  // x-overflow painted a horizontal TRACK across the menu's bottom, stealing height so
+  // the fold crop landed mid-glyph. Width pressure is the rows' ellipses' job.
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  // reaching the end of the list must not hand the swipe to the page
+  overscroll-behavior: contain;
+}
+// A row: the name and its figure at either end. The concentric radius is the token
+// derived from the .popover corner (tokens.scss); one row is lit at a time, the
+// pointer's or the one Enter takes.
+.ac__opt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  cursor: pointer;
+  border-radius: var(--popover-item-radius);
+}
+.ac__opt.is-active {
+  background: var(--background-hover);
+}
+
 // Toast / snackbar — a brief status pill at the bottom edge (the copy confirmations
 // after Share, the undo bar). Shared by the editor and the read-only share views;
 // pair with <Transition name="toast">. Motion is opacity + transform only, on a CSS

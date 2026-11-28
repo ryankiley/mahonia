@@ -9,6 +9,7 @@
 // ("20F, 950FP, Regular", "Arc Haul Ultra 40L") is left out too, so nothing reads twice
 // on the row.
 
+import type { AttributeKey } from "./catalogAxes";
 import type { Unit } from "./types";
 import { formatVolume } from "./water";
 import { unitSystem } from "./weights";
@@ -27,6 +28,9 @@ const SPEC_KEYS = [
   "fuel",
 ] as const;
 type SpecKey = (typeof SPEC_KEYS)[number];
+// Every axis but the five that pick a size is a spec, so one added to shared/catalogAxes.ts
+// and not here fails the typecheck instead of never showing on My Gear.
+true satisfies [Exclude<AttributeKey, "fit" | "size" | "torso" | "length" | "width" | SpecKey>] extends [never] ? true : never;
 
 /** "length=Regular; temp_f=20" as a map. Lenient: the cell is written by the build, which
  *  holds it to one form, so a part that doesn't parse is skipped rather than an error. */

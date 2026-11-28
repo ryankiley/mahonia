@@ -99,9 +99,9 @@ function create() {
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let flushFailures = 0;
   let inFlight = false;
-  // Waiting on the batch out now to answer, whichever way it goes (restore, which
-  // sends nothing until the queue is empty).
-  let flushWaiters: (() => void)[] = [];
+  // Waiting on the request out now (a batch, or a restore) to answer, whichever way it
+  // goes: restore, which sends nothing while anything else is out.
+  let outWaiters: (() => void)[] = [];
   // The draft's create while one is out, so a link asked for mid-create (saveDraft)
   // waits on that one instead of starting a second.
   let creating: Promise<void> | undefined;
@@ -1020,7 +1020,7 @@ function create() {
         // retry a failing save about once a second for as long as it failed.
         if (!failed && pending.length) scheduleFlush();
       }
-      for (const done of flushWaiters.splice(0)) done();
+      for (const done of outWaiters.splice(0)) done();
     }
   }
 
@@ -1257,7 +1257,11 @@ function create() {
    *
    * Edits still queued go first. Sent after the restore, they would land on top of the
    * restored list and put back pieces of what it just undid; sent before, they are part
-   * of the state the server keeps, so nothing typed is lost either way.
+   * of the state the server keeps, so nothing typed is lost either way. And an edit
+   * typed while the restore is out waits for its answer, as one typed during a save
+   * waits for that (inFlight): sent alongside, it could reach the server first and be
+   * undone by the restore, and its own answer would take it off the queue with nothing
+   * left to put back.
    *
    * False when nothing changed: offline, a save that isn't landing, the point gone or
    * the request refused. The list on screen is then left as it was.
@@ -1267,7 +1271,7 @@ function create() {
     const myEpoch = epochRef.value;
     while (pending.length || inFlight) {
       const queued = pending.length;
-      if (inFlight) await new Promise<void>((done) => flushWaiters.push(done));
+      if (inFlight) await new Promise<void>((done) => outWaiters.push(done));
       else {
         clearTimeout(flushTimer);
         await flush();
@@ -1276,6 +1280,7 @@ function create() {
       // no progress: the batch was refused, or there's no connection to send it over
       if (pending.length && pending.length >= queued) return false;
     }
+    inFlight = true;
     let res: { snapshot?: ListSnapshot };
     try {
       res = await $fetch<{ snapshot: ListSnapshot }>("/api/edit/restore", {
@@ -1285,6 +1290,14 @@ function create() {
       });
     } catch {
       return false;
+    } finally {
+      if (myEpoch === epochRef.value) {
+        inFlight = false;
+        // what was typed meanwhile goes now: on top of the restored list, or of the
+        // list as it was when the restore didn't happen
+        if (pending.length) scheduleFlush();
+      }
+      for (const done of outWaiters.splice(0)) done();
     }
     if (!res?.snapshot) return false;
     // Restored either way; only the session that asked shows it.

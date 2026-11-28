@@ -12,6 +12,8 @@
     "An imported or pasted product with a rating below zero, such as a -15F bag, links to its own catalog entry.",
     "When a link can't be copied for you, the box showing it has it selected the first time too.",
     "The privacy policy, help and the gear Sharing panel say a shared gear link shows food packed in a kit, instead of promising none.",
-    "A calorie figure typed or imported as “2.700” reads as 2,700, as a price does, instead of 3."
+    "A calorie figure typed or imported as “2.700” reads as 2,700, as a price does, instead of 3.",
+    "An edit typed while a list is being restored now lands on top of it instead of going missing.",
+    "In a kit, the add field's suggestions no longer take the lit item on the Enter that confirms Japanese or Chinese input."
   ]
 }

@@ -120,19 +120,19 @@ watch(
 // (ItemInput), and for its reason: in the page's flow they pushed everything under the
 // kit down and back with each letter typed, and read as part of the kit. So they are
 // a listbox the field owns: up while the field has focus, one row lit (the one Enter
-// takes, the first until an arrow moves it), flipped above the field near the window's
-// floor.
+// takes, the first until an arrow moves it), on the same card, in the room the keyboard
+// leaves (useSuggestPlacement), hung from the add row.
 const addId = useId();
 const addFocused = ref(false);
 const active = ref(0);
 watch(choices, () => (active.value = 0));
 const menuOpen = computed(() => addFocused.value && choices.value.length > 0);
-const menuEl = useTemplateRef<HTMLElement>("menuEl");
-const { above, place } = useMenuPlacement(menuEl, { side: "start" });
-// placed as it opens, and again as its height changes with what is typed
-watch([menuOpen, () => choices.value.length], ([open]) => open && nextTick(place));
+const addRow = useTemplateRef<HTMLElement>("addRow");
+const { above, room } = useSuggestPlacement(() => addRow.value, () => menuOpen.value);
 function onAddKey(e: KeyboardEvent) {
   if (e.key === "Enter") {
+    // an input method confirming a composition, not a pick (ItemInput's rule too)
+    if (e.isComposing) return;
     e.preventDefault();
     const g = choices.value[active.value] ?? choices.value[0];
     if (g) add(g);
@@ -278,7 +278,7 @@ watch(
     </template>
 
     <template v-if="!readonly" #after>
-      <div class="kitsec__add">
+      <div ref="addRow" class="kitsec__add">
         <input
           ref="addEl"
           v-model="addQuery"
@@ -302,13 +302,18 @@ watch(
              press inside the control, and letting it take focus would close the menu
              under the pointer before the click landed -->
         <Transition name="menu">
-          <div v-if="menuOpen" ref="menuEl" class="popover kitsec__menu" :class="{ 'is-above': above }">
-            <ul :id="`${addId}-list`" class="kitsec__choices" role="listbox" aria-label="Your gear">
+          <div
+            v-if="menuOpen"
+            class="popover ac__menu kitsec__menu"
+            :class="{ 'ac__menu--above': above }"
+            :style="room != null ? { '--ac-room': `${room}px` } : undefined"
+          >
+            <ul :id="`${addId}-list`" class="ac__list" role="listbox" aria-label="Your gear">
               <li
                 v-for="(g, i) in choices"
                 :id="`${addId}-${i}`"
                 :key="g.id"
-                class="kitsec__choice"
+                class="ac__opt kitsec__choice"
                 :class="{ 'is-active': i === active }"
                 role="option"
                 :aria-selected="i === active"
@@ -379,52 +384,16 @@ watch(
 .kitsec__none {
   margin: var(--space-1) 0 0;
 }
-/* THE CHOICES, on the card a list's suggestions come on (ItemInput's .ac__menu, whose
-   figures these are): the shared .popover surface, hung from the section's left edge
-   as that one hangs from its row's, the rows inset on the popover's concentric radius.
-   They were a bordered box in the page's flow with a hairline between rows, a second
-   look for the same act two tabs apart. The folder's collapse clip lets any .popover
-   out (atoms/folder.scss), so the last kit's card isn't cut off at the section's foot. */
+/* THE CHOICES, on the card a list's suggestions come on (.ac__menu, .ac__list and
+   .ac__opt in atoms/controls.scss): the shared .popover surface, hung from the section's
+   left edge as that one hangs from its row's. They were a bordered box in the page's
+   flow with a hairline between rows, a second look for the same act two tabs apart. The
+   folder's collapse clip lets any .popover out (atoms/folder.scss), so the last kit's
+   card isn't cut off at the section's foot. As wide as the list's, inside the section. */
 .kitsec__menu {
-  position: absolute;
-  left: 0;
-  top: calc(100% + var(--space-1));
-  z-index: var(--z-autocomplete);
   width: min(40rem, 100%);
-  padding: 0 var(--space-2);
-  overflow: hidden;
-  transform-origin: top left;
-}
-/* no room under the field (useMenuPlacement): it hangs over it, and the shared menu
-   entrance mirrors itself for .is-above (controls.scss) */
-.kitsec__menu.is-above {
-  top: auto;
-  bottom: calc(100% + var(--space-1));
-  transform-origin: bottom left;
-}
-/* the scroller, inside the card's padding so its bar never rides the corners; the cap
-   is the list menu's ten and a half rows, the half row being the cue that it scrolls */
-.kitsec__choices {
-  padding: var(--space-2) 0;
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 50dvh);
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-  overscroll-behavior: contain;
 }
 .kitsec__choice {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  border-radius: var(--popover-item-radius);
   color: var(--foreground-primary);
-  cursor: pointer;
-}
-/* one lit row: the pointer's, or the one Enter takes */
-.kitsec__choice.is-active {
-  background: var(--background-hover);
 }
 </style>
