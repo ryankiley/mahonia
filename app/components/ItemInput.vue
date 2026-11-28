@@ -9,7 +9,7 @@ import { foldKeepingPlus, highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys } from "~~/shared/catalogMatch";
-import { compareVersions, fitOf, groupProducts, leftoverWords, beginsVersion, narrowVersions, nearestVersion, type CatalogProduct } from "~~/shared/catalogProducts";
+import { compareVersions, groupProducts, leftoverWords, beginsVersion, narrowVersions, nearestVersion, type CatalogProduct } from "~~/shared/catalogProducts";
 import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
 import { formatVolume, isWaterName, waterMenu, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
@@ -269,16 +269,19 @@ const versionRows = computed(() => (sizing.value ? narrowVersions(shown.value, s
  *  beside its "Active Noise Cancellation"), the model itself. */
 const versionLabel = (r: CatalogResult) => tidyText(r.variant || nameAfterBrand(r.brand, r.name));
 
-// WHICH VERSION IS LIT. With nothing typed: the fit last picked on this device, where two
-// versions state one (the Men's / Women's pair is most of what comes in versions), else
-// the one most people pick, which is the first the search sent. Once words narrow the
-// rows it is the one they most nearly say, or the typed size itself when nothing fits.
-const FIT_KEY = "gear.fit.v1";
-function rememberedFit(): string | null {
+// WHICH VERSION IS LIT. With nothing typed: the one most people pick, which is the first
+// the search sent. Once words narrow the rows, the one they most nearly say, or the typed
+// size itself when nothing fits.
+//
+// Not the fit you picked last. That was kept for a day (2026-11-27) and taken out: a
+// remembered Men's or Women's is a fact about the person, it saved one arrow key, and a
+// list built for someone else flipped it anyway. Nothing about who you are is remembered
+// to choose a version. The value it left in browsers is cleared below.
+if (import.meta.client) {
   try {
-    return localStorage.getItem(FIT_KEY);
+    localStorage.removeItem("gear.fit.v1");
   } catch {
-    return null; // private mode, blocked storage: no memory, no harm
+    /* storage blocked: there is nothing stored to clear */
   }
 }
 function pointAtVersion() {
@@ -290,11 +293,7 @@ function pointAtVersion() {
   let at = versionRows.value.length
     ? nearestVersion(versionRows.value)
     : Math.max(0, options.value.findIndex((o) => !("other" in o)));
-  if (!sizingText.value) {
-    const fit = rememberedFit();
-    const mine = fit ? versionRows.value.findIndex((r) => fitOf(r.variant) === fit) : -1;
-    at = mine >= 0 ? mine : Math.max(0, versionRows.value.indexOf(p.rows[0]!));
-  }
+  if (!sizingText.value) at = Math.max(0, versionRows.value.indexOf(p.rows[0]!));
   active.value = options.value.length ? at : -1;
   scrollActiveIntoView();
 }
@@ -531,15 +530,6 @@ function selectResult(r: CatalogResult) {
   });
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});
-  // the fit this pick states is the one the next Men's / Women's pair opens on
-  const fit = fitOf(r.variant);
-  if (fit) {
-    try {
-      localStorage.setItem(FIT_KEY, fit);
-    } catch {
-      /* no storage: the next pair opens on the most picked */
-    }
-  }
   // tidied, because picking with Enter never unfocuses the field and the props.initial
   // watcher only syncs an UNfocused one — so the straight spelling would sit in the box
   // while state already held the curly one, until a blur happened to heal it

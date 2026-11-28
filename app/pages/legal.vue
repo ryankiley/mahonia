@@ -51,12 +51,6 @@ useHead({
           assumption.
         </p>
         <p>
-          <strong>Your usual fit</strong>, Men’s or Women’s, is remembered from the gear you pick, so
-          a product sold in both opens on the one you usually choose. Like body weight, it’s saved
-          <strong>on this device only</strong> and never sent to the server. Clearing this site’s data
-          in your browser forgets it.
-        </p>
-        <p>
           Importing a map file stores the line your <strong>route</strong> follows, and that’s the only
           geography Mahonia keeps; a recorded track often starts where you parked, which
           is sometimes where you live. So it’s <strong>yours alone</strong>: it never appears on

@@ -10,8 +10,8 @@
 // What's pinned: one option per product, saying how many versions; the step's heading and
 // size-led rows, with the whole product still in each option's accessible name; narrowing
 // by typing; the pick that comes out of it being the plain catalog pick; a size the
-// catalog lacks landing as the person's own; and the fit last picked opening the next
-// pair. happy-dom lays nothing out, so "shows" means the text is in the row's own visible
+// catalog lacks landing as the person's own; and the version most people pick lit, never a
+// remembered fit. happy-dom lays nothing out, so "shows" means the text is in the row's own visible
 // text, not its hidden prefix.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
@@ -312,20 +312,28 @@ describe("leaving the version step for another product", () => {
   });
 });
 
-describe("the fit last picked", () => {
-  it("is the version the next Men's / Women's pair opens on", async () => {
-    // nothing remembered: the most picked, the first sent
+describe("which version is lit", () => {
+  it("is the one most people pick, and remembers nothing about whoever picks", async () => {
+    // a Women's pick, then the same pair again: it opens on the most picked (the first sent)
     const first = await menuFor(PAIR, "ghost whisperer");
     await openVersions(first);
-    expect(options(first.w).filter((o) => o.classes("is-active")).map((o) => o.find(".ac__size").text())).toEqual(["Men’s Medium"]);
-    // pick the Women's
     await key(first.w, "ArrowDown");
     await key(first.w, "Enter");
     expect(first.commits()).toEqual([expect.objectContaining({ catalogItemId: 22 })]);
     first.w.unmount();
-
     const again = await menuFor(PAIR, "ghost whisperer");
     await openVersions(again);
-    expect(options(again.w).filter((o) => o.classes("is-active")).map((o) => o.find(".ac__size").text())).toEqual(["Women’s"]);
+    expect(options(again.w).filter((o) => o.classes("is-active")).map((o) => o.find(".ac__size").text())).toEqual(["Men’s Medium"]);
+    // and nothing was written to the device to choose it by
+    expect(Object.keys(localStorage)).toEqual([]);
+  });
+
+  // the module clears the key once, on load (before this suite can set it); what a test
+  // can hold is that a value still sitting there chooses nothing
+  it("ignores a fit an earlier version of the menu left on the device", async () => {
+    localStorage.setItem("gear.fit.v1", "womens");
+    const m = await menuFor(PAIR, "ghost whisperer");
+    await openVersions(m);
+    expect(options(m.w).filter((o) => o.classes("is-active")).map((o) => o.find(".ac__size").text())).toEqual(["Men’s Medium"]);
   });
 });
