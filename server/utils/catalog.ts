@@ -149,9 +149,7 @@ const CATALOG_NEON_DDL: string[] = [
   `CREATE EXTENSION IF NOT EXISTS pg_trgm`,
   `CREATE EXTENSION IF NOT EXISTS unaccent`,
   // No trigram index: the search's word_similarity() call is a function over a
-  // different expression, which a GIN trigram index cannot serve. Delete this DROP
-  // once it has deployed.
-  `DROP INDEX IF EXISTS idx_catalog_trgm`,
+  // different expression, which a GIN trigram index cannot serve.
 ];
 
 /** Idempotently create the catalog table + indexes (memoized per process). */
