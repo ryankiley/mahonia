@@ -282,7 +282,7 @@ describe("the /gear page's vault calls", () => {
     const search = () => document.querySelector<HTMLInputElement>(".vault__catalog .ac__input")!;
     const addButton = () => document.querySelector<HTMLButtonElement>(".dlg__actions .btn--primary")!;
     const openForm = async (w: ReturnType<typeof mount>) => {
-      await w.get(".vault__tabadd").trigger("click");
+      await w.get(".vault__add").trigger("click");
       await vi.waitFor(() => expect(dialog()).not.toBeNull());
     };
 
@@ -586,8 +586,8 @@ describe("the /gear page's words and names", () => {
     listRows = [entry(1, "Tent"), entry(2, "Quilt")];
     const w = await openPage();
     const search = w.get(".vault__searchwrap input");
-    expect(search.attributes("placeholder")).toBe("Search your gear…");
-    expect(search.attributes("aria-label")).toBe("Search your gear");
+    expect(search.attributes("placeholder")).toBe("Search…");
+    expect(search.attributes("aria-label")).toBe("Search");
 
     // an aria-label replaces the trigger's contents, so it has to carry the order too
     const sort = w.get(".vault__view .optmenu__btn");
