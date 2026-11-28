@@ -50,7 +50,7 @@ const dev = import.meta.dev;
         </p>
         <!-- not for a 404: its stack is the router saying "no such page", and in dev it
              buried the page under half a screen of node_modules paths -->
-        <pre v-if="dev && !notFound" class="t-sm err__dump">{{ error }}</pre>
+        <pre v-if="dev && !notFound" class="err__dump">{{ error }}</pre>
       </div>
     </main>
   </NuxtLayout>
@@ -67,6 +67,7 @@ const dev = import.meta.dev;
    code, left-aligned, across the column. */
 .err__dump {
   align-self: stretch;
+  font-size: var(--text-base); /* a <pre>: undo the browser's smaller monospace size */
   text-align: left;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

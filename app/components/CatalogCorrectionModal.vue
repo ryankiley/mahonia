@@ -69,21 +69,21 @@ async function onSubmit() {
     <template v-if="target">
       <h2 class="t-label panel__title">Fix catalog weight</h2>
       <p class="dlg__item">{{ target.itemName }}</p>
-      <p class="t-sm t-muted dlg__lede">
+      <p class="t-muted dlg__lede">
         The catalog says {{ formatWeight(target.catalogWeightMg, target.displayUnit) }}. A fix
         here changes it for everyone, not just your list.
       </p>
 
       <label class="dlg__field">
-        <span class="t-sm t-muted">Correct weight</span>
+        <span class="t-muted">Correct weight</span>
         <input ref="weightField" v-model="weight" class="field" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" @input="edited = true" @keydown.enter="onSubmit" />
       </label>
       <label class="dlg__field">
-        <span class="t-sm t-muted">Source link <em>(a maker’s or shop’s page applies it right away)</em></span>
+        <span class="t-muted">Source link <em>(a maker’s or shop’s page applies it right away)</em></span>
         <input v-model="sourceUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
       </label>
       <label class="dlg__field">
-        <span class="t-sm t-muted">Note (optional)</span>
+        <span class="t-muted">Note (optional)</span>
         <input v-model="reason" class="field" maxlength="200" @keydown.enter="onSubmit" />
       </label>
 

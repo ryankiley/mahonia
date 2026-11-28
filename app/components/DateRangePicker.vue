@@ -178,7 +178,7 @@ onMounted(() => {
       </button>
       <!-- polite, not assertive: the month changing is feedback on an action the
            reader just took, not an interruption -->
-      <span class="t-sm cal__month" aria-live="polite">{{ monthLabel }}</span>
+      <span class="cal__month" aria-live="polite">{{ monthLabel }}</span>
       <button
         type="button"
         class="btn btn--icon btn--ghost cal__nav foreground-quiet"
@@ -209,7 +209,7 @@ onMounted(() => {
           translate: `calc(var(--icon-btn) * ${pip.col}) calc((var(--icon-btn) + var(--space-half)) * ${pip.row})`,
         }"
       />
-      <span v-for="(w, i) in WEEKDAYS" :key="i" class="t-sm t-muted cal__wd" aria-hidden="true">{{ w }}</span>
+      <span v-for="(w, i) in WEEKDAYS" :key="i" class="t-muted cal__wd" aria-hidden="true">{{ w }}</span>
       <!-- keyed by DATE, not index: a month change must replace these nodes, not
            repaint them in place under whatever still holds focus -->
       <template v-for="(c, i) in cells" :key="c ? c.iso : `pad-${i}`">

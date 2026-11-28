@@ -96,7 +96,7 @@ useHead({
       </div>
 
       <template v-if="tab === 'gear'">
-        <p class="t-sm t-muted sharedgear__count">{{ count }}</p>
+        <p class="t-muted sharedgear__count">{{ count }}</p>
         <VaultSection
           v-for="section in sections"
           :key="section.key"

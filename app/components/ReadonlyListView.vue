@@ -274,7 +274,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
           </span>
           <!-- the owner's note on the day, on its own line under the figures, in the
                same voice an item's note takes on this page -->
-          <p v-if="d.note" class="t-sm view__daynote">{{ d.note }}</p>
+          <p v-if="d.note" class="view__daynote">{{ d.note }}</p>
         </li>
       </ol>
     </section>
