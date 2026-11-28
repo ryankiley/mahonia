@@ -1,6 +1,6 @@
 import { CLAIMED_KEY_PREFIX, accountSlot, copyReadableBy, isClaimedKey, type LocalListRecord } from "~~/shared/localList";
 import { idbRequest } from "~~/shared/idb";
-import { sessionAccount } from "../utils/sessionOwner";
+import { sessionAccount, sessionAccountNames } from "../utils/sessionOwner";
 
 // Thin promise wrapper over IndexedDB — the on-device backing for the editor's op
 // queue (see shared/localList.ts). One object store, key→LocalListRecord. Every
@@ -36,6 +36,13 @@ const tx = <T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
 // account or, older still, with nothing. It is read by the account it is stamped
 // for (by anyone, with no stamp to compare) and moves to the reader's slot as it
 // is read, so nothing typed offline is lost to the upgrade.
+//
+// The same move takes over a copy filed under the marker the account went by before
+// markers were stored (sessionAccountNames' `was`): from its slot under that marker,
+// or from the list's own key with that marker's stamp. An app shell from before
+// still writes there, so that slot can hold a copy while the account's own does too.
+// The one with unsent edits is then the one to have: it replaces a copy with nothing
+// unsent, and waits where it is, for a later read, behind one that has some.
 
 // ONE READ HELD FOR THE LOAD THAT ASKED FOR IT. The editor page reads the list it is
 // opening before the editor mounts (readAhead, useGearList), and the load that follows
@@ -82,21 +89,31 @@ export function useLocalListStore() {
   async function get(key: string): Promise<LocalListRecord | undefined> {
     if (!enabled) return undefined;
     try {
-      const at = slotFor(key);
-      if (!at) return undefined;
-      const record = await read(at.slot);
-      if (record || !at.account) return record;
+      if (!isClaimedKey(key)) return await read(key);
+      const who = sessionAccountNames();
+      if (!who) return undefined;
+      const slot = accountSlot(key, who.account);
+      const record = await read(slot);
+      // Best-effort, and written before the old one is dropped: a move cut short
+      // leaves the old copy to be read again, never neither.
+      const moveFrom = async (from: string, old: LocalListRecord) => {
+        const moved: LocalListRecord = { ...old, account: who.account };
+        await tx("readwrite", (s) => s.put(moved, slot))
+          .then(() => tx("readwrite", (s) => s.delete(from)))
+          .catch(() => {});
+        return moved;
+      };
+      if (who.was && !record?.pending?.length) {
+        const from = accountSlot(key, who.was);
+        const old = await read(from);
+        if (old && (!record || old.pending?.length)) return await moveFrom(from, old);
+      }
+      if (record) return record;
       // A copy from before the slots. Another account's is left where it is, for
       // the account it belongs to.
       const old = await read(key);
-      if (!old || !copyReadableBy(key, old, at.account)) return undefined;
-      const moved: LocalListRecord = { ...old, account: at.account };
-      // Best-effort, and written before the old one is dropped: a move cut short
-      // leaves the old copy to be read again, never neither.
-      await tx("readwrite", (s) => s.put(moved, at.slot))
-        .then(() => tx("readwrite", (s) => s.delete(key)))
-        .catch(() => {});
-      return moved;
+      const theirs = old && (copyReadableBy(key, old, who.account) || (!!who.was && copyReadableBy(key, old, who.was)));
+      return old && theirs ? await moveFrom(key, old) : undefined;
     } catch {
       return undefined;
     }
