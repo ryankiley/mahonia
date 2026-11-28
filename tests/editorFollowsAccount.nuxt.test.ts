@@ -19,6 +19,7 @@ import { LIST_CODE_HEADER } from "~~/shared/links";
 import { vaultNormKey } from "~~/shared/vault";
 import type { ListSnapshot } from "~~/shared/types";
 import type { Op } from "~~/shared/ops";
+import type { StampedOp } from "~~/shared/opStamp";
 import { _setFlushBackoff, _setFlushDebounce } from "~/composables/useGearList";
 import { _pendingCapture, _setCaptureDebounce } from "~/composables/useVault";
 import GearEditor from "~/components/GearEditor.client.vue";
@@ -311,6 +312,31 @@ describe("a list opened through an account, when the same person comes and goes"
     wrapper = undefined;
     await settle();
     expect(records.size).toBe(0);
+  });
+
+  // Two tabs on the list, one of them holding an edit it couldn't send. That tab signed
+  // out and kept the edit in the account's place on the device. This one, with nothing
+  // unsent of its own, closes its list when it finds out, and dropping its copy there
+  // must not drop that one.
+  it("leaves alone the edits another tab kept for the account when this one closes", async () => {
+    await signIn("1", "aaaa");
+    const c = await openEditor(`/e/${CODE}`);
+    await vi.waitFor(() => expect(slot("aaaa")?.pending).toEqual([]));
+
+    signOutElsewhere("1");
+    const typedThere: StampedOp = { ...renameOp, from: "othertab", seq: 1 };
+    const kept: LocalListRecord = {
+      snapshot: { ...fresh(), title: RENAME.title },
+      pending: [typedThere],
+      updatedAt: Date.now(),
+      account: "aaaa",
+    };
+    records.set(accountSlot(claimedLocalKey(CODE), "aaaa"), structuredClone(kept));
+
+    await useSession().refresh(true); // this tab finds out: its poll, or coming back into view
+    await vi.waitFor(() => expect(c.snapshot.value).toBeNull());
+    await settle();
+    expect(slot("aaaa")?.pending).toMatchObject([renameOp]);
   });
 
   it("leaves none behind either when the sign-out was in another tab and this page is then left", async () => {
