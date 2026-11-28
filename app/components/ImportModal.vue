@@ -77,7 +77,7 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
     // Rows that name a catalog product word for word arrive linked, as if picked (the
     // matcher is exact-only). One request; if it fails the list still imports, unlinked —
     // the link is a nicety on top of the import, never a condition of it.
-    const linked = await linkToCatalog(list.data.items);
+    const linked = await linkToCatalog(list.data);
     if (mine !== opening) return;
     const data: ListData = { ...list.data, items: linked.items };
     // the backup forwarded whole, meta and content. It was thirteen `x: meta?.x`
@@ -109,7 +109,7 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
   }
 }
 
-async function linkToCatalog(items: ListData["items"]): Promise<{ items: ListData["items"]; matched: number }> {
+async function linkToCatalog({ items, folders }: ListData): Promise<{ items: ListData["items"]; matched: number }> {
   // a backup carries its links already; only unlinked, named rows are worth a question
   if (!items.some((i) => i.catalogItemId == null && i.name.trim())) return { items, matched: 0 };
   try {
@@ -117,7 +117,7 @@ async function linkToCatalog(items: ListData["items"]): Promise<{ items: ListDat
       method: "POST",
       body: { names: items.map((i) => ({ name: i.name, brand: i.brand, variant: i.variant })) },
     });
-    return linkImportedItems(items, matches);
+    return linkImportedItems(items, matches, folders);
   } catch {
     return { items, matched: 0 };
   }

@@ -376,6 +376,40 @@ describe("what a model plausibly sends", () => {
     expect(list.folders[0]!.items.every((r) => r.classification === "consumable")).toBe(true);
   });
 
+  // In a folder that is already food, catalog food stores no class of its own (the
+  // editor's storedClassification), so it follows the folder: made or relinked here,
+  // it reads as base once the folder does.
+  it("leaves catalog food in a food folder following the folder, made or relinked", async () => {
+    const made = await call("create_list", { title: "Day bag", folders: [{ name: "Food", classification: "consumable", items: [{ name: "Builders Bar", catalog_id: BAR }, { name: "Gummies", weight_g: 50 }] }] });
+    expect(made.isError, made.text).toBe(false);
+    const link = made.data.edit_link as string;
+    const code = made.data.share_code as string;
+    const read = async () => (await call("get_list", { share_code: link })).data as { folders: Section[] };
+    const gummies = (await read()).folders[0]!.items.find((r) => r.name === "Gummies")!;
+    expect((await call("edit_list", { edit_link: link, update: [{ id: gummies.id, catalog_id: BAR }] })).isError).toBe(false);
+    const [stored] = await db.select().from(schema.lists).where(eq(schema.lists.shareCode, code));
+    expect((stored!.data as { items: { classification: string | null }[] }).items.map((i) => i.classification)).toEqual([null, null]);
+    expect((await call("edit_list", { edit_link: link, folders: [{ folder: "Food", classification: "base" }] })).isError).toBe(false);
+    expect((await read()).folders[0]!.items.map((r) => r.classification)).toEqual(["base", "base"]);
+  });
+
+  // A weight the caller sends that equals the catalog's is not a disagreement: the row
+  // keeps following the catalog's corrections, made or relinked.
+  it("marks a sent weight overridden only when it differs from the catalog's", async () => {
+    const made = await call("create_list", { title: "Same weight", items: [{ name: "Builders Bar", catalog_id: BAR, weight_g: 68 }, { name: "Shelter", weight_g: 538 }] });
+    expect(made.isError, made.text).toBe(false);
+    const link = made.data.edit_link as string;
+    const code = made.data.share_code as string;
+    const shelter = ((await call("get_list", { share_code: link })).data as { folders: Section[] }).folders[0]!.items.find((r) => r.name === "Shelter")!;
+    expect((await call("edit_list", { edit_link: link, update: [{ id: shelter.id, catalog_id: 3, weight_g: 538 }] })).isError).toBe(false);
+    const [stored] = await db.select().from(schema.lists).where(eq(schema.lists.shareCode, code));
+    const rows = (stored!.data as { items: { name: string; weightOverridden?: boolean; catalogWeightMgAtLink?: number }[] }).items;
+    expect(rows.map((i) => [i.name, i.weightOverridden, i.catalogWeightMgAtLink])).toEqual([
+      ["Builders Bar", false, 68_000],
+      ["Duplex", false, 538_000],
+    ]);
+  });
+
   it("lets a row or folder stay where it is without sinking the rest of the call", async () => {
     const before = (await call("get_list", { share_code: editLink })).data as { folders: (Section & { id: string })[] };
     const folder = before.folders[0]!;

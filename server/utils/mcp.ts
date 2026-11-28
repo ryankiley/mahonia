@@ -38,6 +38,7 @@ import { editLinkPath, normalizeShareCode } from "../../shared/links";
 import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_PERSON_NAME_LEN, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { carrierName } from "../../shared/people";
+import { type CatalogPickOwn, pickFromCatalog, withCatalogPick } from "../../shared/catalogMatch";
 import { CATALOG_CATEGORIES, normKey } from "../../shared/catalogQuality";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { MAX_DISTANCE_M } from "../../shared/trailDistance";
@@ -1161,21 +1162,22 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
     if (!isCatalogId(r.catalog_id)) return notCatalogId(`"${name}"`);
     item.catalogItemId = r.catalog_id;
     // whether the caller gave a figure of their own, decided before the catalog's
-    // arrives (linkCatalog); the reducer keeps the flag either way
+    // arrives; linkCatalog reads it, then sets the flag by whether the two differ
     item.weightOverridden = typeof r.weight_g === "number" && r.weight_g > 0;
   }
   return item;
 }
 
 /**
- * What a row takes from the catalog row it names: the editor's own pick, done here.
- * The cited weight becomes the row's weight unless the caller gave one (then theirs
- * stays and is marked overridden, with the catalog's kept as the baseline the
- * "catalog changed" nudge compares against); brand, variant and gear type fill in
- * where the caller left them blank. An id that names nothing is the caller's
+ * What a row takes from the catalog row it names: the editor's own pick, done here
+ * (pickFromCatalog). What the call sent is the caller's own and stays: a weight (the
+ * catalog's kept as the baseline the "catalog changed" nudge compares against), a
+ * brand, variant, gear type, calorie figure or class; a name the caller typed
+ * differently is theirs, and one the same as the catalog's takes its spelling, so the
+ * editor's live-resolve keeps it current. An id that names nothing is the caller's
  * mistake to hear about, not a silent unlinked row.
  */
-async function linkCatalog(items: Item[]): Promise<string | null> {
+async function linkCatalog(items: Item[], folders: Folder[]): Promise<string | null> {
   const ids = items.map((i) => i.catalogItemId).filter(isCatalogId);
   if (!ids.length) return null;
   const rows = await catalogRowsById(await useCatalogDb(), ids);
@@ -1183,20 +1185,17 @@ async function linkCatalog(items: Item[]): Promise<string | null> {
     if (!isCatalogId(item.catalogItemId)) continue;
     const row = rows.get(item.catalogItemId);
     if (!row) return notInCatalog(item.catalogItemId);
-    item.catalogWeightMgAtLink = row.weightMg;
-    if (!item.weightOverridden) item.unitWeightMg = row.weightMg;
-    if (!item.brand && row.brand) item.brand = row.brand;
-    if (!item.variant && row.variant) item.variant = row.variant;
-    if (!item.commonName && row.commonName) item.commonName = row.commonName;
-    if (item.kcal == null && row.kcal != null) item.kcal = row.kcal;
-    // food and fuel are never base weight, so a consumable row arrives classified, as
-    // the editor's pick does (ItemInput); the other categories can't say how YOU carry
-    // a thing, so they follow the folder
-    if (item.classification == null && row.categoryHint === "consumable") item.classification = "consumable";
-    // the catalog's name for the product, the way a pick stores it, so the editor's
-    // live-resolve keeps it current; a name the caller typed differently is theirs
-    if (sameText(item.name, row.name)) item.name = row.name;
-    else item.nameOverridden = true;
+    const own: CatalogPickOwn = {
+      weightMg: item.weightOverridden ? item.unitWeightMg : undefined,
+      name: sameText(item.name, row.name) ? undefined : item.name,
+      brand: item.brand,
+      variant: item.variant,
+      commonName: item.commonName,
+      kcal: item.kcal,
+      classification: item.classification ?? undefined,
+    };
+    // in place: the plan holds these rows, parents and children by reference
+    Object.assign(item, withCatalogPick(item, pickFromCatalog(row, own, { folderId: item.folderId, folders })));
   }
   return null;
 }
@@ -1395,7 +1394,7 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
   }
   let remembered: Record<string, unknown> | null = null;
   try {
-    const unlinked = await linkCatalog(plan.items);
+    const unlinked = await linkCatalog(plan.items, plan.folders.folders);
     if (unlinked) return fail(unlinked);
     const data: ListData = { folders: plan.folders.folders, items: plan.items };
     // the byline the browser's create gives a list made while signed in
@@ -1726,12 +1725,12 @@ type CatalogRow = CatalogRows extends Map<number, infer R> ? R : never;
  * editor: a typed weight on a catalog-linked row is the owner's, and so is a typed
  * name that differs from the catalog's, which keeps the link and the catalog's
  * corrections from rewriting it. A catalog_id is the editor's own pick, done here
- * (ItemRow.onNameCommit): the link and its weight baseline, the catalog's brand,
+ * (pickFromCatalog): the link and its weight baseline, the catalog's brand,
  * variant, name, gear type and weight, each of which a value given in the same
  * change overrides as the owner's own; null unlinks, and the reducer drops the
- * baseline with the link.
+ * baseline with the link. `folders` are the list's, which a food row's class reads.
  */
-function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["people"], catalogRows: CatalogRows): ItemPatch | string {
+function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["people"], catalogRows: CatalogRows, folders: Folder[]): ItemPatch | string {
   const label = `"${itemDisplayName(it.brand, it.name, it.variant)}"`;
   const patch: ItemPatch = {};
   if (r.name !== undefined) {
@@ -1816,24 +1815,17 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
       if (!isCatalogId(r.catalog_id)) return notCatalogId(label);
       const row = catalogRows.get(r.catalog_id);
       if (!row) return notInCatalog(r.catalog_id);
-      patch.catalogItemId = row.id;
-      patch.catalogWeightMgAtLink = row.weightMg;
-      if (!patch.unitWeightMg) {
-        patch.unitWeightMg = row.weightMg;
-        patch.weightOverridden = false;
-      } else patch.weightOverridden = true;
-      if (r.brand === undefined) patch.brand = row.brand ?? "";
-      if (r.variant === undefined) patch.variant = row.variant ?? "";
-      if (patch.name === undefined) {
-        patch.name = row.name;
-        patch.nameOverridden = false;
-      } else patch.nameOverridden = !sameText(patch.name, row.name);
-      if (r.gear_type === undefined && !it.commonNameOverridden) {
-        patch.commonName = row.commonName ?? "";
-        patch.commonNameOverridden = false;
-      }
-      if (r.kcal === undefined && row.kcal != null) patch.kcal = row.kcal;
-      if (patch.classification === undefined && row.categoryHint === "consumable") patch.classification = "consumable";
+      // what this change sent is the owner's own; so is a gear type typed on the row before
+      const own: CatalogPickOwn = {
+        weightMg: patch.unitWeightMg || undefined,
+        name: patch.name,
+        brand: patch.brand,
+        variant: patch.variant,
+        commonName: r.gear_type !== undefined ? patch.commonName : it.commonNameOverridden ? (it.commonName ?? "") : undefined,
+        kcal: patch.kcal,
+        classification: patch.classification,
+      };
+      Object.assign(patch, pickFromCatalog(row, own, { folderId: it.folderId, folders }));
     }
   }
   return patch;
@@ -1917,7 +1909,7 @@ async function planAdds(rows: unknown[], book: FolderBook, { work, plan }: Work)
   const problem = planned.placeAll(rows, null);
   if (problem) return problem;
   if (work.items.length + planned.items.length > MAX_ITEMS) return `A list holds at most ${MAX_ITEMS} rows; this one has ${work.items.length}, and these rows with the ones nested under them are ${planned.items.length}.`;
-  const unlinked = await linkCatalog(planned.items);
+  const unlinked = await linkCatalog(planned.items, book.folders);
   if (unlinked) return unlinked;
   for (const item of planned.items) plan({ t: "addItem", item });
   return { added: planned.items.length };
@@ -1938,7 +1930,7 @@ async function planUpdates(entries: unknown[], book: FolderBook, { work, ops, pl
   for (const r of rows) {
     const it = work.items.find((i) => i.id === r.id)!;
     const label = `"${itemDisplayName(it.brand, it.name, it.variant)}"`;
-    const patch = rowPatch(r, it, work.people, catalogRows);
+    const patch = rowPatch(r, it, work.people, catalogRows, book.folders);
     if (typeof patch === "string") return patch;
     const before = ops.length;
     if (Object.keys(patch).length) plan({ t: "updateItem", id: it.id, patch });

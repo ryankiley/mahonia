@@ -58,6 +58,7 @@ import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_QTY, MAX_VARIANT_LEN } from "
 import { effectivePersonId, personColor } from "~~/shared/people";
 import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
+import { pickFromCatalog } from "~~/shared/catalogMatch";
 import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseKcal, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel } from "~~/shared/water";
 import { useItemRowFields } from "~/composables/useItemRowFields";
@@ -500,25 +501,21 @@ function onNameCommit(p: NameCommit) {
     // ends up with no baseline at all, not the PREVIOUS product's: the reducer
     // drops a baseline whose link has moved (shared/ops, updateItem).
   } else if (p.catalogItemId != null) {
-    // a catalog pick: store brand/model/variant structured, link, and let
-    // live-resolve keep the name fresh ("" clears any prior brand/variant)
-    patch.catalogItemId = p.catalogItemId;
-    patch.unitWeightMg = p.weightMg;
-    patch.catalogWeightMgAtLink = p.weightMg;
-    patch.weightOverridden = false;
-    patch.brand = p.brand ?? "";
-    patch.variant = p.variant ?? "";
-    patch.nameOverridden = false;
-    // pre-fill the catalog's default common name — unless the user already typed
-    // their own (a rename they want kept), mirroring the nameOverridden gate
-    if (!props.item.commonNameOverridden) {
-      patch.commonName = p.commonName ?? "";
-      patch.commonNameOverridden = false;
-    }
-    // the catalog's cited calories pre-fill like the vault's do: a food pick IS
-    // the product, so its kcal comes along with its weight; absent (any non-food
-    // row) leaves whatever the row already says, same as the vault branch
-    if (p.kcal != null) patch.kcal = p.kcal;
+    // a catalog pick: every value is the product's (pickFromCatalog, the rule an import,
+    // a paste and the connector share), except a gear type the person typed, which is
+    // theirs and outlives the pick
+    const product = {
+      id: p.catalogItemId,
+      name: p.name,
+      brand: p.brand ?? null,
+      variant: p.variant ?? null,
+      weightMg: p.weightMg ?? 0,
+      commonName: p.commonName ?? null,
+      kcal: p.kcal ?? null,
+      categoryHint: p.classification === "consumable" ? "consumable" : null,
+    };
+    const own = props.item.commonNameOverridden ? { commonName: props.item.commonName ?? "" } : {};
+    Object.assign(patch, pickFromCatalog(product, own, { folderId: props.item.folderId, folders: props.list.folders }));
   } else {
     // free text / water / trailing weight → a user-owned custom name: drop the
     // catalog-derived brand/variant AND the catalog link itself — renaming to a

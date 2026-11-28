@@ -354,6 +354,17 @@ describe("pasting a list into an item's name", () => {
     expect(byId(c, "mine")).toMatchObject({ unitWeightMg: 700_000, weightOverridden: true, catalogWeightMgAtLink: 688_000 });
   });
 
+  // a product the catalog has no calorie figure for leaves the person's own, as a pick does
+  it("keeps a calorie figure the person typed when the product has none", async () => {
+    catalog.set("Rice Sides", { ...BAR, id: 3, brand: "Knorr", name: "Rice Sides", kcal: null } as CatalogSearchResult);
+    const c = await open([item({ id: "dinner", name: "my dinner", classification: "consumable", kcal: 640, sortOrder: 0 })]);
+    const w = mountRow(c, "dinner");
+    pasteInto(w, "Rice Sides\nPot", [0, "my dinner".length]);
+    await flushPromises();
+    await vi.waitFor(() => expect(byId(c, "dinner")?.catalogItemId).toBe(3));
+    expect(byId(c, "dinner")!.kcal).toBe(640);
+  });
+
   // a group's weight is its children's; a pick can't stamp one and neither can this
   it("links a group's name but never stamps a weight on it", async () => {
     catalog.set("Lanshan 1 Pro Tent", LANSHAN);
