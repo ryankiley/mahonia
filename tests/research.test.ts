@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { formatResearchFile, loadCommonNames, readResearchFiles } from "../scripts/research";
+import { formatResearchFile, readResearchFiles } from "../scripts/research";
 
 const tempDirs: string[] = [];
 
@@ -46,36 +46,5 @@ describe("research file boundaries", () => {
       '{\n  "rows": [\n    {\n      "name": "Bar",\n      "quote": "~10oz",\n      "quote_unchecked": "community estimate, no maker figure",\n      "kcal": 250\n    }\n  ]\n}\n',
     );
     expect(formatResearchFile({ rows: [{ ...row, quote_unchecked: "" }] })).not.toContain("quote_unchecked");
-  });
-
-  it("only treats a missing common-name map as empty", () => {
-    const dir = fixture({
-      "bad.json": "[",
-      "not-array.json": "{}",
-      "bad-entry.json": '[{"common_name": 42}]',
-      "empty-common-with-bad-identity.json": '[{"brand": 42, "common_name": ""}]',
-      "valid.json": '[{"brand": "Acme", "name": "Pack", "variant": "M", "common_name": "Backpack"}]',
-    });
-
-    expect(loadCommonNames(join(dir, "missing.json"))).toEqual(new Map());
-    expect(() => loadCommonNames(join(dir, "bad.json"))).toThrow("Couldn't read common-name map");
-    expect(() => loadCommonNames(join(dir, "not-array.json"))).toThrow("must be a JSON array");
-    expect(() => loadCommonNames(join(dir, "bad-entry.json"))).toThrow("non-text common_name");
-    expect(() => loadCommonNames(join(dir, "empty-common-with-bad-identity.json"))).toThrow("non-text brand");
-    // the identity is keyed the way the build keys it: a letter size spells out
-    expect(loadCommonNames(join(dir, "valid.json"))).toEqual(new Map([["acme|pack|medium", "Backpack"]]));
-  });
-
-  it("rejects duplicate identities after the build's variant normalization", () => {
-    const dir = fixture({
-      "duplicate.json": JSON.stringify([
-        { brand: "Acme", name: "Pack", variant: "M", common_name: "backpack" },
-        { brand: "acme", name: "pack", variant: "Medium", common_name: "daypack" },
-      ]),
-    });
-
-    expect(() => loadCommonNames(join(dir, "duplicate.json"))).toThrow(
-      "entry 2 duplicates entry 1 for acme|pack|medium",
-    );
   });
 });

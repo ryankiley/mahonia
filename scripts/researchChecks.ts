@@ -117,7 +117,7 @@ function figureBy(q: string, re: RegExp): number | null {
   return before ? inGrams(before[1]!, before[2]!) : figureAfter(q, re);
 }
 
-export function runResearchChecks(files: ResearchFile[], commonNames: Map<string, string> = new Map()): Finding[] {
+export function runResearchChecks(files: ResearchFile[]): Finding[] {
   const out: Finding[] = [];
   // a finding is about a file, and within it a row (its identity in the key); the file is
   // kept apart from the message, and the audit prints it in front (findingText)
@@ -233,7 +233,7 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
       // FOOD WEIGHT BASIS — a pouch meal stores what you carry (pouch included) or
       // says "net". Either the quote shows a packaged/weighed figure, or the variant
       // carries "net"; a row that does neither is ambiguous about 20–30 g.
-      const gearType = researchGearType(r, commonNames);
+      const gearType = researchGearType(r);
       const isPouchMeal = (r.category_hint ?? "").toLowerCase() === "consumable" && POUCH_MEAL.test(gearType);
       if (isPouchMeal) {
         const saysNet = (r.variant ?? "").split(/,\s*/).includes("net");

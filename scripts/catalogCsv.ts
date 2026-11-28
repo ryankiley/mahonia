@@ -154,7 +154,7 @@ export interface CatalogCsvRow {
   brand: string | null;
   name: string;
   // Generated default common name (a CSV column, unlike searchTerms which is derived);
-  // sourced from seed/common-names.json at build time. See scripts/catalogBuild.ts.
+  // the research row's common_name, normalized at build time. See scripts/catalogBuild.ts.
   commonName: string | null;
   variant: string | null;
   // The variant's axes as data (fit, size, temp_f, volume_l, …); null when the row

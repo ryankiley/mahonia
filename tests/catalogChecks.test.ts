@@ -264,7 +264,7 @@ describe("research-level weight conversion", () => {
     rows: [{ brand: "Acme", name: "Ridge 2", variant: "2P", common_name: "tent", category_hint: "shelter", weight_value: 900, weight_unit, weight_source: "manufacturer", source_url: "https://acme.example/ridge", quote: "900 g" }],
   });
   const errors = (f: ResearchFile) => runResearchChecks([f]).filter((x) => x.level === "error").map((x) => x.code);
-  const skipped = (f: ResearchFile) => buildCatalog([f], new Map()).skipped;
+  const skipped = (f: ResearchFile) => buildCatalog([f]).skipped;
   it("reads the unit as the build does: a row that builds isn't refused for convert", () => {
     for (const unit of ["g", " g", "g\n"]) {
       expect(skipped(withUnit(unit))).toEqual([]);

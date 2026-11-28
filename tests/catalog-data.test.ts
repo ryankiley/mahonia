@@ -33,7 +33,7 @@ describe("seed/catalog.csv data quality", () => {
 
   // A traits entry keyed by a gear type no row carries is dead: the variant reader or a
   // check quietly stops firing for that type (a rename through the drift map, a typo), and
-  // fewer findings look like success. Same guard the build puts on common-names.json.
+  // fewer findings look like success.
   it("every EXTRA_TERMS canon in scripts/searchTerms.ts is a noun or a live gear type", () => {
     // A search-only word list hangs off a noun or off a gear type spelled exactly as the
     // catalog spells it (lowercased). A key that is neither matches no row and is dead

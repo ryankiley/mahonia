@@ -35,12 +35,6 @@ export type BuiltRow = {
   kcal: number | null;
 };
 
-// The default gear types, keyed by identity: the hand-authored seed/common-names.json,
-// loaded by scripts/research.ts (the research checks read the same map). Because the key is
-// brand|name|variant, editing any of those three in a research row orphans its entry and
-// the row silently falls back to a different label, so the build reports entries that
-// matched nothing (`orphaned`). New rows carry `common_name` inline; the map is the
-// one-time backfill for everything that predates that.
 export interface CatalogBuild {
   /** The CSV's rows, sorted. */
   rows: BuiltRow[];
@@ -48,17 +42,14 @@ export interface CatalogBuild {
   skipped: string[];
   /** Rows that resolved to no gear type: the build fails on any. */
   missingCommon: BuiltRow[];
-  /** seed/common-names.json keys that matched no row: the build fails on any. */
-  orphaned: string[];
   /** Research rows carrying attributes their variant doesn't state. */
   handWritten: number;
 }
 
-export function buildCatalog(files: readonly ResearchFile[], commonNames: Map<string, string>): CatalogBuild {
+export function buildCatalog(files: readonly ResearchFile[]): CatalogBuild {
   const built: BuiltRow[] = [];
   const seen = new Map<string, string>(); // identity -> source file (for dup reporting)
   const skipped: string[] = [];
-  const usedCommonKeys = new Set<string>(); // which map entries actually matched a row
   let handWritten = 0; // research rows carrying attributes their variant doesn't state
 
   for (const { file, rows, parseError } of files) {
@@ -149,12 +140,9 @@ export function buildCatalog(files: readonly ResearchFile[], commonNames: Map<st
       };
 
       const key = identityKey(out.brand, out.name, out.variant);
-      // A gear type is REQUIRED. Resolve it: the research row's own common_name wins, else the
-      // hand-authored seed/common-names.json map, else a name-token derivation. normalizeGearType
-      // collapses drift (singular/plural, spelling, synonyms) to the canonical label. A row that
-      // resolves to nothing fails the build below — a new catalog entry must ship a gear type.
-      if (commonNames.has(key)) usedCommonKeys.add(key);
-      out.common_name = researchGearType(row, commonNames);
+      // A gear type is REQUIRED: the row's own common_name, normalized so drift (singular/plural,
+      // spelling, synonyms) collapses to the canonical label. A row without one fails the build.
+      out.common_name = researchGearType(row);
       // The row's axes: what its variant states, read mechanically now that the gear type
       // is known ("Regular" is a length on a quilt and a torso on a pack), plus what
       // research wrote by hand. A hand-written value that contradicts the variant ships
@@ -180,15 +168,9 @@ export function buildCatalog(files: readonly ResearchFile[], commonNames: Map<st
   );
 
 
-  // Every catalog row must have a common name (the pick-time default); one that resolved
-  // to nothing (no research common_name, no map entry, no derivable noun) fails the build.
+  // Every catalog row must have a gear type (the pick-time default); one without fails the build.
   const missingCommon = built.filter((r) => !r.common_name);
-  // A map entry that matched no row is dead weight AND a warning sign: its brand/name/variant
-  // was edited in the research file, so that row silently fell back to a derived label instead
-  // of the one authored here. Since 2026-09-05 it fails the build: the row behind an orphan is
-  // labelled by deriveNoun, which may be wrong or blank, and nothing downstream would say so.
-  const orphaned = [...commonNames.keys()].filter((k) => !usedCommonKeys.has(k));
-  return { rows: built, skipped, missingCommon, orphaned, handWritten };
+  return { rows: built, skipped, missingCommon, handWritten };
 }
 
 /** The CSV text for a build's rows, byte for byte what seed/catalog.csv holds. */

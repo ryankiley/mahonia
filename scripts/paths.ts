@@ -9,4 +9,3 @@ import { fileURLToPath } from "node:url";
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const CATALOG_CSV = join(ROOT, "seed", "catalog.csv");
 export const RESEARCH_DIR = join(ROOT, "seed", "_research");
-export const COMMON_NAMES_JSON = join(ROOT, "seed", "common-names.json");
