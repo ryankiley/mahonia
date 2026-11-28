@@ -2151,10 +2151,6 @@ function dismissFix() {
      names so the chevron trails them tightly. */
   max-width: min(40ch, calc(100vw - 5rem));
 }
-/* the collapse chevron button + its rotate + touch tap target are the shared
-   .item__nestcollapse / .item__nestchev recipe in atoms/folder.scss, which it shares
-   with the folder header's chevron — one recipe for the edit row, the packing row
-   (.item__cname--group below), and the share views. */
 .item__qty {
   grid-area: qty;
 }
@@ -2202,9 +2198,6 @@ function dismissFix() {
 .item__trail {
   display: contents;
 }
-
-/* the checklist's amount and weight cells (.item__cqty / .item__cweight) take their
-   nowrap and their right-aligned figure from atoms/item.scss, shared with the read rows */
 
 /* packing / checklist — a big tap target */
 .item--check {
@@ -2274,7 +2267,6 @@ function dismissFix() {
   color: var(--foreground-tertiary);
   font-style: italic;
 }
-/* the unit suffix gap (.item__wunit) is shared with the read rows — atoms/item.scss */
 /* packed = "in the bag", so it reads as done (dimmed), NOT excluded — the check
    mark carries the state; a strikethrough would say "removed/crossed off". */
 .item--done {
@@ -2288,9 +2280,6 @@ function dismissFix() {
   align-items: baseline;
   gap: var(--space-1);
 }
-/* the number input can shrink, so its unit suffix (L / lb) stays on the same line in
-   the narrow columns instead of wrapping below: no rule here, because the reset floors
-   every element's min-width at 0 (reset.scss) */
 /* A DERIVED weight — a group's total, water's litres-to-grams — is read, not typed
    (the input is readonly, and onWeight refuses it). It kept every affordance of a
    field all the same, so the parent of a nested group read as editable (Ryan,
@@ -2379,15 +2368,6 @@ function dismissFix() {
   flex: none;
   width: var(--qty-btn);
 }
-/* A coarse pointer WIDE enough to still be on the grid — a tablet in landscape, a
-   touch laptop. (Below $bp-stack the stepper isn't rendered at all, so this is the
-   only case.) It's the one icon button that doesn't widen to --touch-target there, because
-   --item-col-qty is derived from --qty-btn: at 44px the track would want 132px, and
-   it would take that from the name column on the widest rows in the app.
-   The HEIGHT still grows, so the target is 28×44 — past the 24×24 floor (WCAG 2.5.8)
-   in both directions, and full height under the finger. Neither needs saying here:
-   the width rule above is scoped, so it already outranks .btn--icon's coarse --touch-target
-   width, and that same coarse rule's min-height is what grows the height. */
 /* the pop when the stepper moves the number — the shared `num-pop` keyframe
    (main.scss), the one the big total takes when it changes. blur(0) at rest, never
    `none`: the filter context has to persist between runs or WebKit drops it. */
@@ -2398,31 +2378,9 @@ function dismissFix() {
 .item__qtyfield.is-popping {
   animation: num-pop var(--spring-pop-dur) var(--spring-pop) both;
 }
-/* The unit picker's wrap (.item__unitwrap) is an OptionMenu's root, and that root is
-   already what the pair needs — positioned (.menu), and a rigid inline-flex box that
-   centres its contents (.optmenu, OptionMenu.vue) — so no box is declared for it here.
-   That centring is load-bearing in this cell:
-     it centres the chevron ON the unit's text rather than letting it stretch.
-     What it CANNOT do is hand a baseline up: a flex box that centres its own contents
-     has none to offer, so a baseline-aligned parent gets a SYNTHESIZED one — a value the
-     spec leaves the engine to derive. Where the engines disagree about it, that is what
-     put the "lb" a fraction above the "0.03" it belongs to, visibly in Safari. The mobile
-     weight cell no longer asks: it centres too (see .item__weight in the stack block
-     below), which needs no baseline from this wrap at all.
-     THE DESKTOP CELL ABOVE STILL ASKS, AND THAT IS FINE — measured, not assumed.
-     Chromium and WebKit both land the unit's foreground within half a pixel of the
-     number's at 1100px, the same residue the fixed mobile cell reads, so there is nothing
-     here to fix and no reason to spend the desktop grid's baseline on it. What actually
-     diverges is a cell with NO TEXT ANYWHERE (the mobile line's two icon-only clusters);
-     a centred wrap like this one leads with a text span, and both engines take its
-     baseline from that. Re-measure from FOREGROUND, never from the box model, if this is
-     ever revisited: the box formula reports a phantom error here because WebKit sizes the
-     field 24px against a 20.8px line box. */
 .item__unit {
   flex: none;
 }
-/* (The unit trigger's touch hit area — --touch-target, pulled back onto the line — is
-   drawn with My Gear's row picker: atoms/item.scss.) */
 /* Quiet by default — one of these sits on every row, and a column of hard chevrons
    would shout louder than the weights they belong to. That resting step
    (--foreground-tertiary, and the pin that keeps it from shrinking) is the shared .chev
@@ -2430,16 +2388,11 @@ function dismissFix() {
    than the --foreground-primary every other chevron takes, because this one lifts on the
    ROW being hovered, not on its own trigger — a column of full-ink marks following the
    pointer down the list would read as the loud thing the quiet default exists to avoid. */
-/* Keyboard focus has to light the mark too, or the affordance exists for pointers only:
-   that half is the shared rule (atoms/item.scss), on the wrap's :focus-within. */
 @media (hover: hover) and (pointer: fine) {
   .item:hover .item__unitchev {
     color: var(--foreground-secondary);
   }
 }
-/* transparent native select over the unit text — the same construction the total's
-   unit picker uses. The label stays the only thing drawn; this just makes it a
-   control. Sized to the label so it can't widen the weight column. */
 /* the classification mark. --icon-btn wide, and the class track is derived from exactly
    that one box (tokens.scss). */
 .item__cls {
@@ -2679,8 +2632,6 @@ function dismissFix() {
   flex: none;
   color: var(--foreground-tertiary);
 }
-/* row controls (note + remove) stay visible at rest; the note button is lit when
-   a note exists, and hover just darkens for feedback */
 .item__actions {
   display: flex;
   align-items: center;
@@ -2707,10 +2658,6 @@ function dismissFix() {
 .item__actions {
   --tip-shift: var(--icon-inset);
 }
-/* the grip, the vault tick, duplicate, remove and the qty ± (which sit mid-row but are
-   the same kind of thing) rest at the lesser foreground and lift under the pointer — the
-   .foreground-quiet atom (controls.scss), which the three menu triggers wear too; one class
-   is what keeps them the same weight across the row */
 /* banked: the tick holds at primary foreground so the row keeps saying so */
 .item__vault-btn.is-active,
 .item__vault-btn.is-active:hover {
@@ -2893,18 +2840,6 @@ function dismissFix() {
   background: var(--background-secondary);
   border-radius: var(--radius-1);
 }
-/* grip is the last icon in the trailing actions cluster (note · remove · grip); the
-   drag affordance + flush-right optics are the .grip atom (controls.scss), sizing and
-   colour .btn--icon / the shared colour rule above */
-
-/* The row's controls used to hide at rest on desktop and fade in on hover, to keep a
-   long list quiet. That reads as an empty row until you point at it: the actions are
-   undiscoverable, and the row's right half visibly re-populates under the cursor as
-   as you scan down the list. A row that simply shows its controls has no flicker to
-   have.
-   They are ghosted (--foreground-tertiary) at rest and darken on hover instead, so the
-   row is calm without being blank. Nothing here is opacity-animated any more, which also
-   retires the Safari layer-snap workaround the old rule needed. */
 
 /* the .reveal recipe now lives in atoms/controls.scss — three surfaces disclose the
    same way, and while it was scoped here the other two got the class names with none
@@ -2913,10 +2848,6 @@ function dismissFix() {
 .reveal-leave-to {
   --reveal-offset: 0;
 }
-/* (no transform on the content: the line unfolds in one direction — atoms/controls.scss) */
-/* the editing↔packing row swap lives in atoms/item.scss now — it keys off the editor
-   body's data-mode, which no scoped block can see, and the fade that used to be a
-   <Transition> here is the rowmode-fade animation there. */
 /* the note tucks up under the name (into the 36px field's dead space); the offset
    lives on the wrapper, not the input, so the grid track sizing stays clean.
    Cancelling that dead space puts the caption's line box flush under the name's — the
@@ -3035,18 +2966,6 @@ function dismissFix() {
 .item__gtype-dot {
   color: var(--foreground-tertiary);
 }
-/* note — a single-line live-text field under the item (no box, no resize handle).
-   Reads as a caption: the lightest foreground (matching the "Add an item" placeholder) and
-   italic, to sit quietly beneath the item name. The recipe (.item__note) is the shared
-   caption field, atoms/item.scss, which the trip plan's day note wears too. Its upward
-   tuck under the name lives on the .reveal--note wrapper (so the grid track sizing
-   stays clean); the element just fills its cell.
-   Only the NOTE is a textarea (the gear type beside it is still a one-value field):
-   one line when it holds one, as many as the text takes, never a scrollbar and never a
-   drag handle — the two defaults .head__title drops for the same reason. fitNote()
-   covers the engines without field-sizing. `rows="1"` is the floor, so an empty note
-   costs exactly the line the <input> did and the row's height is unchanged until there
-   is something to wrap. */
 /* THE CATALOG'S MARK in the weight cell. The glyph is the row's own size (--icon, as
    the class ring and the grip are): at a step smaller it read as a different kind of
    thing from the icons a few px away (Ryan, 2026-11-27: "seems small vs the other
@@ -3079,8 +2998,6 @@ function dismissFix() {
     inset: calc((100% - var(--touch-target)) / 2);
   }
 }
-/* the nested block's thread-line container is the shared .nest-block atom
-   (atoms/item.scss), rendered identically by ReadonlyItemRow */
 /* the collapse machinery (1fr↔0fr grid slide + clip) is the shared .nestcollapse atom
    (atoms/item.scss). The editor's only addition: lift the clip while a child's overlay
    is open or a drag is live, so a child's autocomplete dropdown / lifted row isn't
@@ -3092,13 +3009,6 @@ function dismissFix() {
 .nestcollapse:not([data-collapsed]) > .nest-block:has(button:focus-visible) {
   overflow: visible;
 }
-/* drag-to-reorder: the insertion line when a nested sibling drops at the end of this
-   group (.item-nest__droptail; the folder's tail line stands down for it — see
-   FolderSection) is drawn with the folder's own — atoms/item.scss */
-/* ever-present "Add an item" at the bottom of a group, so growing a group needs no hover.
-   It sits inside the thread line with the rest of the nested block; no horizontal rule.
-   Its look IS the folder add row's — one shared add-affordance atom (atoms/item.scss),
-   including the mobile compaction. */
 
 /* the ⋯ overflow menu is mobile-only — desktop shows every action inline (below) */
 .item__more {
@@ -3129,10 +3039,6 @@ function dismissFix() {
   --swatch: var(--icon-sm);
   margin-right: calc((var(--icon) - var(--swatch)) / 2);
 }
-/* the carrier TAG (the shared .item__carrier atom, atoms/item.scss) is the checklist
-   face's and the read rows'; this face says it with the trigger's dot, on every width */
-/* the glyph column down both of this row's menus is .menu__item's own now
-   (atoms/controls.scss) — the person entries take their dot through it too */
 /* picker entries: the chosen one wears the on-plate */
 .item__personpick.is-active {
   background: var(--background-selected);
@@ -3344,8 +3250,6 @@ function dismissFix() {
     width: var(--touch-target);
     padding: calc((var(--touch-target) - var(--icon-btn)) / 2);
   }
-  /* (The grip's box is sized with its place in the cluster, further down: it is the
-     one box here that isn't --touch-target wide.) */
   /* mobile trailing cluster = carrier (on a list that names people) · ⋯ · grip.
      Everything else the row can do — the note, the nesting actions, the vault save
      and the removal — moves into the ⋯ menu, which names each one in words rather
@@ -3621,8 +3525,6 @@ function dismissFix() {
     grid-column: 2;
     grid-row: 3;
   }
-  /* the qty/weight cells' compact box metrics are shared with the read rows —
-     atoms/item.scss */
   .item__cweight {
     grid-column: 3;
     grid-row: 3;
@@ -3638,12 +3540,4 @@ function dismissFix() {
     margin-top: 0;
   }
 }
-
-/* The narrowest-phone block that used to live here (max-width: 360px and pointer:
- * coarse — wrap the meta line, right-align the wrapped actions) is gone: both of its
- * declarations moved up into the mobile block unconditionally when the quantity
- * stepper widened the line. A breakpoint was the wrong shape for the rule anyway —
- * it named the one width at which nowrap was known to fail, and the answer it gave
- * ("let it wrap") is the answer at every width where it fails. See .item__meta.
- */
 </style>

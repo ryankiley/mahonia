@@ -180,6 +180,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* A line's first and last quote or bracket hang outside the measure, for a cleaner
+     edge. Safari only. Prose alone: Safari leaves the hung mark out of the box's width,
+     so in a field or a one-line box that clips it is drawn past the edge and cut off. */
+  hanging-punctuation: first last;
 }
 /* h3 rides with h2 rather than stepping down. Prose here is legal copy and About —
    two levels deep at most, where a third size would be a distinction the writing never
@@ -211,8 +215,8 @@
 .prose li {
   padding-left: var(--space-4);
   position: relative;
-  /* No leading hang here. The root hangs a line's first quote outside the measure
-     (reset.scss), which on a bare paragraph is the margin and on one of these is the
+  /* No leading hang here. .prose hangs a line's first quote outside the measure
+     (above), which on a bare paragraph is the margin and on one of these is the
      gutter the mark sits in: an entry opening with “ put its quote against the dot and
      read as a bullet with no gap. The trailing hang stays; that edge is still free. */
   hanging-punctuation: last;

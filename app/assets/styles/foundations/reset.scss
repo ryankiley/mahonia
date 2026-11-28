@@ -110,15 +110,12 @@ body {
   // runs of text.)
 }
 
-// hanging-punctuation — punctuation hangs outside the measure for a tighter
-// rag. Safari-only, harmless elsewhere (progressive enhancement).
 // text-wrap: pretty — no orphan on the last line of a paragraph, and in Safari a
 // more even rag through the whole block. Chrome 117 and Safari 26; Firefox ignores
 // it. Inherited, so it reaches notes and prose alike. A note is TYPED, though, and a
 // paragraph that rebalances under a moving caret reads as the text jumping — so the
 // textarea opts back out below, to `stable`.
 :root {
-  hanging-punctuation: first last;
   text-wrap: pretty;
 }
 // Headings break into lines of even length rather than a full first line and a
@@ -134,17 +131,6 @@ h4 {
 }
 textarea {
   text-wrap: stable;
-}
-// …and no hanging punctuation inside a form control. A field is its own measure and it
-// always clips at its edge, so a mark hung past that edge is a mark cut off, with no
-// ellipsis to say so. Safari also leaves the hung mark out of the box's width, so a
-// `field-sizing: content` field (the list title, a folder or group name) lost a trailing
-// ")" or "”": "Kitchen (shared)" read "Kitchen (shared". `first` goes too: a note that
-// opens with a quote would hang it off the field's left edge the same way.
-input,
-select,
-textarea {
-  hanging-punctuation: none;
 }
 
 // Don't let long unbroken strings (URLs, tokens) force horizontal overflow.

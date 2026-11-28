@@ -51,6 +51,24 @@
   @return linear($pts);
 }
 
+// A struck spring at rest as a CSS easing: e^(-$decay·t)·sin(2π·$hz·t) over $ms, sampled
+// at 51 points and scaled so the first swing (the curve's true peak, not the nearest
+// sample) is 1. It goes nowhere: it starts and ends at 0.
+@function shake-curve($ms: 500, $hz: 6, $decay: 7) {
+  $T: math.div($ms, 1000);
+  $w: 2 * math.$pi * $hz;
+  $t-peak: math.div(math.div(math.atan(math.div($w, $decay)), 1rad), $w);
+  $peak: math.pow(math.$e, -$decay * $t-peak) * math.sin($w * $t-peak);
+  $n: 50;
+  $pts: ();
+  @for $i from 0 through $n {
+    $t: math.div($i, $n) * $T;
+    $x: math.div(math.pow(math.$e, -$decay * $t) * math.sin($w * $t), $peak);
+    $pts: list.append($pts, math.div(math.round($x * 10000), 10000), comma);
+  }
+  @return linear($pts);
+}
+
 // Fluid item-row track: $min wide at the $bp-stack mobile stack point, $max at
 // the $bp-full full-width point, linear between (clamped outside). The emitted
 // calc uses a unitless delta + divisor because CSS calc can't multiply or
@@ -486,13 +504,13 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --spring-track-dur: 210ms;
   /* THE SHAKE — a card or a field saying no (main.scss, shake-x). Not one of the springs above:
      those travel from one place to another, and this one goes nowhere. It is a spring
-     at rest that has been struck: 50 samples of e^(-7t)·sin(2π·6t) over half a second,
-     scaled so the first swing is 1. So it leaves at full speed, swings out, and each
+     at rest that has been struck: e^(-7t)·sin(2π·6t) over half a second, sampled by
+     shake-curve() above and scaled so the first swing is 1. So it leaves at full speed, swings out, and each
      return is smaller than the last (1, -0.56, 0.31, -0.17, 0.10) with the speed
      carried through every turn. The first version was four separate legs, each easing
      to a stop before the next began, and the stops are what read as mechanical.
      --spring-shake-reach is how far the first swing goes. */
-  --spring-shake: linear(0, 0.4517, 0.7831, 0.9651, 0.9926, 0.8819, 0.6662, 0.3884, 0.0942, -0.1743, -0.3841, -0.5144, -0.558, -0.5203, -0.417, -0.2707, -0.1068, 0.0502, 0.1798, 0.2682, 0.3086, 0.302, 0.2553, 0.1801, 0.0903, 0, -0.0785, -0.1361, -0.1677, -0.1725, -0.1533, -0.1158, -0.0675, -0.0164, 0.0303, 0.0667, 0.0894, 0.097, 0.0904, 0.0725, 0.047, 0.0186, -0.0087, -0.0312, -0.0466, -0.0536, -0.0525, -0.0444, -0.0313, -0.0157, 0);
+  --spring-shake: #{shake-curve(500, 6, 7)};
   --spring-shake-dur: 500ms;
   --spring-shake-reach: 8px;
   /* linear() landed in Safari 17.5 / Firefox 112 — older engines take the closest
