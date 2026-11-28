@@ -163,6 +163,15 @@ describe("listToMarkdown: what the share page says that the table didn't", () =>
     expect(listToMarkdown(s).split("\n")[2]).toBe("August 30 – September 2, 2026");
   });
 
+  it("gives the distance in the unit the list reads it in, not the weights' system", () => {
+    const s = snap();
+    Object.assign(s, { trailDistanceM: 64_042, displayUnit: "lb", trailDistanceUnit: "km" });
+    expect(listToMarkdown(s)).toContain("\n64 km\n");
+    // a gram list with no pick reads in miles, as the share page shows it
+    Object.assign(s, { displayUnit: "g", trailDistanceUnit: undefined });
+    expect(listToMarkdown(s)).toContain("\n39.8 mi\n");
+  });
+
   it("says nothing of a trip or a link a list doesn't have", () => {
     const s = snap();
     s.shareCode = "";
