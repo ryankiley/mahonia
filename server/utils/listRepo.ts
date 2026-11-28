@@ -6,7 +6,7 @@ import { sweepWindow, toIso } from "./time";
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql, type SQL } from "drizzle-orm";
 import { listClaims, listSnapshots, lists, type ListRow, users } from "../db/schema";
-import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizeMetaFields, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyStoredList, type Op, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "../../shared/ops";
+import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizeMetaFields, normalizePerson, normalizeWaypoint, tidyStoredList, type Op, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { bySortOrder, computeTotals } from "../../shared/weights";
 import {
@@ -643,13 +643,7 @@ export async function restoreSnapshotByEditHash(
   // gates as create/setMeta before they can re-enter a live row.
   const data = normalizeListData(s);
   const meta = normalizeListMeta(s);
-  // Waypoints are distances along this exact geometry. A snapshot whose route is
-  // malformed (or not the canonical encoding of itself) follows setMeta's
-  // route-change rule, so no pin points at a route that no longer exists — but only
-  // on a CHANGE: a snapshot that never had a route keeps the pins it has, as setMeta
-  // would, rather than losing them for having no line to hang them on.
-  if (s.routeGeometry != null && meta.routeGeometry !== s.routeGeometry)
-    data.waypoints = seedRouteEnds(meta.routeGeometry ?? "");
+  if (routeRefused(s, meta)) data.waypoints = [];
   const totals = computeTotals(data);
 
   // CAS like the mutate path: re-read + version-guard so a concurrent edit can't
@@ -874,6 +868,17 @@ function normalizeListMeta(raw: Partial<Record<ListMetaKey, unknown>> = {}) {
   } satisfies Record<ListMetaKey, unknown>;
 }
 
+/**
+ * Whether a whole list named a route that normalizeListMeta refused, in which case its
+ * pins go with it, on a create and on a restore alike. A pin is a distance along the
+ * route it was placed on, and setMeta empties them when a route is cleared for the same
+ * reason: none is left measuring along a line the list no longer has. A list that named
+ * no route keeps the pins it has (addWaypoint asks for none), and so does one whose
+ * route passed: the canonical encoding stored for it is the same line.
+ */
+const routeRefused = (raw: { routeGeometry?: unknown } | undefined, meta: { routeGeometry?: string }) =>
+  raw?.routeGeometry != null && meta.routeGeometry == null;
+
 /** The same meta with every absent field as an explicit `null`, for an UPDATE. */
 type Nulled<T> = { [K in keyof T]: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K] };
 /** Every meta column off the state, PRESENT OR NOT. The reducer clears a field by
@@ -946,6 +951,7 @@ export async function createList(
   const meta = { ...tidied, title: tidied.title || "Untitled list" };
   const { title, trailUrl } = meta;
   const data = normalizeListData(init?.data);
+  if (routeRefused(init, meta)) data.waypoints = [];
   const totals = computeTotals(data);
 
   // Retry on slug/share_code unique collision (regenerated each attempt).

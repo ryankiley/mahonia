@@ -9,7 +9,8 @@ import {
   listSnapshotsByEditHash,
   restoreSnapshotByEditHash,
 } from "../server/utils/listRepo";
-import type { Item, ListData } from "../shared/types";
+import { encodePolyline } from "../shared/polyline";
+import type { Item, ListData, Waypoint } from "../shared/types";
 import { byToken, createTestDb, makeList, type TestDb } from "./helpers/db";
 import { folder as listFolder, item as listItem } from "./helpers/list";
 
@@ -274,11 +275,34 @@ describe("snapshots — vandalism recovery", () => {
     expect(restored!.title).toBe("");
   });
 
+  // The stored route is this codec's own writing of the line. A snapshot holding the same
+  // line written another way is put back canonical, with the pins placed along it.
+  it("keeps the pins of a snapshot whose route reads, however it is spelled", async () => {
+    const route = encodePolyline([
+      { lat: 45.33, lon: -121.71 },
+      { lat: 45.36, lon: -121.68 },
+      { lat: 45.4, lon: -121.6 },
+    ]);
+    // the same points with the last value written one chunk longer than it needs
+    const respelled = `${route.slice(0, -1)}${String.fromCharCode(route.charCodeAt(route.length - 1) + 0x20)}?`;
+    expect(respelled).not.toBe(route);
+    const waypoints: Waypoint[] = [
+      { id: "wp-start", kind: "trailhead", alongM: 0 },
+      { id: "camp-1", kind: "camp", alongM: 1_200, label: "Cairn Basin" },
+    ];
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent")], waypoints }, "Orig", { routeGeometry: respelled });
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }], db);
+    const snaps = await listSnapshotsByEditToken(editToken, db);
+    const restored = await restoreSnapshotByEditToken(editToken, snaps![0]!.id, db);
+    expect(restored!.routeGeometry).toBe(route);
+    expect(restored!.waypoints).toEqual(waypoints);
+  });
+
   it("keeps the pins of a snapshot that never had a route", async () => {
-    // a pin is a distance along the route, so a CHANGED route drops them (above) — but
-    // a list can carry pins with no route at all (addWaypoint asks for none; a backup
-    // whose geometry failed to read keeps its pins through createList), and those are
-    // not pointing at a route that changed; restoring them is restoring the list
+    // a pin is a distance along the route, so a route that goes takes them with it
+    // (above), but a list can carry pins with no route at all (addWaypoint asks for
+    // none), and those never pointed at one; restoring them is restoring the list
     const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken } = await seedList(db, {
       folders: [folder],
