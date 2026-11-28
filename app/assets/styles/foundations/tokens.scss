@@ -513,7 +513,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --spring-shake: #{shake-curve(500, 6, 7)};
   --spring-shake-dur: 500ms;
   --spring-shake-reach: 8px;
-  /* linear() landed in Safari 17.5 / Firefox 112 — older engines take the closest
+  /* linear() landed in Safari 17.2 / Firefox 112 — older engines take the closest
      cubic-bezier rather than dropping to the `linear` keyword.
      The test value MUST have two stops. `linear(0)` is not a valid easing (one stop
      doesn't define a curve), so every engine reports it unsupported, `not` flips true,

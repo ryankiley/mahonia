@@ -668,7 +668,7 @@ const {
   fitNote,
 });
 
-const { activeSplit, classAria, classTitle, isConsumable, isWorn, pickClass, rowClass, setWornCount, splitOffered, wornCount } =
+const { activeSplit, classAria, classTitle, isConsumable, pickClass, rowClass, setWornCount, splitOffered, wornCount } =
   useItemRowClassification({
     item: toRef(props, "item"),
     list: toRef(props, "list"),
@@ -1635,10 +1635,9 @@ function dismissFix() {
           />
           <!-- The unit is SELECTABLE, not just typed. Entry units already worked by
                typing "3.8 oz", but that only helps if you know to try it — the label
-               looked like a caption, so the feature was invisible. Same transparent-
-               native-select idiom the total's unit uses (TotalsBar): the visible text
-               stays exactly as it was, and the real control sits over it keeping the
-               native picker and full keyboard behaviour.
+               looked like a caption, so the feature was invisible. The same option
+               menu the total's unit opens (Headline): the visible text stays exactly
+               as it was, and the trigger around it carries the menu and the keyboard.
                A GROUP row carries the very same picker — identical trigger, identical
                chevron — even though its figure is a sum rather than something typed:
                the choice is which unit that total READS in, and a stuff sack's 0.59 lb

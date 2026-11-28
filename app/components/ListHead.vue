@@ -209,8 +209,8 @@ const asked = new Map<string, string | null>();
 watch(
   // an ARRAY OF GETTERS, not a getter returning an array: Vue only compares element-wise
   // for the former. A fresh array literal is never Object.is-equal to the last one, so
-  // the getter form refired on every autosave — useGearList replaces `snapshot` wholesale
-  // on each flush — and re-asked the endpoint every 450ms for any host with no icon.
+  // the getter form refires whenever anything it touches changes, and re-asked the
+  // endpoint on every edit for any host with no icon.
   [() => props.snapshot.trailUrl, () => props.snapshot.trailFaviconDataUrl],
   async ([url, fromServer]) => {
     if (!url || fromServer) return (fetchedIcon.value = null);
@@ -541,7 +541,7 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
     <!-- A TEXTAREA, not an input: a list name is a page title and long ones must wrap.
          An <input> is single-line by definition — "Sierra High Route — September 2026" scrolled
          sideways inside its box and you could only ever read the start of it. Rows is 1
-         and it grows to fit (see autoGrow); Enter commits rather than inserting a
+         and it grows to fit (see fitTextarea); Enter commits rather than inserting a
          newline, so the value stays the single line of text it is. -->
     <!-- The pencil is a HINT, not a mode. The field stays live — you can click the
          text and type, exactly as before — but nothing on screen said so, and a

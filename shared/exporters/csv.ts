@@ -240,9 +240,8 @@ export function csvToListData(
     const gearType = cell(iCommon); // read once — it also decides the override flag below
     const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
     const fId = ensureFolder(cat || "Imported");
-    // `parseFloat(...) || 1` read a written 0 as 1 (0 is falsy) -- the same trap
-    // normalizeItem had. Default only when the cell is absent or unreadable.
-    const qtyNum = iQty >= 0 ? parseFloat(row[iQty] || "") : NaN;
+    // A written 0 stays 0: the default is only for a cell that is absent or unreadable.
+    const qtyNum = iQty >= 0 ? parseDecimal(row[iQty] || "") : NaN;
     const qty = Math.max(0, Math.round(Number.isFinite(qtyNum) ? qtyNum : 1));
     const classification = iWorn >= 0 && truthy(row[iWorn])
       ? "worn"
@@ -251,7 +250,7 @@ export function csvToListData(
         : null;
     // the worn split only applies to base rows (normalizeItem re-clamps server-side)
     const wornQtyVal = iWornQty >= 0 && classification === null
-      ? Math.round(parseFloat(row[iWornQty] || "") || 0)
+      ? Math.round(parseDecimal(row[iWornQty] || "") || 0)
       : 0;
     // Only remember a unit the file actually NAMED. With no Unit column,
     // normalizeUnit returns the fallback — recording that would pin every row of a

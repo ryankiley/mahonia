@@ -453,9 +453,8 @@ function renderBounds() {
       // THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is
       // a camp, and a reader shouldn't have to know which of these the itinerary drew
       // and which somebody placed. It takes the inverted pin's recipe wholesale (see
-      // the CSS) — the itinerary talking, in foreground rather than a category's hue — and
-      // keeps its own name only as a hook.
-      icon: pinIcon("camp", " routemap__pin--dark routemap__bound"),
+      // the CSS) — the itinerary talking, in foreground rather than a category's hue.
+      icon: pinIcon("camp", " routemap__pin--dark"),
     }).addTo(map);
     // No tooltip, for the same reason the waypoints lost theirs: it named what the tent
     // already says and covered the ground around the thing being pointed at. Which day it
@@ -1557,8 +1556,7 @@ onBeforeUnmount(() => {
    hue, which matters on a sheet already carrying magenta paths and green woodland.
    The seat inverts with it — a step OFF the drop rather than a fixed grey, so the head
    still reads as round instead of as a black blob with a point on it.
-   A DAY BOUNDARY wears exactly this (renderBounds gives it these two classes plus
-   .routemap__bound as a name): a tent, because that is what the end of a day is, and
+   A DAY BOUNDARY wears exactly this (renderBounds gives it these two classes): a tent, because that is what the end of a day is, and
    the same drop, seat, hover, lift and grab as a waypoint — on the map it IS one, and a
    reader shouldn't have to know which of these the itinerary drew and which somebody
    placed. It used to carry a byte-for-byte copy of the recipe under its own name. */
