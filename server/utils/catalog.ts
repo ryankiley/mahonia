@@ -138,20 +138,6 @@ export const CATALOG_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     undo jsonb
   )`,
-  // superseded — a suggested fix closed by a verification of its row. A table made before
-  // that value has a status CHECK without it: dropped and made again with it, once. Delete
-  // this block, and its test in tests/schema-ddl.test.ts, once it has deployed.
-  `DO $superseded$
-  DECLARE stale text;
-  BEGIN
-    SELECT conname INTO stale FROM pg_constraint
-    WHERE conrelid = 'catalog_edits'::regclass AND contype = 'c'
-      AND pg_get_constraintdef(oid) LIKE '%status%' AND pg_get_constraintdef(oid) NOT LIKE '%superseded%';
-    IF stale IS NOT NULL THEN
-      EXECUTE format('ALTER TABLE catalog_edits DROP CONSTRAINT %I', stale);
-      ALTER TABLE catalog_edits ADD CONSTRAINT catalog_edits_status_check CHECK (status IN (${EDIT_STATUSES}));
-    END IF;
-  END $superseded$`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_item ON catalog_edits (catalog_item_id, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
 ];
@@ -166,9 +152,7 @@ const CATALOG_NEON_DDL: string[] = [
   `CREATE EXTENSION IF NOT EXISTS pg_trgm`,
   `CREATE EXTENSION IF NOT EXISTS unaccent`,
   // No trigram index: the search's word_similarity() call is a function over a
-  // different expression, which a GIN trigram index cannot serve. Delete this DROP
-  // once it has deployed.
-  `DROP INDEX IF EXISTS idx_catalog_trgm`,
+  // different expression, which a GIN trigram index cannot serve.
 ];
 
 /** Idempotently create the catalog table + indexes (memoized per process). */
