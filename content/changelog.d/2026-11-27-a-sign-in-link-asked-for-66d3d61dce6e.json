@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "A sign-in link asked for on another device no longer adds this browser's gear to My Gear unless you say its lists may come too."
+  ]
+}

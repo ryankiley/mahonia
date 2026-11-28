@@ -144,14 +144,14 @@ function create() {
   const vaultPrompt = computed(() => (vaultAsk.value?.step === "prompt" ? vaultAsk.value : null));
   // the rows the chooser is offering, or null when it's closed
   const vaultPicker = computed(() => (vaultAsk.value?.step === "picker" ? vaultAsk.value.rows : null));
-  // Whether the AUTOMATIC capture path is on for this list (the stored answer is
-  // "yes"), and which rows the chooser declined. The stored truth lives in
-  // localStorage, which nothing can react to — so it's mirrored into refs here,
-  // re-read by refreshVaultCover() at every point the answer, or the list it's
-  // about, changes. ItemRow renders against these: a row the automatic path
-  // already banks shows its save button as already banked rather than offering
+  // Whether this list's stored answer is "yes", and which rows the chooser declined.
+  // The stored truth lives in localStorage, which nothing can react to — so it's
+  // mirrored into refs here, re-read by refreshVaultCover() at every point the
+  // answer, or the list it's about, changes. ItemRow renders against vaultAuto (the
+  // yes, where the automatic path runs) and the declined set: a row the automatic
+  // path already banks shows its save button as already banked rather than offering
   // to do what's done.
-  const vaultAuto = ref(false);
+  const vaultYes = ref(false);
   const vaultDeclined = shallowRef<ReadonlySet<string>>(new Set());
   /** The open list as the vault's answer knows it (see VaultList). */
   const vaultList = (shareCode = snapshot.value?.shareCode ?? ""): VaultList => ({
@@ -161,7 +161,7 @@ function create() {
   function refreshVaultCover(shareCode?: string) {
     const list = vaultList(shareCode);
     adoptTokenKeyedAnswer(list);
-    vaultAuto.value = vaultDecisionFor(list) === "yes";
+    vaultYes.value = vaultDecisionFor(list) === "yes";
     vaultDeclined.value = vaultExclusionsFor(list);
   }
 
@@ -325,6 +325,10 @@ function create() {
   // page-hide flush lives exactly as long as the editor does.
   const vault = useVaultCapture();
   scope.run(() => vault.bindFlushOnLeave());
+  // The answer is yes AND the path runs: it stands down for a list this device holds
+  // while the session hasn't brought the device's lists (useVault's sync), and a row
+  // called covered then would have no Save to press.
+  const vaultAuto = computed(() => vaultYes.value && (openedByCode.value || !vault.deviceGearWaits.value));
   // The ONE thing a per-list answer cannot work out for itself: signing in (or
   // out) without leaving the list. Nothing reopens the list, so nothing would
   // re-ask, and the answers on screen would still be about the last session —
@@ -1276,6 +1280,7 @@ function create() {
     // worth asking about — see useVault.
     vault.sync(snapshot.value.items, snapshot.value.folders, {
       list: vaultList(),
+      ofAccount: openedByCode.value,
       // ...and what the vault already holds of it, so a list whose every row is
       // banked never raises a modal asking permission for a no-op. Passed in
       // rather than read from a singleton: this is the open list's answer, and
@@ -1287,6 +1292,10 @@ function create() {
       },
     });
   }
+
+  // The person's yes to this browser's lists, on a session that hadn't brought them:
+  // the first chance the open list's gear has had.
+  scope.run(() => watch(() => sessionUser.value?.sweep, (brought) => brought && captureIfMine()));
 
   /**
    * Answer the prompt.
