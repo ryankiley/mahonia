@@ -25,9 +25,13 @@ const VIDEO_FPS = 60;
 const VIDEO_BITRATE = 12_000_000;
 /** A keyframe every two seconds: somewhere for a scrubbing player to land. */
 const KEY_EVERY = 2 * VIDEO_FPS;
-/** H.264 at level 4.2, which holds 1080p at 60 in any of the three shapes: High, then Main,
- *  then Constrained Baseline, the one a software-only encoder is sure to have. */
-const AVC_CODECS = ["avc1.64002A", "avc1.4D402A", "avc1.42E02A"];
+/** H.264 at level 4.2, which holds 1080p at 60 in any of the three shapes. Constrained Baseline
+ *  first, the profile every H.264 encoder has: Safari's says it can do Main and High, then
+ *  takes frames and never gives one back (WebKit on a Mac and in the iOS Simulator,
+ *  2026-11-28), so every save there sat four seconds at 0% before recording in real time. A
+ *  line on a flat ground at this bitrate looks the same in any profile. Main and High stay
+ *  for an encoder that lacks Baseline. */
+const AVC_CODECS = ["avc1.42E02A", "avc1.4D402A", "avc1.64002A"];
 /** How many frames may wait on the encoder before drawing pauses for it. */
 const QUEUE_LIMIT = 6;
 /** How often, at most, progress is reported: each report re-renders the page's ring, on the
