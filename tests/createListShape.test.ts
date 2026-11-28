@@ -32,4 +32,22 @@ describe("createList with rows that are not objects", () => {
     expect(snapshot.waypoints).toEqual([]);
     expect(snapshot.people).toEqual([]);
   });
+
+  // days, waypoints and people are not checked at all, so a body can send anything there
+  it("reads days, waypoints or people that are not arrays as none", async () => {
+    const { snapshot } = await createList({
+      title: "Trip",
+      data: {
+        folders: [{ id: "f1", name: "Shelter" }],
+        items: [{ id: "i1", name: "Tent", folderId: "f1", qty: 1 }],
+        days: 5,
+        waypoints: { id: "w1" },
+        people: "Ryan",
+      } as unknown as ListData,
+    });
+    expect(snapshot.items.map((i) => i.id)).toEqual(["i1"]);
+    expect(snapshot.days).toEqual([]);
+    expect(snapshot.waypoints).toEqual([]);
+    expect(snapshot.people).toEqual([]);
+  });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rowToSnapshot } from "../server/utils/listRepo";
+import { computeTotals } from "../shared/weights";
 import type { ListRow } from "../server/db/schema";
 
 const CURLY = String.fromCharCode(0x2019);
@@ -106,5 +107,37 @@ describe("a list stored before the tidy existed", () => {
 
   it("is stable when the same row is read twice", () => {
     expect(rowToSnapshot(legacyRow())).toEqual(rowToSnapshot(legacyRow()));
+  });
+});
+
+// Water is a volume, never a count: the reducer folds a water row's count into its weight
+// on every write, and a row stored with a count before that rule reads back folded, so no
+// reader (and no open of the editor) has to write the fix.
+describe("a water row stored with a count", () => {
+  const waterRow = () => {
+    const row = legacyRow();
+    row.data.items.push(
+      { id: "w1", folderId: "f1", parentId: null, name: "Water", unitWeightMg: 1_000_000, qty: 3, classification: "consumable", sortOrder: 2 },
+      // a base line with a worn split: once it is one unit there is no split to keep
+      { id: "w2", folderId: "f1", parentId: null, name: "Drinking water", unitWeightMg: 500_000, qty: 4, wornQty: 1, classification: null, sortOrder: 3 },
+    );
+    return row;
+  };
+
+  it("reads back as its whole volume at qty 1, weighing what it did", () => {
+    const stored = waterRow();
+    const before = computeTotals(stored.data).totalMg;
+    const snap = rowToSnapshot(stored);
+    expect(snap.items.find((i) => i.id === "w1")).toMatchObject({ qty: 1, unitWeightMg: 3_000_000, classification: "consumable" });
+    const w2 = snap.items.find((i) => i.id === "w2")!;
+    expect(w2).toMatchObject({ qty: 1, unitWeightMg: 2_000_000, classification: null });
+    expect(w2.wornQty).toBeUndefined();
+    expect(computeTotals(snap).totalMg).toBe(before);
+  });
+
+  it("leaves a count on anything that isn't water", () => {
+    const row = legacyRow();
+    row.data.items[0]!.qty = 3;
+    expect(rowToSnapshot(row).items[0]).toMatchObject({ qty: 3, unitWeightMg: 538000 });
   });
 });

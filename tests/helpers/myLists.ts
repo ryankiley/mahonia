@@ -13,8 +13,6 @@ export function listEntry(over: Partial<MyListEntry> & { editToken: string }): M
     shareCode: "C0DE00000001",
     slug: "trip-aa11bb",
     title: "Trip",
-    totalMg: 0,
-    version: 1,
     lastOpened: 1,
     displayUnit: "g",
     ...over,

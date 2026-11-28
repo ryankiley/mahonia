@@ -180,17 +180,12 @@ export function useMyLists() {
   // The registry row a snapshot maps to — the ONE place the field list lives.
   // registerCreated writes it; a rotate with no prior row builds from it too, so a
   // new column reaches both without either being hand-copied.
-  function entryFromSnapshot(
-    res: { editToken: string; snapshot: ListSnapshot },
-    totalMg = 0,
-  ): MyListEntry {
+  function entryFromSnapshot(res: { editToken: string; snapshot: ListSnapshot }): MyListEntry {
     return {
       editToken: res.editToken,
       shareCode: res.snapshot.shareCode,
       slug: res.snapshot.slug,
       title: res.snapshot.title,
-      totalMg,
-      version: res.snapshot.version,
       lastOpened: Date.now(),
       displayUnit: res.snapshot.displayUnit, // keep the unit system with the row
     };
@@ -200,13 +195,12 @@ export function useMyLists() {
   // Returns the edit token so the caller can navigate straight to /e#{token}.
   function registerCreated(
     res: { editToken: string; snapshot: ListSnapshot },
-    totalMg = 0,
     origin: "created" | "opened" = "created",
   ): string {
     // the tally is the creation count: registerOpened() routes through here too, and
     // an open of any list (yours, or one shared with you) is not a list made
     if (origin !== "opened") tally("list_created");
-    upsert({ ...entryFromSnapshot(res, totalMg), origin });
+    upsert({ ...entryFromSnapshot(res), origin });
     return res.editToken;
   }
 

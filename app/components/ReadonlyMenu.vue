@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { IconBug, IconFileArrowRightOut, IconFlag1, IconSquareBehindSquare1, IconSquareDottedBehindSquare } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
-import type { ListSnapshot, Totals } from "~~/shared/types";
+import type { ListSnapshot } from "~~/shared/types";
 
 // The read-only share views' ⋯ actions menu — the quiet counterpart to the editor's
 // kebab. Everything here is a READ of the list the viewer is looking at: take an
@@ -22,7 +22,6 @@ import type { ListSnapshot, Totals } from "~~/shared/types";
 // the reader's sharing surface as well as everything else.
 const props = defineProps<{
   snapshot: ListSnapshot;
-  totals: Totals | null;
 }>();
 
 const menuOpen = ref(false);
@@ -77,7 +76,7 @@ function reportThis() {
 
 async function copyThis() {
   // success navigates to the new copy's editor, so only a failure needs a word here
-  const ok = await copyList(props.snapshot, props.totals?.totalMg ?? 0);
+  const ok = await copyList(props.snapshot);
   if (!ok) flash("Couldn’t duplicate. Try again.");
 }
 async function copyLink() {

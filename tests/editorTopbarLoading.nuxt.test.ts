@@ -93,7 +93,6 @@ describe("the top bar while a list loads from the network", () => {
     // this browser holds the key for CODE, so /e/{code} restores the fragment, then loads
     useMyLists().registerCreated(
       { editToken: TOKEN, snapshot: snapshotFor({ shareCode: CODE, slug: "slow-aaa111", title: "Slow list" }) },
-      0,
       "opened",
     );
     wrapper = await mountSuspended(GearEditor, { route: `/e/${CODE}` });

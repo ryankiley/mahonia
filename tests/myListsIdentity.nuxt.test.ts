@@ -28,8 +28,6 @@ const entry = (over: Partial<MyListEntry> & { editToken: string }): MyListEntry 
     shareCode: SHARE,
     slug: "ryans-loowit-aa11bb",
     title: "Ryan’s Loowit",
-    totalMg: 5_000_000,
-    version: 7,
     lastOpened: 1_700_000_000_000,
     ...over,
   });
@@ -60,11 +58,11 @@ describe("useMyLists — a list is its share code, not its edit token", () => {
     // dead token still in the registry, the new one arriving beside it
     my.entries.value = [entry({ editToken: "dead-token" })];
 
-    my.upsert(entry({ editToken: "live-token", origin: "opened", version: 8 }));
+    my.upsert(entry({ editToken: "live-token", origin: "opened", title: "Loowit Trail" }));
 
     expect(my.entries.value).toHaveLength(1);
     expect(my.entries.value[0]!.editToken).toBe("live-token");
-    expect(my.entries.value[0]!.version).toBe(8);
+    expect(my.entries.value[0]!.title).toBe("Loowit Trail");
 
     // and the collapse is what gets written — not just what's on screen
     await nextTick();
@@ -115,7 +113,7 @@ describe("useMyLists — a list is its share code, not its edit token", () => {
 
     // the real call site: load() confirms the token against the server, then
     // registerOpened() hands the snapshot straight to registerCreated
-    my.registerCreated({ editToken: "live-token", snapshot: snapshotFor(SHARE) }, 5_000_000, "opened");
+    my.registerCreated({ editToken: "live-token", snapshot: snapshotFor(SHARE) }, "opened");
 
     expect(my.entries.value).toHaveLength(1);
     expect(my.entries.value[0]!.editToken).toBe("live-token");

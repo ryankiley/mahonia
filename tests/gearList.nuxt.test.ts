@@ -24,7 +24,8 @@ import { vaultRow } from "./helpers/vault";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import { DRAFT_KEY, localKey, type LocalListRecord } from "~~/shared/localList";
-import type { Op } from "~~/shared/ops";
+import { tidyListText, type Op } from "~~/shared/ops";
+import { computeTotals } from "~~/shared/weights";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
@@ -127,7 +128,12 @@ const snapshotFor = (title: string, version = 1): ListSnapshot =>
 // needs lists with actual gear in them (an empty one has nothing to capture, so it
 // could never raise the question).
 let listResponse: ListSnapshot = snapshotFor("Original");
-registerEndpoint("/api/edit/list", () => ({ snapshot: listResponse }));
+// set to make the read fail the way a dropped connection does (not a 404)
+let listFails = false;
+registerEndpoint("/api/edit/list", () => {
+  if (listFails) throw createError({ statusCode: 503 });
+  return { snapshot: listResponse };
+});
 registerEndpoint("/api/edit/changes", () => ({ version: 1 })); // the live-sync poll
 registerEndpoint("/api/catalog/use", () => ({})); // fire-and-forget ranking ping
 // What My Gear holds of the keys the open list asks about, as [normKey, weightMg]
@@ -260,6 +266,7 @@ const rowFor = (token: string) =>
 // case cannot inherit another suite's state through a dial nobody thought to list.
 beforeEach(() => {
   records.clear();
+  listFails = false;
   rotateGate = null;
   createGate = null;
   createCalls = 0;
@@ -505,21 +512,36 @@ describe("useGearList — whose gear is this?", () => {
     expect(c.vaultAuto.value).toBe(false);
   });
 
-  // The regression that made the ask worth nothing. load() runs a one-time backfill
-  // (water's qty fold) through the SAME dispatch() every user edit goes through — so merely OPENING a shared list
-  // captured the whole thing before its owner's gear was ever in question.
-  it("does not capture — or ask — for load()'s own backfills", async () => {
-    listResponse = withGear([
+  // Opening a list writes nothing to it. A water row stored with a count before the
+  // reducer folded one reads back folded (tidyListText, on the server's reads and on the
+  // device copy's), so there is no fix for the open to send — and nothing an open sends
+  // can capture a shared list's gear before its owner's gear is in question.
+  const countedWater = () =>
+    withGear([
       gear(),
-      // stored with a count before the reducer folded one: becomes its whole volume
       gear({ id: "i3", name: "Water", brand: undefined, qty: 3, unitWeightMg: 3_000_000, classification: "consumable" }),
     ]);
-    const c = await opened();
+  const onDevice = (snapshot: ListSnapshot) =>
+    records.set(localKey(TOKEN), { snapshot, pending: [], updatedAt: 1 });
 
-    // the backfill really did run (else this passes for the wrong reason)
-    await vi.waitFor(() => {
-      expect(c.snapshot.value?.items.find((i) => i.id === "i3")).toMatchObject({ qty: 1, unitWeightMg: 9_000_000 });
-    });
+  it("reads a stored water count off the device copy folded, weighing what it did", async () => {
+    onDevice(countedWater());
+    listFails = true; // the device copy is all there is
+    const c = await opened();
+    expect(c.status.value).toBe("offline");
+    expect(c.snapshot.value?.items.find((i) => i.id === "i3")).toMatchObject({ qty: 1, unitWeightMg: 9_000_000 });
+    expect(c.totals.value?.totalMg).toBe(computeTotals(countedWater()).totalMg);
+  });
+
+  it("sends no write, and captures nothing, on opening such a list", async () => {
+    onDevice(countedWater());
+    // the server reads its row through the same tidy
+    listResponse = tidyListText(countedWater());
+    const c = await opened();
+    expect(c.snapshot.value?.items.find((i) => i.id === "i3")).toMatchObject({ qty: 1, unitWeightMg: 9_000_000 });
+    await new Promise((r) => setTimeout(r, 100)); // past the flush debounce
+    expect(mutateCalls).toBe(0);
+    expect(records.get(localKey(TOKEN))?.pending).toEqual([]);
     expect(c.vaultPrompt.value).toBeNull();
     expect(captureCalls).toBe(0);
   });
@@ -1074,6 +1096,19 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
     c.setMeta({ title: "Eagle Creek" });
 
     expect(rowFor(TOKEN)).toBeUndefined();
+  });
+
+  // The row shows a name and a unit, never a weight, so a weight edit is no reason to
+  // rewrite the whole registry to storage on every keystroke.
+  it("leaves the registry alone for an edit that only moves the weight", async () => {
+    listResponse = withGear([gear()]);
+    const c = await opened();
+    const registry = useMyLists().entries.value;
+
+    c.updateItem("i1", { unitWeightMg: 600_000 });
+
+    expect(c.totals.value?.totalMg).toBe(600_000);
+    expect(useMyLists().entries.value).toBe(registry);
   });
 });
 
