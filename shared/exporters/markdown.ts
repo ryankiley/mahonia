@@ -5,12 +5,12 @@
 
 import type { Item, ListSnapshot } from "../types";
 import { carrierName, effectivePersonId } from "../people";
-import { carriedIsDistinct, computeTotals, effectiveClassification, formatKcal, formatWeight, isBareGroup, itemDisplayName, lineMg, groupLineMg, splitWornQty, unitSystem } from "../weights";
+import { carriedIsDistinct, computeTotals, effectiveClassification, formatKcal, formatWeight, isBareGroup, itemDisplayName, lineMg, groupLineMg, splitWornQty } from "../weights";
 import { exportSections, gearTypeBeside } from "./rows";
 import { isWaterName, waterVolumeLabel } from "../water";
 import { dropHidden } from "../tidyText";
 import { parseIsoDate } from "../calendar";
-import { formatDistance } from "../trailDistance";
+import { formatDistance, resolveDistanceUnit } from "../trailDistance";
 import { CANONICAL_ORIGIN } from "../site";
 
 // The name, then what the read view's sub-line says under it: the gear type after an em
@@ -85,11 +85,12 @@ export function listToMarkdown(list: ListSnapshot): string {
   out.push(`# ${list.title || "Mahonia list"}`);
   out.push("");
   // What the share page says above the list and a pasted table didn't: the trail, the
-  // dates, how far. The distance in the list's own system, as its weights are.
+  // dates, how far. The distance in the unit the list reads it in, as the share page
+  // shows it (ReadonlyListView's distanceUnit): the owner's pick, else miles.
   const facts = [
     list.trailLabel?.trim(),
     tripDates(list.startDate, list.endDate),
-    list.trailDistanceM ? formatDistance(list.trailDistanceM, unitSystem(u) === "imperial" ? "mi" : "km") : "",
+    list.trailDistanceM ? formatDistance(list.trailDistanceM, resolveDistanceUnit(list.trailDistanceUnit)) : "",
   ].filter(Boolean);
   if (facts.length) out.push(facts.join(" · "), "");
   // and where the rest lives: the plain-text copy always carried its link, this didn't.

@@ -63,6 +63,14 @@ describe("markdownTableRows", () => {
     expect(Math.abs(total(back) - total(trip()))).toBeLessThan(25_000);
   });
 
+  it("brings the rows our table heads Unfiled back in no folder", () => {
+    const list = trip();
+    list.items.push(item({ id: "u", folderId: null, name: "Spoon", unitWeightMg: 14_000 }));
+    const back = csvToListData(listToMarkdown(list));
+    expect(back.folders.map((f) => f.name)).toEqual(["Clothing", "Food"]);
+    expect(back.items.find((i) => i.name === "Spoon")!.folderId).toBeNull();
+  });
+
   it("reads any other table by its own header, a heading naming the folder under it", () => {
     const md = ["## Shelter", "", "| Item | Weight (g) | Qty |", "|---|---:|---:|", "| Tent | 540 | 1 |", "| Stakes | 10 | 8 |"].join("\n");
     const back = csvToListData(md);

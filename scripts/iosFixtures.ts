@@ -714,7 +714,111 @@ export const exportVectors: ExportVector[] = [
   ]),
 
   exportVector("empty", []),
+
+  // What the share page says above a list, and the rows a pasted table used to get
+  // wrong: the trail, dates and distance (in the list's own distance unit, not its
+  // weights' system), two groups of one name told apart by their notes, a gear type the
+  // name already says, the same food in two groups (said once in the text), a row typed
+  // in ounces on a pounds list, a weight that is 0.1 lb as written, a row in no folder.
+  exportVector("trip-notes", [
+    {
+      t: "setMeta",
+      patch: {
+        title: "Timberline",
+        displayUnit: "lb",
+        trailLabel: "Timberline Trail #600",
+        startDate: "2026-09-07",
+        endDate: "2026-09-10",
+        trailDistanceM: 64042,
+        trailDistanceUnit: "km",
+      },
+    },
+    { t: "addFolder", folder: { id: "f1", name: "Food", colorKey: "food", defaultClassification: "consumable", sortOrder: 0 } },
+    { t: "addFolder", folder: { id: "f2", name: "Toiletries", colorKey: "other", defaultClassification: "base", sortOrder: 1 } },
+    row("mon1", "Monday", { folderId: "f1", unitWeightMg: 0, description: "Meals", sortOrder: 0 }),
+    row("risotto", "Mushroom Risotto", { folderId: "f1", parentId: "mon1", brand: "Good To-Go", commonName: "Dinner", unitWeightMg: 213000, entryUnit: "oz", kcal: 820, sortOrder: 0 }),
+    row("mon2", "Monday", { folderId: "f1", unitWeightMg: 0, description: "Snacks", sortOrder: 1 }),
+    row("bloks1", "Bloks Energy Chews", { folderId: "f1", parentId: "mon2", brand: "Clif", unitWeightMg: 60000, kcal: 200, sortOrder: 0 }),
+    row("tue", "Tuesday", { folderId: "f1", unitWeightMg: 0, description: "Snacks", sortOrder: 2 }),
+    row("bloks2", "Bloks Energy Chews", { folderId: "f1", parentId: "tue", brand: "Clif", unitWeightMg: 60000, qty: 2, kcal: 200, sortOrder: 0 }),
+    row("paste", "Toothpaste", { folderId: "f2", commonName: "Toothpaste", unitWeightMg: 14000, sortOrder: 0 }),
+    row("cream", "Moisturizer", { folderId: "f2", commonName: "Face moisturizer", unitWeightMg: 12000, description: "Travel *size*", sortOrder: 1 }),
+    row("spoon", "Spoon", { unitWeightMg: 45359, sortOrder: 0 }),
+  ]),
+
+  // more names than a comment holds: the text names what fits, counts the rest, and
+  // keeps its totals and link
+  exportVector("long", [
+    { t: "setMeta", patch: { title: "Everything" } },
+    ...Array.from({ length: 160 }, (_, i) => row(`r${i}`, `Piece of gear number ${i + 1}`, { unitWeightMg: 10000 + i, sortOrder: i })),
+  ]),
 ];
+
+// ---- import vectors ----------------------------------------------------------------
+// What csvToListData makes of a pasted or chosen file, for every shape it reads: our
+// own CSV and Markdown, LighterPack's, spreadsheet cells, a semicolon CSV, a weight
+// header that names its unit, a list typed one item per line, our plain-text copy.
+// Written as data with no ids (a folder by its name, a group by its row's index), so
+// the answer is the same on every run and readable in a diff.
+
+const exportOf = (name: string) => exportVectors.find((v) => v.name === name)!.list;
+
+const CSV_IMPORTS: [string, () => string][] = [
+  ["ours-group-trip", () => listToCsv(exportOf("group-trip"))],
+  ["ours-trip-notes", () => listToCsv(exportOf("trip-notes"))],
+  ["ours-saved-by-a-spreadsheet", () => "\uFEFF" + listToCsv(exportOf("trip-notes")).replace(/\n/g, "\r\n")],
+  ["markdown-trip-notes", () => listToMarkdown(exportOf("trip-notes"))],
+  ["markdown-group-trip", () => listToMarkdown(exportOf("group-trip"))],
+  ["markdown-any-table", () => ["## Shelter", "", "| Item | Weight (g) | Qty |", "|---|---:|---:|", "| Tent | 540 | 1 |", "| Stakes | 10 | 8 |"].join("\n")],
+  ["plain-text-copy", () => listToText(exportOf("trip-notes"))],
+  ["lighterpack", () => "Item Name,Category,desc,qty,weight,unit,price,worn,consumable,star,image url,url\nHyperlite 2400,Pack,Southwest,1,850,g,355,,,,,https://hmg.com\nPuffy,Worn,,1,10.6,oz,,1,,,,\nBars,Food,,5,68,g,,,1,,,"],
+  ["spreadsheet-cells", () => "Category\tItem Name\tQty\tWeight\tUnit\nShelter\tQuilt 25F, Large\t1\t510\tg\nSleep\tPad\t1\t12\toz"],
+  ["semicolons", () => "Category;Item Name;Qty;Weight;Unit\nShelter;Tent;1;1,2;kg\nSleep;Quilt;1;0,6;kg"],
+  ["weight-header-oz", () => "Item,Weight (oz)\nTent,38\nQuilt,21"],
+  ["weight-header-grams", () => "Item,Grams\nTent,1080"],
+  ["weight-header-underscore", () => "Item,weight_g\nTent,1080"],
+  ["unit-cell-over-header", () => "Item,Weight (oz),Unit\nTent,1080,g"],
+  ["total-weight-is-not-weight", () => "Item,Total weight\nTent,1080"],
+  ["weight-cell-units", () => "Item,Weight\nTent,21 oz\nStakes,1 lb 3 oz"],
+  ["typed-notes", () => ["# Shelter", "- Tent 540 g", "- [ ] Stakes (85 g)", "Sleep:", "• Quilt 20 oz", "Socks ×2", "Water 2 L", "Headlamp"].join("\n")],
+  ["typed-no-headings", () => "Tent 540 g\nQuilt 20 oz"],
+  ["comma-run", () => "Zpacks Duplex tent, Quilt (20F, 600 g), Clif Bloks ×4, Water 3 L\n\nBase weight 3.16 kg, 7.65 kg total"],
+  ["unknown-header", () => "thing,stuff\nSpork,18"],
+  ["not-a-list", () => "not,a,list\n"],
+  ["blank-category", () => "Category,Item Name,Weight\n,Loose,10\nShelter,Tent,540"],
+];
+
+function csvImportVector(name: string, text: string) {
+  const data = csvToListData(text);
+  const folderOf = new Map(data.folders.map((f) => [f.id, f.name]));
+  const indexOf = new Map(data.items.map((it, i) => [it.id, i]));
+  const personOf = new Map((data.people ?? []).map((p) => [p.id, p.name]));
+  return {
+    name,
+    text,
+    displayUnit: data.displayUnit ?? null,
+    folders: data.folders.map((f) => f.name),
+    people: (data.people ?? []).map((p) => p.name),
+    items: data.items.map((it) => ({
+      folder: it.folderId ? (folderOf.get(it.folderId) ?? null) : null,
+      parent: it.parentId ? (indexOf.get(it.parentId) ?? null) : null,
+      name: it.name,
+      brand: it.brand ?? null,
+      commonName: it.commonName ?? null,
+      qty: it.qty,
+      wornQty: it.wornQty ?? null,
+      unitWeightMg: it.unitWeightMg,
+      entryUnit: it.entryUnit ?? null,
+      classification: it.classification ?? null,
+      kcal: it.kcal ?? null,
+      description: it.description ?? null,
+      productUrl: it.productUrl ?? null,
+      person: it.personId ? (personOf.get(it.personId) ?? null) : null,
+      needsCooking: it.needsCooking ?? null,
+      sortOrder: it.sortOrder,
+    })),
+  };
+}
 
 // Spellings the catalog doesn't hold: a plural, a typed type, the long tail that
 // goes without an icon, and the narrow names that sit above a broader rule.
@@ -898,5 +1002,6 @@ export function ruleVectors(): Record<string, { cases: unknown[]; folders?: Fold
     "catalog-picks": { folders: PICK_FOLDERS, cases: catalogPickVectors() },
     "stored-tidy": { cases: [storedTidyVector()] },
     "route-copies": { cases: routeCopyVectors() },
+    "csv-imports": { cases: CSV_IMPORTS.map(([name, text]) => csvImportVector(name, text())) },
   };
 }

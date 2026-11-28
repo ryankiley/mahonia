@@ -126,7 +126,9 @@ export function markdownTableRows(text: string): string | null {
     const water = isWaterName(item.name);
     const { mg, unit } = readWeight(row[2] ?? "");
     const entry: Row = {
-      category,
+      // our own table heads the rows in no folder "Unfiled" (exportSections); they
+      // come back in no folder, not in a folder by that name
+      category: category === "Unfiled" ? "" : category,
       name: item.name,
       gearType: item.gearType,
       note: item.note,
