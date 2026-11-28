@@ -3297,12 +3297,11 @@ function dismissFix() {
   .item__actions .tooltip-trigger:has(.item__del) {
     display: none;
   }
-  /* the classification cell used to hold a text label that had to ellipsize to keep
-     qty/weight/controls on one line. Two icon toggles are a fixed 68px, so there is
-     nothing left to shrink — it just holds its size beside the other controls.
+  /* The classification cell is one mark of a fixed size, so there is nothing to
+     shrink: it holds its size beside the other controls.
      THE AUTO MARGIN LIVES HERE, not on .item__actions. The weight field is
      field-sizing: content, so anything that simply follows it starts at a different x
-     on every row: "—" vs "12,250" swung these two toggles ~39px down a list while the
+     on every row: "—" vs "12,250" swung the mark ~39px down a list while the
      right-anchored actions held still, so the tap targets you reach for most never
      formed a column. Pushing the cell right instead parks it against the actions —
      both clusters then ride the row's right edge, on every row, and the desktop grid's
