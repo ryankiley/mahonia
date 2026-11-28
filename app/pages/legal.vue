@@ -3,6 +3,8 @@
 // Privacy + Terms live together on one page (two sections, #privacy / #terms).
 // /privacy and /terms redirect here (routeRules). The "Last updated" line is
 // stamped at commit time by scripts/stamp-legal-dates.mjs.
+import { LIST_PURGE_GRACE_DAYS, LIST_REAP_STALE_DAYS } from "~~/shared/retention";
+
 useHead({
   title: "Legal — Mahonia",
   meta: [
@@ -155,8 +157,8 @@ useHead({
         </ul>
         <p>
           Some things are also cleaned up automatically. A list with one item or none that hasn’t been edited for
-          <strong>30 days</strong> is removed; a list with two items or more never expires. A list
-          you delete, or one that’s cleaned up, is held for <strong>90 days</strong> before it’s
+          <strong>{{ LIST_REAP_STALE_DAYS }} days</strong> is removed; a list with two items or more never expires. A list
+          you delete, or one that’s cleaned up, is held for <strong>{{ LIST_PURGE_GRACE_DAYS }} days</strong> before it’s
           deleted for good, so if you’ve lost one, email me and I’ll see what can be recovered.
         </p>
         <p>

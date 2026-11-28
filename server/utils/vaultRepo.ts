@@ -3,10 +3,10 @@
 // ordering is identical whichever engine is underneath, exactly as the catalog
 // does it.
 
-import { sweepWindow, toIso } from "./time";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
+import { toIso } from "./time";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { alias, type PgColumn } from "drizzle-orm/pg-core";
-import { vaultItems, vaultKitParts, vaults } from "../db/schema";
+import { vaultItems, vaultKitParts } from "../db/schema";
 import { countRows, type Db } from "./db";
 import { liveCatalogAttributes, liveCatalogRows } from "./catalog";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
@@ -873,71 +873,6 @@ async function markVaultItems(db: Db, vaultId: number, ids: readonly number[], r
     )
     .returning({ id: vaultItems.id });
   return new Set(done.map((r) => r.id));
-}
-
-// ---------------------------------------------------------------------------
-// the nightly reaper
-// ---------------------------------------------------------------------------
-// AN ACCOUNT'S MY GEAR IS NEVER REAPED. It is the account's for as long as the account
-// is, however long it goes unopened: a hiker who packs once a year comes back to the
-// gear, the pins and the kits they left. An account's vault goes only when the account
-// is closed (accountRepo.deleteAccount).
-//
-// What is reaped is a vault NO account owns: `user_id IS NULL`, the link-owned vaults
-// from before My Gear moved into an account. Nothing can open one (every vault request
-// resolves a session to its account's vault), so nothing stamps its `last_seen_at`
-// again and it only ages. Two stages, the shape lists use (see listRepo): soft-delete
-// first, hard delete after a grace window.
-//
-// Both stages say `user_id IS NULL` for themselves, the purge as well as the reap: an
-// account's vault that somehow carries a deleted_at is still not purged, and the next
-// request that opens it clears the mark (touchVaultByUser).
-
-/** How long an ownerless vault goes unseen before it is soft-deleted. */
-const VAULT_REAP_STALE_DAYS = Number(process.env.VAULT_REAP_STALE_DAYS) || 180;
-/** How long a soft-deleted ownerless vault is kept before it is purged: the same 90
- *  days a list gets. */
-const VAULT_PURGE_GRACE_DAYS = Number(process.env.VAULT_PURGE_GRACE_DAYS) || 90;
-
-/** Soft-delete the vaults no account owns that have not been seen in `staleDays`.
- *  Batched, so one run can never issue an unbounded write — a backlog just drains
- *  over successive nights. */
-export async function reapAbandonedVaults(
-  db: Db,
-  opts?: { staleDays?: number; limit?: number },
-): Promise<{ vaultsReaped: number }> {
-  const { cutoff, limit } = sweepWindow(opts?.staleDays, VAULT_REAP_STALE_DAYS, opts?.limit);
-  const stale = db
-    .select({ id: vaults.id })
-    .from(vaults)
-    .where(and(isNull(vaults.userId), isNull(vaults.deletedAt), lt(vaults.lastSeenAt, cutoff)))
-    .limit(limit);
-  const done = await db
-    .update(vaults)
-    .set({ deletedAt: new Date() })
-    .where(inArray(vaults.id, stale))
-    .returning({ id: vaults.id });
-  return { vaultsReaped: done.length };
-}
-
-/** Hard-delete the ownerless vaults soft-deleted more than `graceDays` ago, with their
- *  gear. This is the stage that actually reclaims the storage. */
-export async function purgeDeletedVaults(
-  db: Db,
-  opts?: { graceDays?: number; limit?: number },
-): Promise<{ vaultsPurged: number }> {
-  const { cutoff, limit } = sweepWindow(opts?.graceDays, VAULT_PURGE_GRACE_DAYS, opts?.limit);
-  const doomed = await db
-    .select({ id: vaults.id })
-    .from(vaults)
-    .where(and(isNull(vaults.userId), isNotNull(vaults.deletedAt), lt(vaults.deletedAt, cutoff)))
-    .limit(limit);
-  if (!doomed.length) return { vaultsPurged: 0 };
-  const ids = doomed.map((r) => r.id);
-
-  await deleteVaultContents(db, ids);
-  await db.delete(vaults).where(inArray(vaults.id, ids));
-  return { vaultsPurged: ids.length };
 }
 
 /**

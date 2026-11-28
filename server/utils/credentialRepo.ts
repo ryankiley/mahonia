@@ -3,10 +3,10 @@
 // ceremony plumbing to server/utils/passkeys.ts.
 
 import { toIso } from "./time";
-import { and, desc, eq, getTableColumns, lt } from "drizzle-orm";
+import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import { credentials, users } from "../db/schema";
 import { notRetired } from "./accessTokens";
-import { countRows, type Db } from "./db";
+import type { Db } from "./db";
 import { cleanLine } from "./http";
 import type { PasskeySummary } from "../../shared/types";
 import { isSerialId } from "../../shared/ops";
@@ -56,7 +56,6 @@ export async function savePasskey(
     publicKey: string;
     counter: number;
     transports?: string[] | null;
-    discoverable: boolean;
     label?: string | null;
     /** the account's address was unproven when whatever authorized this key was
      *  checked: see sessions.unproven in server/db/schema.ts */
@@ -69,35 +68,10 @@ export async function savePasskey(
     publicKey: input.publicKey,
     counter: input.counter,
     transports: input.transports?.length ? JSON.stringify(input.transports) : null,
-    discoverable: input.discoverable,
     label: (input.label && cleanPasskeyLabel(input.label)) || null,
     unproven: input.unproven,
   }).returning({ id: credentials.id });
   return row!.id;
-}
-
-/**
- * Take a just-saved passkey back out if it is one beyond the cap: true when it was.
- *
- * Counting before a save can't hold the cap against saves that arrive together: each
- * reads the same count, finds room and writes. So the cap is settled afterwards, by
- * the rows: a key is beyond the cap when MAX_PASSKEYS_PER_USER of the account's keys
- * have a smaller id, which is to say were saved before it.
- *
- * Each request judges and removes ONLY ITS OWN row, by that order. "Over the cap, so
- * undo mine" would have every racing request undo its own and leave the account
- * under the cap with nothing saved; and trimming whichever rows are newest would
- * delete a key another request has already told its owner was kept. By id, the
- * earliest MAX_PASSKEYS_PER_USER rows never see that many before them, so they all
- * stay, and the later ones go. (An id is taken a moment before its row is visible,
- * so a later key can count before an earlier one has landed and be kept: the cap can
- * then be passed by that key. It errs that way only, never by removing a kept key.)
- */
-export async function removePasskeyBeyondCap(db: Db, userId: number, id: number): Promise<boolean> {
-  const earlier = await countRows(db, credentials, and(eq(credentials.userId, userId), lt(credentials.id, id)));
-  if (earlier < MAX_PASSKEYS_PER_USER) return false;
-  await deletePasskey(db, userId, id);
-  return true;
 }
 
 /** Look a credential up by the id the authenticator presented. Not scoped by

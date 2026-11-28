@@ -150,18 +150,10 @@ describe("the link, on PGlite", () => {
     expect(gear.items.map((i) => i.name)).toEqual(["Duplex"]);
   });
 
-  it("answers nothing for a mistyped code, a vault no account owns, or one swept for deletion", async () => {
+  it("answers nothing for a mistyped code, or a vault no account owns", async () => {
     const code = (await setVaultShare(db, vaultId, true))!;
     expect(await sharedGearByCode(db, "not-a-code")).toBeNull();
-    await db
-      .update(vaults)
-      .set({ deletedAt: new Date() })
-      .where(eq(vaults.id, vaultId));
-    expect(await sharedGearByCode(db, code)).toBeNull();
-    await db
-      .update(vaults)
-      .set({ deletedAt: null, userId: null })
-      .where(eq(vaults.id, vaultId));
+    await db.update(vaults).set({ userId: null }).where(eq(vaults.id, vaultId));
     expect(await sharedGearByCode(db, code)).toBeNull();
   });
 });

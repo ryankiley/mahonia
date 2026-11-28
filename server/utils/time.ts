@@ -12,9 +12,7 @@ const SWEEP_BATCH_MAX = 10_000;
  * A sweep's window: how far back `days` reaches (floored at one day), and how many
  * rows one run may touch (floored at one, capped at SWEEP_BATCH_MAX) — so a backlog
  * drains over successive nights and one run can never issue an unbounded write. The
- * lists' two sweeps and the vaults' two each worked this out. The day floor is applied
- * here to the default as well, so a default read from the environment needs no floor
- * of its own.
+ * day floor is applied to the default as well.
  */
 export function sweepWindow(
   days: number | undefined,

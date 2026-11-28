@@ -68,13 +68,7 @@ export async function sharedGearByCode(
   const [vault] = await db
     .select({ id: vaults.id, userId: vaults.userId })
     .from(vaults)
-    .where(
-      and(
-        eq(vaults.shareCode, code),
-        isNull(vaults.deletedAt),
-        isNotNull(vaults.userId),
-      ),
-    );
+    .where(and(eq(vaults.shareCode, code), isNotNull(vaults.userId)));
   if (!vault) return null;
   const [owner] = await db
     .select({ name: users.displayName })
