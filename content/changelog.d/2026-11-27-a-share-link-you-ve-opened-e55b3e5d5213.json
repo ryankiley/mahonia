@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-27",
+  "added": [
+    "A share link you've opened on this device now opens offline, showing the list as you last saw it and when that copy was saved."
+  ],
+  "fixed": [
+    "Offline, a share link this device hasn't saved says so and opens once you're back online, instead of the browser's error page.",
+    "A share link the server can't load right now says it couldn't be loaded, instead of saying the list doesn't exist."
+  ]
+}

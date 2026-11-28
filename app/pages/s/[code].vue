@@ -5,12 +5,16 @@ import type { ListSnapshot } from "~~/shared/types";
 const route = useRoute();
 const code = computed(() => String(route.params.code || ""));
 
-// SSR fetch so a shared link is readable before hydration + indexable structure.
-// Computed URL + derived snapshot: a string URL is frozen at call time (per the
-// useFetch docs) and a one-time ref copy goes stale — this way an in-app
-// /s/a → /s/b navigation refetches and the page tracks the response.
-const { data } = await useFetch<{ snapshot: ListSnapshot }>(() => `/api/s/${code.value}`);
-const snapshot = computed<ListSnapshot | null>(() => data.value?.snapshot ?? null);
+// Fetched on the server, so a shared link is readable before hydration and has its
+// structure in the HTML. Keyed by the code and derived, not copied once: an in-app
+// /s/a → /s/b navigation refetches and the page tracks the answer. With no connection
+// the answer is this device's copy of the list, or the reason there is none
+// (useSharedList).
+const { shared, loaded } = useSharedList(code);
+await loaded;
+const snapshot = computed<ListSnapshot | null>(() => shared.value?.snapshot ?? null);
+const keptAt = computed(() => (shared.value?.snapshot ? shared.value.keptAt : undefined));
+const missing = computed(() => (shared.value && !shared.value.snapshot ? shared.value.missing : undefined));
 
 // edge-cache the HTML for a short window — collapses the burst when
 // a share link makes the rounds; a read-only view tolerates 30 s of staleness.
@@ -44,9 +48,13 @@ useHead({
     </SiteTopbar>
 
     <!-- the view-model's props as one object (useReadonlyList.viewProps), so the page
-         can't spell out a prop list that drifts from the view's own -->
+         can't spell out a prop list that drifts from the view's own; beside it, the two
+         things only the page knows: that the list is this device's copy, or why there
+         is no list -->
     <ReadonlyListView
       v-bind="viewProps"
+      :kept-at="keptAt"
+      :missing="missing"
       @set-unit="(u) => (unit = u)"
       @pick-person="(id) => (personFilter = id)"
     />

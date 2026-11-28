@@ -43,16 +43,17 @@ describe("the app shell offline", () => {
     }
   });
 
-  it("answers only page navigations, never data or pages with rules of their own", () => {
+  it("answers only page navigations, never data or a page that needs the network", () => {
     expect(matches("/e/abc123", "cors")).toBe(false);
     expect(matches("/gear", "cors")).toBe(false);
+    expect(matches("/s/T1MBER11NE00", "cors")).toBe(false);
     for (const path of [
       "/e/_payload.json/x",
       "/api/l/e",
       "/api/s/e",
+      "/api/s/T1MBER11NE00",
       "/api/vault/list",
       "/l/e",
-      "/s/abc123",
       "/e/a/b",
       "/gear/x",
       "/help/_payload.json",
@@ -65,22 +66,25 @@ describe("the app shell offline", () => {
   });
 });
 
-// A list opened from a share link still opens with no network: its data and its page
-// each have a cache. The retired /l pages had the same pair and are not matched now.
+// A share link opens offline from the same shell. Its list arrives inside the page's
+// HTML, which the worker must not keep (the reason above), so the page keeps the list
+// itself and reads it back (tests/sharedListOffline.nuxt.test.ts).
 describe("the shared read view offline", () => {
-  const cacheFor = (path: string) =>
-    rules.find((r) => r.urlPattern instanceof RegExp && r.urlPattern.test(`https://mahonia.app${path}`))?.options
-      ?.cacheName;
-
-  it("keeps a share link's data and its page", () => {
-    expect(cacheFor("/api/s/ABC123")).toBe("mahonia-list-data");
-    expect(cacheFor("/s/ABC123")).toBe("mahonia-list-pages");
+  it("opens a share link from the shell", () => {
+    for (const path of ["/s/T1MBER11NE00", "/s/t1mber11ne00", "/s/T1MBER11NE00/"]) {
+      expect(matches(path), path).toBe(true);
+    }
   });
 
-  it("caches nothing else: not the retired /l, not the account's own lists", () => {
-    for (const path of ["/l/trip-a1b2c3", "/api/l/trip-a1b2c3", "/api/lists/mine", "/api/vault/list", "/s/"]) {
-      expect(cacheFor(path), path).toBeUndefined();
+  it("but not its Markdown twin, the bare /s, or anything under a code", () => {
+    for (const path of ["/s/T1MBER11NE00.md", "/s", "/s/", "/s/T1MBER11NE00/x", "/og/s/T1MBER11NE00"]) {
+      expect(matches(path), path).toBe(false);
     }
+  });
+
+  it("keeps no copy of a list in the worker, as a page or as data", () => {
+    const keeping = rules.filter((r) => r.handler !== "NetworkOnly" || r.options?.cacheName);
+    expect(keeping.map((r) => String(r.urlPattern))).toEqual([]);
   });
 });
 
