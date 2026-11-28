@@ -10,6 +10,7 @@ import { CATALOG_DDL } from "../server/utils/catalog";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import type { CatalogCsvRow } from "../scripts/catalogCsv";
 import { renameMovedVariants } from "../scripts/seedRenames";
+import { upsertSeedRows } from "../scripts/seedUpsert";
 import { vaultNormKey } from "../shared/vault";
 import { seedCatalogRow } from "./helpers/catalog";
 import { createTestDb, type TestDb } from "./helpers/db";
@@ -63,6 +64,18 @@ describe("renameMovedVariants", () => {
     // nor a row an admin verified in the app: the database's, not the research's
     await db.update(schema.catalogItems).set({ verified: true, verifiedBy: 7 }).where(eq(schema.catalogItems.id, old.id));
     expect((await renameMovedVariants(db, [csv({})])).catalog).toBe(0);
+  });
+
+  it("moves a row holding a visitor's correction, which the upsert then keeps", async () => {
+    await upsertSeedRows(db, [csv({ variant: "Medium, JP 3" })]);
+    const [old] = await db.select().from(schema.catalogItems);
+    // the corrected weight and its citation, as proposeCorrection leaves them on the row
+    const fix = "https://usshop.goldwin-global.com/products/gl05140?spec";
+    await db.update(schema.catalogItems).set({ weightMg: 425_000, sourceUrl: fix }).where(eq(schema.catalogItems.id, old!.id));
+
+    expect(await renameMovedVariants(db, [csv({})])).toEqual({ catalog: 1, vault: 0 });
+    expect((await upsertSeedRows(db, [csv({})])).kept.map((k) => [k.id, k.liveMg])).toEqual([[old!.id, 425_000]]);
+    expect(await db.select().from(schema.catalogItems)).toEqual([expect.objectContaining({ id: old!.id, variant: "JP 3", weightMg: 425_000, sourceUrl: fix })]);
   });
 
   it("leaves a size split or a size dropped alone: one orphan, one newcomer, or nothing", async () => {

@@ -7,11 +7,12 @@
 // once the research agrees with it on the weight and its citation; until then the reseed
 // leaves it be (upsertSeedRows), and catalog:graduate writes it back into the research.
 //
-// A row from the research files (seedManaged, or one that was before an earlier call here)
-// takes a new maker's weight with its page and quote, so a maker's re-specced figure needs
-// no research PR. Nothing else about it is the tool's to change: a new name or gear type
-// would leave the research naming the old one, which the next reseed would add again
-// beside it, and a scale weight is the person's own piece's, not the maker's figure.
+// A row from the research files (seedManaged, or one the seed wrote before an earlier call
+// here: seed_weight_mg) takes a new maker's weight with its page and quote, so a maker's
+// re-specced figure needs no research PR. Nothing else about it is the tool's to change: a
+// new name or gear type would leave the research naming the old one, which the next reseed
+// would add again beside it, and a scale weight is the person's own piece's, not the
+// maker's figure.
 //
 // A chat writes these rows, so the tool carries the rules a person would otherwise have to
 // repeat to every chat, and refuses in a sentence the model can act on:
@@ -38,7 +39,6 @@
 import { and, desc, eq, getTableColumns, gt, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
 import { normalizeGearType } from "../../scripts/gearTypes";
-import { researchStamp } from "../../scripts/graduate";
 import { buildSearchTerms } from "../../scripts/searchTerms";
 import { soldByOf } from "../../shared/catalogAxes";
 import { CATALOG_CATEGORIES, catalogCategories, categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged, tidyQuote } from "../../shared/catalogQuality";
@@ -253,8 +253,8 @@ export async function verifyCatalogItem(
   // again, so the lists that kept holding that id pick it up. A live research row takes a
   // corrected maker's weight and citation, and nothing else: its name and gear type are the
   // research's, and so is its weight's being the maker's. That holds after a first
-  // correction too, when the row's verifier is set and only its edit history says where it
-  // came from, which every call on such a row reads: the refusals below and the house
+  // correction too, when the row's verifier is set and the weight the seed last wrote on
+  // it (seed_weight_mg) is what says where it came from: the refusals below and the house
   // style's advice both turn on it.
   let revive = false;
   let research = false;
@@ -265,7 +265,7 @@ export async function verifyCatalogItem(
     const renames = identity.brand !== current.brand || identity.name !== current.name || identity.variant !== current.variant;
     const retypes = (gearType !== "" && normKey(gearType) !== normKey(current.commonName)) || (category != null && category !== current.categoryHint);
     const measures = source === "measured";
-    research = seedManaged(current) || (current.verifiedBy != null && (await wasResearchRow(db, current.id)));
+    research = seedManaged(current) || current.seedWeightMg != null;
     if (research && measures) {
       return `Row ${current.id} comes from Mahonia's research files, which hold the maker's published weight: a weight from the person's own scale belongs on their piece of My Gear (edit_my_gear's weight_g), not on the catalog's row.`;
     }
@@ -448,19 +448,6 @@ export async function verifyCatalogItem(
     if (!isUniqueViolation(e)) throw e;
     return `${display} is already another catalog row, maybe a retired one; to verify that one instead, send its brand, name, and variant without catalog_id.`;
   }
-}
-
-/** Whether a row was a research row before a verification stamped it: an applied edit
- *  whose undo snapshot has it verified with no verifier (seedManaged). Once corrected, a
- *  research row's own fields no longer say so, and the research still names it. */
-async function wasResearchRow(db: Db, id: number): Promise<boolean> {
-  const [found] = await db
-    .select({ id: catalogEdits.id })
-    .from(catalogEdits)
-    // the stamp's three conditions, and why a JSON null, are researchStamp's (scripts/graduate.ts)
-    .where(and(eq(catalogEdits.catalogItemId, id), ...researchStamp()))
-    .limit(1);
-  return found != null;
 }
 
 /**
