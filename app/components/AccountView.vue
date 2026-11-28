@@ -276,8 +276,8 @@ async function saveName() {
   nameSaving.value = false;
   nameNote.value = ok
     ? name.value.trim()
-      ? "Saved. Lists you make now carry your name."
-      : "Cleared. Your lists are anonymous again."
+      ? "Saved."
+      : "Cleared."
     : "Couldn’t save that. Check your connection and try again.";
 }
 
@@ -301,7 +301,7 @@ async function addPasskey() {
   const result = await pk.register(deviceLabel());
   pkBusy.value = false;
   if (result === "ok") {
-    pkNote.value = "Added. You can sign in with it from now on.";
+    pkNote.value = "Added.";
     await loadPasskeys();
   } else if (result === "failed") pkNote.value = "That didn’t work. Try again.";
   // "cancelled" is a choice, not a failure — say nothing
@@ -380,8 +380,12 @@ const copyForChatGpt = () =>
     "Address copied. In ChatGPT, turn on developer mode under Apps & Connectors and paste it into a new connector.",
     ADDRESS_NOT_COPIED,
   );
+// The client buttons and the token stay folded under Connect until asked for (see the
+// template); what is already connected is listed either way.
+const connectOpen = ref(false);
+const connectId = useId();
 // the hand-minted token is the second way in, for a client that can't open a
-// sign-in, and stays folded until asked for: the button above is the ordinary path
+// sign-in, and stays folded until asked for: the buttons are the ordinary path
 const tokenForm = ref(false);
 // Claude Code is the client with a one-line install that takes the header; the
 // README carries the equivalent for the others
@@ -629,7 +633,6 @@ async function onSignOut() {
           <section class="acct__section">
             <h2 class="t-label acct__label">Email</h2>
             <p class="acct__value">{{ user?.email }}</p>
-            <p class="t-muted">How you get back in if you lose your devices.</p>
           </section>
 
           <section class="acct__section">
@@ -640,16 +643,13 @@ async function onSignOut() {
                 class="field acct__input"
                 type="text"
                 maxlength="40"
-                placeholder="Optional"
+                placeholder="Shown on lists you share"
                 aria-label="Display name"
               />
               <button type="submit" class="btn btn--ghost acct__btn" :disabled="!nameDirty || nameSaving">
                 {{ nameSaving ? "Saving…" : "Save" }}
               </button>
             </form>
-            <p class="t-muted">
-              Shown on lists you share. Leave it empty to stay anonymous.
-            </p>
             <p v-if="nameNote" class="acct__note">{{ nameNote }}</p>
           </section>
 
@@ -667,34 +667,98 @@ async function onSignOut() {
                 <button type="button" class="btn btn--quiet" @click="removePasskey(k.id)">Remove</button>
               </li>
             </ul>
-            <p class="t-muted">
-              Sign in with your fingerprint or screen lock. An emailed link always works too, so
-              it’s safe to remove them all.
-            </p>
+            <!-- what one is, until there is one; the remove confirmation says the emailed
+                 link still works -->
+            <p v-else class="t-muted">Sign in with your fingerprint or screen lock.</p>
             <p v-if="pkNote" class="acct__note">{{ pkNote }}</p>
           </section>
 
           <!-- ASSISTANT ACCESS: the connector. Below the passkeys because what it leaves
-               behind is the same kind of thing, a credential you review and revoke here. -->
+               behind is the same kind of thing, a credential you review and revoke here.
+               FOLDED: most accounts never connect an assistant, and four client buttons and
+               a token form were the biggest block in the dialog. So the section is its
+               heading and Connect, the way Passkeys is its heading and Add; what is already
+               connected is listed outside the fold, since that is what you come here to
+               review. The heading
+               keeps its name: the consent page, Help, llms.txt and the connector's own
+               instructions all send people to "Assistant access". -->
           <section class="acct__section">
-            <h2 class="t-label acct__label">Assistant access</h2>
-            <!-- each client's own mark on its button; Cursor's is the cube its logo is drawn as -->
-            <div class="acct__clients">
-              <a :href="addToClaude" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
-                <SvgIcon :icon="IconClaudeai" aria-hidden="true" /> Add to Claude
-              </a>
-              <!-- the copy runs inside the click, before the link opens the settings page -->
-              <a :href="chatGptConnectors" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn" @click="copyForChatGpt">
-                <SvgIcon :icon="IconOpenai" aria-hidden="true" /> ChatGPT
-              </a>
-              <a :href="addToCursor" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn">
-                <SvgIcon :icon="IconCursor" aria-hidden="true" /> Cursor
-              </a>
-              <button type="button" class="btn btn--ghost acct__btn" @click="copy(mcpUrl, 'Address copied.', ADDRESS_NOT_COPIED)">
-                <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" /> Copy address
+            <div class="acct__sectionhead">
+              <h2 class="t-label acct__label">Assistant access</h2>
+              <button
+                type="button"
+                class="btn btn--quiet acct__add"
+                :aria-expanded="connectOpen"
+                :aria-controls="connectOpen ? connectId : undefined"
+                @click="connectOpen = !connectOpen"
+              >
+                Connect
+                <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': connectOpen }" size="sm" aria-hidden="true" />
               </button>
             </div>
-            <p class="t-muted">Any other MCP client takes the address. Each one asks you to sign in here the first time.</p>
+            <!-- Transition + v-if, as MenuSection does: .reveal is the house disclosure
+                 slide (controls.scss), and v-if takes the closed buttons out of the tab order -->
+            <Transition name="reveal">
+              <div v-if="connectOpen" :id="connectId" class="reveal acct__connect">
+                <div class="acct__connectin">
+                  <!-- each client's own mark on its button; Cursor's is the cube its logo is drawn as -->
+                  <div class="acct__clients">
+                    <a :href="addToClaude" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
+                      <SvgIcon :icon="IconClaudeai" aria-hidden="true" /> Add to Claude
+                    </a>
+                    <!-- the copy runs inside the click, before the link opens the settings page -->
+                    <a :href="chatGptConnectors" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn" @click="copyForChatGpt">
+                      <SvgIcon :icon="IconOpenai" aria-hidden="true" /> ChatGPT
+                    </a>
+                    <a :href="addToCursor" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn">
+                      <SvgIcon :icon="IconCursor" aria-hidden="true" /> Cursor
+                    </a>
+                    <button type="button" class="btn btn--ghost acct__btn" @click="copy(mcpUrl, 'Address copied.', ADDRESS_NOT_COPIED)">
+                      <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" /> Copy address
+                    </button>
+                  </div>
+                  <p v-if="!tokenForm" class="t-muted">
+                    <button type="button" class="acct__switch" @click="tokenForm = true">Make an access token</button>
+                  </p>
+                  <form v-else class="acct__row acct__tokenrow" @submit.prevent="makeToken">
+                    <input
+                      v-model="tokenLabel"
+                      class="field acct__input"
+                      type="text"
+                      maxlength="60"
+                      placeholder="Name it, e.g. Claude Code"
+                      aria-label="Token name"
+                    />
+                    <!-- the app's own picker rather than a native select — OptionMenu says why -->
+                    <OptionMenu
+                      :options="SCOPES"
+                      :current="tokenScope"
+                      label="What the token can do"
+                      trigger-class="btn btn--ghost acct__btn acct__scope"
+                      @pick="(k) => (tokenScope = k as AccessScope)"
+                    >
+                      <template #trigger="{ active, open }">
+                        <span>{{ active?.label }}</span>
+                        <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
+                      </template>
+                    </OptionMenu>
+                    <button type="submit" class="btn btn--ghost acct__btn" :disabled="tokenBusy">
+                      {{ tokenBusy ? "Making…" : "Make token" }}
+                    </button>
+                  </form>
+                  <div v-if="tokenForm && freshToken" class="acct__fresh">
+                    <p class="acct__note">Shown once. Copy it before you leave this page.</p>
+                    <code class="acct__secret">{{ freshToken }}</code>
+                    <p class="t-muted">For Claude Code, this one line adds the connector with the token:</p>
+                    <code class="acct__secret">{{ claudeCommand }}</code>
+                    <div class="acct__copies">
+                      <button type="button" class="btn btn--ghost acct__btn" @click="copy(freshToken)">Copy token</button>
+                      <button type="button" class="btn btn--ghost acct__btn" @click="copy(claudeCommand)">Copy command</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Transition>
             <ul v-if="tokens.length" class="acct__list">
               <li v-for="t in tokens" :key="t.id" class="acct__item">
                 <span class="acct__name">{{ t.label || "Token" }}</span>
@@ -704,55 +768,11 @@ async function onSignOut() {
                 <button type="button" class="btn btn--quiet" @click="revokeToken(t)">{{ t.kind === "app" ? "Disconnect" : "Revoke" }}</button>
               </li>
             </ul>
-            <p v-if="!tokenForm" class="t-muted">
-              Using a client that can’t sign in?
-              <button type="button" class="acct__switch" @click="tokenForm = true">Make a token</button>
-            </p>
-            <form v-else class="acct__row acct__tokenrow" @submit.prevent="makeToken">
-              <input
-                v-model="tokenLabel"
-                class="field acct__input"
-                type="text"
-                maxlength="60"
-                placeholder="Name it, e.g. Claude Code"
-                aria-label="Token name"
-              />
-              <!-- the app's own picker rather than a native select — OptionMenu says why -->
-              <OptionMenu
-                :options="SCOPES"
-                :current="tokenScope"
-                label="What the token can do"
-                trigger-class="btn btn--ghost acct__btn acct__scope"
-                @pick="(k) => (tokenScope = k as AccessScope)"
-              >
-                <template #trigger="{ active, open }">
-                  <span>{{ active?.label }}</span>
-                  <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
-                </template>
-              </OptionMenu>
-              <button type="submit" class="btn btn--ghost acct__btn" :disabled="tokenBusy">
-                {{ tokenBusy ? "Making…" : "Make token" }}
-              </button>
-            </form>
-            <div v-if="tokenForm && freshToken" class="acct__fresh">
-              <p class="acct__note">Shown once. Copy it before you leave this page.</p>
-              <code class="acct__secret">{{ freshToken }}</code>
-              <p class="t-muted">For Claude Code, this one line adds the connector with the token:</p>
-              <code class="acct__secret">{{ claudeCommand }}</code>
-              <div class="acct__copies">
-                <button type="button" class="btn btn--ghost acct__btn" @click="copy(freshToken)">Copy token</button>
-                <button type="button" class="btn btn--ghost acct__btn" @click="copy(claudeCommand)">Copy command</button>
-              </div>
-            </div>
             <p v-if="tokenNote" class="acct__note">{{ tokenNote }}</p>
           </section>
 
           <section class="acct__section">
             <h2 class="t-label acct__label">Take your data with you</h2>
-            <p class="t-muted">
-              One file with every list on this account, plus My Gear. Import can restore any list in
-              it.
-            </p>
             <button type="button" class="btn btn--ghost acct__btn" :disabled="exporting" @click="exportEverything">
               {{ exporting ? "Building the file…" : "Download everything" }}
             </button>
@@ -774,12 +794,9 @@ async function onSignOut() {
             </button>
           </section>
 
+          <!-- no heading or paragraph: the button names it, and its confirmation says what
+               goes and asks about the lists -->
           <section class="acct__section">
-            <h2 class="t-label acct__label">Delete your account</h2>
-            <p class="t-muted">
-              Your email, passkeys, and My Gear are deleted for good. Your lists and their links
-              keep working unless you choose to delete them too.
-            </p>
             <button
               type="button"
               class="btn btn--ghost acct__btn acct__danger"
@@ -949,6 +966,21 @@ async function onSignOut() {
 }
 .acct__add {
   gap: var(--space-1);
+}
+/* THE FOLD UNDER CONNECT. The section's --space-2 gap would stand above the fold the
+   moment it mounts and snap away when it unmounts, so the fold takes the gap back and
+   carries it inside, where the 0fr row collapses it with everything else. The inner
+   --space-1 on the other three sides is room for a focus ring, which .reveal's clip
+   would otherwise cut off the left edge of Add to Claude; the margin keeps the buttons
+   on the line every other row starts on. */
+.acct__connect {
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-1)) calc(-1 * var(--space-1));
+}
+.acct__connectin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1) var(--space-1);
 }
 .acct__row {
   display: flex;

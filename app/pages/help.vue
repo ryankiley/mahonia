@@ -311,8 +311,8 @@ useHead({
           </li>
         </ul>
         <p>
-          A client that can’t sign in can use a token instead. Make one under “Assistant access” in
-          your account and send it as an <code>Authorization: Bearer</code> header. It’s shown
+          A client that can’t sign in can use a token instead. Make one in your account from Connect,
+          under “Assistant access”, and send it as an <code>Authorization: Bearer</code> header. It’s shown
           once and lasts until you revoke it.
         </p>
 
