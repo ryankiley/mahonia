@@ -472,6 +472,9 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     expect(c.openedByCode.value).toBe(false);
     expect(c.editToken).toBe(ROTATED_TOKEN);
     expect(tracked.value).toBe(ROTATED_TOKEN);
+    // a claimed open never asks whose the gear is (it's the account's); holding the
+    // link instead must not start asking
+    expect(c.vaultAuto.value).toBe(true);
 
     // the device now holds the capability: a registry row exists…
     const rows = useMyLists().entries.value;

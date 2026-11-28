@@ -1140,7 +1140,9 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
   });
   afterAll(() => vi.unstubAllGlobals());
 
-  const entry = () => listEntry({ editToken: TOKEN, shareCode: "SHARECODE001", slug: "trip-abc123" });
+  const CODE = "SHARECODE001";
+  const LIST = { editToken: TOKEN, shareCode: CODE };
+  const entry = () => listEntry({ editToken: TOKEN, shareCode: CODE, slug: "trip-abc123" });
 
   // A list this device holds, with both halves of the decision answered: yes it's
   // mine, except for the stove — which is what the chooser records when you untick
@@ -1152,16 +1154,16 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
     const my = useMyLists();
     for (const e of my.entries.value) my.forget(e.editToken);
     my.upsert(entry());
-    vault.setVaultDecisionFor(TOKEN, "yes");
-    vault.setVaultExclusionsFor(TOKEN, ["stove"]);
+    vault.setVaultDecisionFor(LIST, "yes");
+    vault.setVaultExclusionsFor(LIST, ["stove"]);
   });
 
   it("deleting the list takes its decision with it", async () => {
     const my = useMyLists();
     expect(await my.deleteList(TOKEN)).toBe(true);
     expect(my.entries.value).toEqual([]);
-    expect(store.has(`gear.vault.for.${TOKEN}`)).toBe(false);
-    expect(store.has(`gear.vault.not.${TOKEN}`)).toBe(false);
+    expect(store.has(`gear.vault.answer.${CODE}`)).toBe(false);
+    expect(store.has(`gear.vault.declined.${CODE}`)).toBe(false);
   });
 
   it("a list gone from the server already still gets its decision cleared", async () => {
@@ -1170,8 +1172,8 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
     onDelete = () => Promise.reject({ statusCode: 404 });
     const my = useMyLists();
     expect(await my.deleteList(TOKEN)).toBe(true);
-    expect(store.has(`gear.vault.for.${TOKEN}`)).toBe(false);
-    expect(store.has(`gear.vault.not.${TOKEN}`)).toBe(false);
+    expect(store.has(`gear.vault.answer.${CODE}`)).toBe(false);
+    expect(store.has(`gear.vault.declined.${CODE}`)).toBe(false);
   });
 
   it("a delete that didn't happen leaves the decision alone", async () => {
@@ -1181,8 +1183,8 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
     const my = useMyLists();
     expect(await my.deleteList(TOKEN)).toBe(false);
     expect(my.entries.value.map((e) => e.editToken)).toEqual([TOKEN]);
-    expect(vault.vaultDecisionFor(TOKEN)).toBe("yes");
-    expect([...vault.vaultExclusionsFor(TOKEN)]).toEqual(["stove"]);
+    expect(vault.vaultDecisionFor(LIST)).toBe("yes");
+    expect([...vault.vaultExclusionsFor(LIST)]).toEqual(["stove"]);
   });
 
   it("forgetting a list keeps its decision — the list is still online", () => {
@@ -1192,23 +1194,49 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
     my.forget(TOKEN);
     expect(deleteCalls).toBe(0); // nothing was deleted server-side
     expect(my.entries.value).toEqual([]);
-    expect(vault.vaultDecisionFor(TOKEN)).toBe("yes");
-    expect([...vault.vaultExclusionsFor(TOKEN)]).toEqual(["stove"]);
+    expect(vault.vaultDecisionFor(LIST)).toBe("yes");
+    expect([...vault.vaultExclusionsFor(LIST)]).toEqual(["stove"]);
+  });
+
+  it("forgetting a list keeps a no, too", () => {
+    // The answer that matters most to keep: forgetting a friend's list and opening
+    // its link again must not put their gear back in question.
+    vault.setVaultDecisionFor(LIST, "no");
+    useMyLists().forget(TOKEN);
+    expect(vault.vaultDecisionFor(LIST)).toBe("no");
+  });
+
+  it("deleting the list clears an answer still filed under its edit token", async () => {
+    // one never opened since the answer moved to the share code
+    store.set(`gear.vault.for.${TOKEN}`, "no");
+    store.set(`gear.vault.not.${TOKEN}`, JSON.stringify(["stove"]));
+    expect(await useMyLists().deleteList(TOKEN)).toBe(true);
+    expect([...store.keys()].filter((k) => k.startsWith("gear.vault."))).toEqual([]);
+  });
+
+  it("a dead link keeps the answer while another row still opens the list", () => {
+    // The list was rotated on another device and this one has its new link too: the
+    // answer is the live row's as much as the dead one's.
+    const my = useMyLists();
+    my.entries.value = [...my.entries.value, listEntry({ editToken: "newer-token", shareCode: CODE, slug: "trip-abc123" })];
+    my.clearVaultAnswer(TOKEN);
+    expect(vault.vaultDecisionFor({ editToken: "newer-token", shareCode: CODE })).toBe("yes");
+    expect([...vault.vaultExclusionsFor(LIST)]).toEqual(["stove"]);
   });
 
   it("a cleared decision reads as unanswered, not as a no", () => {
     // The distinction the editor runs on: "no" never asks again, "ask" is the
-    // question still open. A token that comes back around must land on the latter.
-    vault.clearVaultDecisionFor(TOKEN);
-    expect(vault.vaultDecisionFor(TOKEN)).toBe("ask");
-    expect(vault.vaultExclusionsFor(TOKEN).size).toBe(0);
+    // question still open. A list that comes back around must land on the latter.
+    vault.clearVaultDecisionFor(CODE);
+    expect(vault.vaultDecisionFor(LIST)).toBe("ask");
+    expect(vault.vaultExclusionsFor(LIST).size).toBe(0);
   });
 
-  it("clears nothing when there's no token to clear for", () => {
-    // A draft has no edit token yet, and `gear.vault.for.` is nobody's key.
-    store.set("gear.vault.for.", "yes");
+  it("clears nothing when there's no list to clear for", () => {
+    // A draft has no share code yet, and `gear.vault.answer.` is nobody's key.
+    store.set("gear.vault.answer.", "yes");
     vault.clearVaultDecisionFor("");
-    expect(store.has("gear.vault.for.")).toBe(true);
+    expect(store.has("gear.vault.answer.")).toBe(true);
   });
 });
 

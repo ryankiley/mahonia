@@ -28,22 +28,32 @@ const loadVault = () =>
 // apart. Rather than guess — and quietly copy a stranger's kit into your locker —
 // the editor asks once per list and remembers the answer.
 //
-// Per LIST, keyed by its edit token (already this device's IndexedDB key for the
-// list, so no new exposure). Device-local: it's a judgement about your own vault,
-// never sent anywhere.
-const DECISION_KEY = (editToken: string) => `gear.vault.for.${editToken}`;
+// Per LIST, filed under its share code: the list's permanent name, which a rotate
+// leaves alone. Device-local: it's a judgement about your own vault, never sent
+// anywhere.
+//
+// The edit token still decides whether there is a question at all. An open with no
+// token is a draft (yours by definition) or a list opened through your account
+// (yours, filed under it); only a held edit link has anything to ask.
+export interface VaultList {
+  editToken: string;
+  shareCode: string;
+}
+const DECISION_KEY = (shareCode: string) => `gear.vault.answer.${shareCode}`;
 
 type VaultDecision = "yes" | "no" | "ask";
 
-export function vaultDecisionFor(editToken: string): VaultDecision {
-  if (!import.meta.client || !editToken) return "yes"; // a draft is yours by definition
+export function vaultDecisionFor(list: VaultList): VaultDecision {
+  if (!import.meta.client || !list.editToken) return "yes";
+  // a link whose list hasn't loaded yet has nothing to file an answer under
+  if (!list.shareCode) return "ask";
   // blocked storage reads as null (remember.ts), and null is "ask"
-  const v = recall(DECISION_KEY(editToken));
+  const v = recall(DECISION_KEY(list.shareCode));
   return v === "yes" || v === "no" ? v : "ask";
 }
 
-export function setVaultDecisionFor(editToken: string, decision: "yes" | "no"): void {
-  if (editToken) remember(DECISION_KEY(editToken), decision);
+export function setVaultDecisionFor(list: VaultList, decision: "yes" | "no"): void {
+  if (list.editToken && list.shareCode) remember(DECISION_KEY(list.shareCode), decision);
 }
 
 // "Yes" is rarely the whole truth on a list you shared. On a trip you planned
@@ -55,44 +65,74 @@ export function setVaultDecisionFor(editToken: string, decision: "yes" | "no"): 
 // declining is a fact about gear that's in the list today, whereas an allow list
 // would silently exclude everything you add tomorrow — and gear you add to a list
 // yourself is exactly the gear most likely to be yours.
-const EXCLUDE_KEY = (editToken: string) => `gear.vault.not.${editToken}`;
+const EXCLUDE_KEY = (shareCode: string) => `gear.vault.declined.${shareCode}`;
 
 /** The normKeys this device said were somebody else's, for this list. */
-export function vaultExclusionsFor(editToken: string): Set<string> {
-  if (!import.meta.client || !editToken) return new Set();
+export function vaultExclusionsFor(list: VaultList): Set<string> {
+  if (!import.meta.client || !list.editToken || !list.shareCode) return new Set();
   // unreadable or malformed reads as none — capture everything rather than nothing
   return new Set(
-    recallJson(EXCLUDE_KEY(editToken), Array.isArray, []).filter((k): k is string => typeof k === "string"),
+    recallJson(EXCLUDE_KEY(list.shareCode), Array.isArray, []).filter((k): k is string => typeof k === "string"),
   );
 }
 
-export function setVaultExclusionsFor(editToken: string, normKeys: string[]): void {
-  if (!editToken) return;
+export function setVaultExclusionsFor(list: VaultList, normKeys: string[]): void {
+  if (!list.editToken || !list.shareCode) return;
   // storage blocked → the choice holds for this session only (remember/forget swallow it)
-  if (normKeys.length) remember(EXCLUDE_KEY(editToken), JSON.stringify(normKeys));
-  else forget(EXCLUDE_KEY(editToken));
+  if (normKeys.length) remember(EXCLUDE_KEY(list.shareCode), JSON.stringify(normKeys));
+  else forget(EXCLUDE_KEY(list.shareCode));
+}
+
+// Where the answer was kept until 2026-11-27: under the edit token, which a rotate
+// replaces, so every rotate had to carry it across.
+const TOKEN_DECISION_KEY = (editToken: string) => `gear.vault.for.${editToken}`;
+const TOKEN_EXCLUDE_KEY = (editToken: string) => `gear.vault.not.${editToken}`;
+
+/**
+ * Move an answer still filed under this list's edit token onto its share code, so a
+ * list answered before the move isn't asked about again. Only the open list's own
+ * keys: anything older moves the next time its list is opened, or is cleared with it.
+ * Delete this, and the token half of clearVaultDecisionFor, once those keys have aged
+ * out (added 2026-11-27).
+ */
+export function adoptTokenKeyedAnswer(list: VaultList): void {
+  if (!import.meta.client || !list.editToken || !list.shareCode) return;
+  const moves = [
+    [TOKEN_DECISION_KEY(list.editToken), DECISION_KEY(list.shareCode)],
+    [TOKEN_EXCLUDE_KEY(list.editToken), EXCLUDE_KEY(list.shareCode)],
+  ] as const;
+  for (const [from, to] of moves) {
+    const old = recall(from);
+    if (old === null) continue;
+    if (recall(to) === null) remember(to, old);
+    forget(from);
+  }
 }
 
 /**
  * Drop this device's answer for a list — both halves of it, the yes/no and the
- * exclusions that refine a yes. They're keyed by the same edit token and they
- * die together.
+ * exclusions that refine a yes. They're filed under the same share code and they
+ * die together. `editToken`, when given, clears an answer still under the token too.
  *
- * For a token that is dead for good, and only that: the list was deleted, or a
- * forget of a token the server had already stopped answering — from the dead-end
+ * For a list that is gone for good, and only that: the list was deleted, or a
+ * forget of a link the server had already stopped answering — from the dead-end
  * page, or from the ⋯ menu in its "No longer online · saved on device" state.
  * Deliberately not part of useMyLists.forget() itself, which also backs "Forget
  * this list" on a list that is still online: there the edit link may well bring
  * the list back, so "no, that gear isn't mine" is an answer worth keeping —
- * clearing it would re-ask a question already answered. A dead token's answer is
- * the one that's definitively unreachable (the keys are found only through the
- * token), and nothing else ever removed these keys, so every delete used to leave
- * a pair of them behind for good.
+ * clearing it would re-ask a question already answered. Callers go through
+ * useMyLists.clearVaultAnswer, which keeps the answer while another of this
+ * device's rows still opens the list.
  */
-export function clearVaultDecisionFor(editToken: string): void {
-  if (!editToken) return;
-  forget(DECISION_KEY(editToken));
-  forget(EXCLUDE_KEY(editToken));
+export function clearVaultDecisionFor(shareCode: string, editToken = ""): void {
+  if (shareCode) {
+    forget(DECISION_KEY(shareCode));
+    forget(EXCLUDE_KEY(shareCode));
+  }
+  if (editToken) {
+    forget(TOKEN_DECISION_KEY(editToken));
+    forget(TOKEN_EXCLUDE_KEY(editToken));
+  }
 }
 
 /** How long the editor must be idle before a capture goes out. Long enough that
@@ -182,7 +222,8 @@ export function useVaultCapture() {
     items: Item[],
     folders: Folder[],
     opts: {
-      editToken: string;
+      /** which list, and whether it has a question to ask (see VaultList) */
+      list: VaultList;
       onAsk?: () => void;
       /** What the vault holds of this list's gear, or null while unanswered —
        *  the open list's own answer, handed in by the controller. */
@@ -214,14 +255,14 @@ export function useVaultCapture() {
     // Gear declined in the chooser stays declined on every later edit — this is
     // what makes "only the tent is mine" a standing answer rather than a
     // one-off, since capture otherwise re-offers the whole list every time.
-    const declined = vaultExclusionsFor(opts.editToken);
+    const declined = vaultExclusionsFor(opts.list);
     const caps = declined.size ? all.filter((c) => !declined.has(c.normKey)) : all;
     if (!caps.length) return;
     // The decision is consulted HERE, after the capture set is built, so a list
     // with nothing vault-worthy in it never raises the question. Asking whether
     // to add gear when there is no gear is a question whose answer changes
     // nothing — and it burned the one chance to ask about that list.
-    const decision = vaultDecisionFor(opts.editToken);
+    const decision = vaultDecisionFor(opts.list);
     if (decision === "no") return;
     // Only ask someone who HAS a vault to ask about (the session may not have
     // answered yet; signed out for certain never gets this far). The prompt once
@@ -350,15 +391,16 @@ export function useVaultCapture() {
    * this data, just now.
    */
   function captureNewList(
-    snapshot: { items: Item[]; folders?: Folder[] },
+    snapshot: { items: Item[]; folders?: Folder[]; shareCode: string },
     editToken: string,
   ): void {
+    const list = { editToken, shareCode: snapshot.shareCode };
     // Recording the answer, not just capturing: you made this list, so its gear is
     // yours and the editor must never go on to ask about it. Without this an
     // imported or cloned list captured once here and then, on your very next edit,
     // asked whether the gear you had just imported was really yours.
-    setVaultDecisionFor(editToken, "yes");
-    sync(snapshot.items, snapshot.folders ?? [], { editToken });
+    setVaultDecisionFor(list, "yes");
+    sync(snapshot.items, snapshot.folders ?? [], { list });
   }
 
   /**

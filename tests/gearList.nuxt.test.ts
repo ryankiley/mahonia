@@ -119,6 +119,12 @@ _setFlushBackoff(300);
 const TOKEN = "test-edit-token";
 const snapshotFor = (title: string, version = 1): ListSnapshot =>
   baseSnapshot({ shareCode: "SNAPCODE0001", slug: "test-list-aaa111", title, version });
+// The open list as the vault's answer knows it: held by a link, filed by share code.
+const LIST = { editToken: TOKEN, shareCode: "SNAPCODE0001" };
+// The answer's two keys, under whichever name they are filed: the share code now, the
+// edit token before.
+const isAnswerKey = (k: string) => /^gear\.vault\.(answer|declined|for|not)\./.test(k);
+const answerKeys = () => [...storage.keys()].filter(isAnswerKey);
 
 // Routes go through registerEndpoint, NOT a $fetch global stub: under the Nuxt
 // environment $fetch is already bound to test-utils' own mock, which 404s anything
@@ -502,7 +508,7 @@ describe("useGearList — whose gear is this?", () => {
 
   it("asks before a single row of someone else's gear reaches the vault", async () => {
     const c = await prompted();
-    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(vaultDecisionFor(LIST)).toBe("ask");
     // and it is still only a question — nothing has been sent (this window is well
     // inside the capture debounce either way, but the guard returns before anything
     // is even queued)
@@ -555,7 +561,7 @@ describe("useGearList — whose gear is this?", () => {
 
     await new Promise((r) => setTimeout(r, 50)); // let the dynamic import settle
     expect(c.vaultPrompt.value).toBeNull();
-    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(vaultDecisionFor(LIST)).toBe("ask");
   });
 
   it("takes yes for an answer, captures, and stops asking", async () => {
@@ -565,7 +571,7 @@ describe("useGearList — whose gear is this?", () => {
     // capture set before it knows whether there's anything to choose between)
     await c.answerVaultPrompt(true);
     expect(c.vaultPrompt.value).toBeNull();
-    expect(vaultDecisionFor(TOKEN)).toBe("yes");
+    expect(vaultDecisionFor(LIST)).toBe("yes");
     // ...and the rows learn it the same moment: the automatic path now has this
     // list, so the save buttons flip to "already banked" without a reload
     expect(c.vaultAuto.value).toBe(true);
@@ -586,7 +592,7 @@ describe("useGearList — whose gear is this?", () => {
 
     c.answerVaultPrompt(false);
     expect(c.vaultPrompt.value).toBeNull();
-    expect(vaultDecisionFor(TOKEN)).toBe("no");
+    expect(vaultDecisionFor(LIST)).toBe("no");
     expect(c.vaultAuto.value).toBe(false); // no cover claimed for a declined list
 
     c.updateItem("i1", { qty: 3 });
@@ -713,7 +719,7 @@ describe("useGearList — whose gear is this?", () => {
     // the list's one chance to ask is NOT spent: the question stays open for gear
     // added later that the vault genuinely doesn't have
     expect(c.vaultPrompt.value).toBeNull();
-    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(vaultDecisionFor(LIST)).toBe("ask");
     expect(captureCalls).toBe(0);
   });
 
@@ -751,7 +757,7 @@ describe("useGearList — whose gear is this?", () => {
     const c = await choosing();
     expect(c.vaultPicker.value!.map((r) => r.name).sort()).toEqual(["Duplex", "Kakwa 55"]);
     // still nothing decided and nothing sent — opening the chooser is not answering
-    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(vaultDecisionFor(LIST)).toBe("ask");
     expect(captureCalls).toBe(0);
   });
 
@@ -771,7 +777,7 @@ describe("useGearList — whose gear is this?", () => {
 
     const mine = c.vaultPicker.value!.find((r) => r.name === "Duplex")!;
     c.confirmVaultPicker([mine.normKey]);
-    expect(vaultDecisionFor(TOKEN)).toBe("yes");
+    expect(vaultDecisionFor(LIST)).toBe("yes");
     // the rows' mirror carries BOTH halves of the choice: the list is covered,
     // except for the row that was left unticked — its save button stays live,
     // because pressing it is the one way that row ever gets banked
@@ -815,7 +821,7 @@ describe("useGearList — whose gear is this?", () => {
 
     c.cancelVaultPicker();
     expect(c.vaultPicker.value).toBeNull();
-    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(vaultDecisionFor(LIST)).toBe("ask");
 
     c.updateItem("i1", { qty: 3 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
@@ -830,7 +836,7 @@ describe("useGearList — whose gear is this?", () => {
 
     await c.answerVaultPrompt(true);
     expect(c.vaultPicker.value).toBeNull();
-    expect(vaultDecisionFor(TOKEN)).toBe("yes");
+    expect(vaultDecisionFor(LIST)).toBe("yes");
     await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
   });
 
@@ -840,7 +846,7 @@ describe("useGearList — whose gear is this?", () => {
   // asking whether the gear you just imported is really yours.
   it("never asks about a list this device just imported or cloned", async () => {
     useVaultCapture().captureNewList(withGear([gear()]), TOKEN);
-    expect(vaultDecisionFor(TOKEN)).toBe("yes");
+    expect(vaultDecisionFor(LIST)).toBe("yes");
 
     const c = await opened();
     c.updateItem("i1", { qty: 2 });
@@ -848,27 +854,32 @@ describe("useGearList — whose gear is this?", () => {
     expect(c.vaultPrompt.value).toBeNull();
   });
 
-  // The answer is keyed by the edit token, but it's ABOUT the gear — and a rotate
-  // is the owner cycling a leaked link on a list they've already answered for. It
-  // used to stay keyed to the dead token: the prompt re-asked, capture paused
-  // until it was re-answered, and the orphaned keys sat in localStorage for good.
-  it("carries the vault answer — exclusions included — across a rotate", async () => {
+  // The answer is filed under the share code, which a rotate keeps — so a rotate,
+  // the owner cycling a leaked link, has nothing to carry and nothing to clear.
+  it("still has the vault answer — exclusions included — after a rotate that touched none of it", async () => {
     const c = await choosing();
     const mine = c.vaultPicker.value!.find((r) => r.name === "Duplex")!;
     c.confirmVaultPicker([mine.normKey]);
+    const before = new Map(answerKeys().map((k) => [k, storage.get(k)]));
 
+    const set = vi.spyOn(storage, "set");
+    const del = vi.spyOn(storage, "delete");
     expect(await c.rotate()).toBe(ROTATED_TOKEN);
-    // both halves of the answer moved onto the new token...
-    expect(vaultDecisionFor(ROTATED_TOKEN)).toBe("yes");
-    expect(vaultExclusionsFor(ROTATED_TOKEN).has(vaultNormKey("Durston", "Kakwa 55", undefined))).toBe(true);
+    const touched = [...set.mock.calls, ...del.mock.calls].map(([k]) => k).filter(isAnswerKey);
+    set.mockRestore();
+    del.mockRestore();
+    expect(touched).toEqual([]);
+    expect(new Map(answerKeys().map((k) => [k, storage.get(k)]))).toEqual(before);
+
+    // the new link finds the same answer...
+    const rotated = { editToken: ROTATED_TOKEN, shareCode: LIST.shareCode };
+    expect(vaultDecisionFor(rotated)).toBe("yes");
+    expect(vaultExclusionsFor(rotated).has(vaultNormKey("Durston", "Kakwa 55", undefined))).toBe(true);
     // ...the rows' mirror still says covered-except-the-declined-row...
     expect(c.vaultAuto.value).toBe(true);
     expect(c.vaultDeclined.value.has(vaultNormKey("Durston", "Kakwa 55", undefined))).toBe(true);
-    // ...and the dead token's keys died with it (cleared reads as never-asked)
-    expect(vaultDecisionFor(TOKEN)).toBe("ask");
-    expect(vaultExclusionsFor(TOKEN).size).toBe(0);
 
-    // the question, being answered, does not come back on the next edit
+    // ...and the question, being answered, does not come back on the next edit
     c.updateItem("i1", { qty: 3 });
     await new Promise((r) => setTimeout(r, 50));
     expect(c.vaultPrompt.value).toBeNull();
@@ -881,8 +892,52 @@ describe("useGearList — whose gear is this?", () => {
 
     // navigating away and rotating from a fresh session ("ask" never recorded)
     expect(await c.rotate()).toBe(ROTATED_TOKEN);
-    expect(vaultDecisionFor(ROTATED_TOKEN)).toBe("ask");
+    expect(vaultDecisionFor({ editToken: ROTATED_TOKEN, shareCode: LIST.shareCode })).toBe("ask");
     expect(c.vaultAuto.value).toBe(false);
+  });
+
+  // An edit link is a capability; a key name is readable by any script on the page
+  // and lands in every storage dump. The answer is filed under the share code only.
+  it("never writes the edit token into a storage key", async () => {
+    const c = await choosing();
+    c.confirmVaultPicker([c.vaultPicker.value!.find((r) => r.name === "Duplex")!.normKey]);
+    expect(answerKeys().sort()).toEqual(["gear.vault.answer.SNAPCODE0001", "gear.vault.declined.SNAPCODE0001"]);
+    expect([...storage.keys()].filter((k) => k.includes(TOKEN))).toEqual([]);
+  });
+
+  // An answer given before the move was filed under the edit token. Opening the list
+  // moves it, once, so nobody is asked a question they already answered.
+  it("moves an answer filed under the edit token onto the share code when the list opens", async () => {
+    storage.set(`gear.vault.for.${TOKEN}`, "yes");
+    storage.set(`gear.vault.not.${TOKEN}`, JSON.stringify(["stove"]));
+    const c = await opened();
+    expect(answerKeys().sort()).toEqual(["gear.vault.answer.SNAPCODE0001", "gear.vault.declined.SNAPCODE0001"]);
+    expect(vaultDecisionFor(LIST)).toBe("yes");
+    expect([...vaultExclusionsFor(LIST)]).toEqual(["stove"]);
+    expect(c.vaultAuto.value).toBe(true);
+    expect(c.vaultDeclined.value.has("stove")).toBe(true);
+
+    c.updateItem("i1", { qty: 2 });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(c.vaultPrompt.value).toBeNull();
+  });
+
+  // Opening the next list starts with the last one's snapshot still in hand; the
+  // move must wait for this list's own share code.
+  it("moves the answer onto the list being opened, not the one before it", async () => {
+    await opened();
+    storage.set("gear.vault.for.another-edit-token", "no");
+    listResponse = baseSnapshot({ shareCode: "OTHERCODE001", slug: "other-list-bbb222", title: "Another list" });
+    await opened("another-edit-token");
+    expect(answerKeys()).toEqual(["gear.vault.answer.OTHERCODE001"]);
+  });
+
+  it("keeps an answer already under the share code over an older one under the token", async () => {
+    storage.set(`gear.vault.for.${TOKEN}`, "yes");
+    storage.set("gear.vault.answer.SNAPCODE0001", "no");
+    await opened();
+    expect(vaultDecisionFor(LIST)).toBe("no");
+    expect(storage.has(`gear.vault.for.${TOKEN}`)).toBe(false);
   });
 });
 
@@ -907,7 +962,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
 
   it("beacons the queued rows on pagehide, well inside the debounce", async () => {
     const c = await opened();
-    setVaultDecisionFor(TOKEN, "yes"); // a list already known to be mine
+    setVaultDecisionFor(LIST, "yes"); // a list already known to be mine
     c.updateItem("i1", { qty: 2 });
     await rowsQueued();
 
@@ -927,7 +982,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
     hasVault.value = false;
     try {
       const c = await opened();
-      setVaultDecisionFor(TOKEN, "yes");
+      setVaultDecisionFor(LIST, "yes");
       c.updateItem("i1", { qty: 2 });
       await new Promise((r) => setTimeout(r, 50)); // past sync()'s import, were it running
       expect(_pendingCapture()).toBe(false);
@@ -945,7 +1000,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   // capture set is built once for the tick, from the list as the last op left it.
   it("builds one capture for a burst of edits, holding the last state", async () => {
     const c = await opened();
-    setVaultDecisionFor(TOKEN, "yes");
+    setVaultDecisionFor(LIST, "yes");
     c.updateItem("i1", { qty: 2 });
     c.updateItem("i1", { name: "Triplex" });
     await rowsQueued();
@@ -959,7 +1014,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   // tab that comes back).
   it("does not also POST what it already beaconed", async () => {
     const c = await opened();
-    setVaultDecisionFor(TOKEN, "yes");
+    setVaultDecisionFor(LIST, "yes");
     c.updateItem("i1", { qty: 2 });
     await rowsQueued();
     window.dispatchEvent(new Event("pagehide"));
@@ -973,7 +1028,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   it("keeps the rows queued when the browser refuses the beacon", async () => {
     beaconWorks = false;
     const c = await opened();
-    setVaultDecisionFor(TOKEN, "yes");
+    setVaultDecisionFor(LIST, "yes");
     c.updateItem("i1", { qty: 2 });
     await rowsQueued();
     window.dispatchEvent(new Event("pagehide"));

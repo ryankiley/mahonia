@@ -827,7 +827,7 @@ async function forgetThisList() {
   // A dead token's vault decision can never be asked again once the copy is gone —
   // it goes the way deleteList and forgetMissingList send it. A live list's stays:
   // its edit link may well bring the list back (see clearVaultDecisionFor).
-  if (dead) clearVaultDecisionFor(token);
+  if (dead) my.clearVaultAnswer(token, snapshot.value?.shareCode);
   my.forget(token);
   newList({ replace: true });
 }
@@ -948,8 +948,8 @@ async function forgetMissingList() {
   // (no snapshot, so writeLocal no-ops) — kept for the pattern, not a live hazard.
   c.dispose(ownedEpoch);
   // Unlike forgetThisList: this token is dead server-side, so the vault decision
-  // keyed by it can never be asked again. It goes the way deleteList sends it.
-  clearVaultDecisionFor(entry.editToken);
+  // reached through it goes the way deleteList sends it.
+  my.clearVaultAnswer(entry.editToken, entry.shareCode);
   my.forget(entry.editToken);
   newList({ replace: true });
 }

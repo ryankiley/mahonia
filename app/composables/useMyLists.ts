@@ -172,9 +172,24 @@ export function useMyLists() {
     // The list is gone for good, so this device's "is this gear mine?" answer for it
     // is gone with it. Here rather than in forget(), which also backs "Remove from
     // device" for a list that's still online — see clearVaultDecisionFor.
-    clearVaultDecisionFor(editToken);
+    clearVaultAnswer(editToken);
     forget(editToken);
     return true;
+  }
+
+  /**
+   * Drop this device's "is this gear mine?" answer for the list behind a link that is
+   * gone for good (see clearVaultDecisionFor for when). The answer is filed under the
+   * list's share code: `shareCode` when the caller has it, else this link's row's.
+   *
+   * Kept while another row here opens the same list under a different link: a link
+   * that died because the list was rotated elsewhere leaves the list itself alive, and
+   * the answer is that row's too.
+   */
+  function clearVaultAnswer(editToken: string, shareCode?: string): void {
+    const code = shareCode || entries.value.find((x) => x.editToken === editToken)?.shareCode || "";
+    const reachable = !!code && entries.value.some((x) => x.editToken !== editToken && x.shareCode === code);
+    clearVaultDecisionFor(reachable ? "" : code, editToken);
   }
 
   // The registry row a snapshot maps to — the ONE place the field list lives.
@@ -209,5 +224,5 @@ export function useMyLists() {
   const tokenFor = (shareCode: string): string | undefined =>
     entries.value.find((e) => e.shareCode === shareCode)?.editToken;
 
-  return { entries, upsert, touch, forget, forgetSuperseded, deleteList, registerCreated, entryFromSnapshot, tokenFor };
+  return { entries, upsert, touch, forget, forgetSuperseded, deleteList, clearVaultAnswer, registerCreated, entryFromSnapshot, tokenFor };
 }
