@@ -6,10 +6,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
-import { identityKey } from "./catalogCsv";
 import { normalizeGearType } from "./gearTypes";
-import { deriveNoun } from "./searchTerms";
-import { normalizeVariant } from "../shared/catalogQuality";
 
 /** One row of cited research exactly as authored. Superset shape — each script
  *  validates only the fields it needs. `category_hint` is `string | null` (the
@@ -112,9 +109,8 @@ export interface ResearchRow {
   // differently is a different gear type ("Gas lantern" in cook beside "Lantern" in
   // electronics).
   category_hint?: string | null;
-  // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build
-  // (a row with no common_name here, no seed/common-names.json entry, and no derivable
-  // noun fails the build). Authored inline so a new catalog add ships its common name.
+  // the item's gear type ("tent", "trekking poles") — REQUIRED: a row without one fails
+  // the build.
   common_name?: string | null;
   weight_value?: number;
   weight_unit?: string;
@@ -188,58 +184,6 @@ export interface ResearchFile {
   parseError?: string;
 }
 
-/** The hand-authored gear-type map (seed/common-names.json) keyed by identity, for rows
- *  that predate an inline `common_name`. Empty when the file is missing; a present but
- *  malformed map is a build error, never an excuse to silently fall back to guesses.
- *  Shared by the build (which also reports orphans) and the research checks (which need
- *  a row's gear type to know a tent from a stove). */
-export function loadCommonNames(path: string): Map<string, string> {
-  const m = new Map<string, string>();
-  const entriesByIdentity = new Map<string, number>();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
-  } catch (e) {
-    // No map yet: every row falls back to its own common_name or a derived noun.
-    // Anything else is a broken checked-in map and must stop the caller instead of
-    // quietly removing every explicit gear type it carried.
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") return m;
-    throw new Error(`Couldn't read common-name map ${path}: ${(e as Error).message}`);
-  }
-  if (!Array.isArray(parsed)) throw new Error(`Common-name map ${path} must be a JSON array.`);
-  for (const [index, raw] of parsed.entries()) {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-      throw new Error(`Common-name map ${path} entry ${index + 1} must be an object.`);
-    }
-    const entry = raw as Record<string, unknown>;
-    const text = (key: "brand" | "name" | "variant" | "common_name") => {
-      const value = entry[key];
-      if (value != null && typeof value !== "string") {
-        throw new Error(`Common-name map ${path} entry ${index + 1} has a non-text ${key}.`);
-      }
-      return typeof value === "string" ? value.trim() : "";
-    };
-    // Validate every identity field before deciding an empty common_name makes
-    // this entry irrelevant. Otherwise malformed, inactive-looking records can
-    // stay in a checked-in map until someone fills in the name and breaks a build.
-    const brand = text("brand");
-    const name = text("name");
-    const variant = text("variant");
-    const cn = text("common_name");
-    if (!cn) continue;
-    const identity = identityKey(brand, name, normalizeVariant(variant));
-    const prior = entriesByIdentity.get(identity);
-    if (prior != null) {
-      throw new Error(
-        `Common-name map ${path} entry ${index + 1} duplicates entry ${prior} for ${identity}.`,
-      );
-    }
-    entriesByIdentity.set(identity, index + 1);
-    m.set(identity, cn);
-  }
-  return m;
-}
-
 const RESEARCH_TEXT_FIELDS = [
   "brand",
   "name",
@@ -284,13 +228,9 @@ function researchRowProblem(raw: unknown, position: number): string | null {
   return null;
 }
 
-/** A research row's canonical gear type, resolved the way the build resolves it: the
- *  row's own `common_name`, else the hand-authored map, else a noun derived from the name. */
-export function researchGearType(row: ResearchRow, commonNames: Map<string, string>): string {
-  const own = typeof row.common_name === "string" ? row.common_name.trim() : "";
-  const mapped = commonNames.get(identityKey((row.brand ?? "").trim(), (row.name ?? "").trim(), normalizeVariant(row.variant ?? "")));
-  return normalizeGearType(own || mapped || deriveNoun((row.name ?? "").trim()) || "");
-}
+/** A research row's canonical gear type: its own `common_name`, normalized to the
+ *  vocabulary. Blank when the row has none, which the build refuses. */
+export const researchGearType = (row: ResearchRow): string => normalizeGearType(row.common_name);
 
 /** The research files under `researchDir`: every `*.json`, sorted by filename. */
 export const researchFileNames = (researchDir: string): string[] =>

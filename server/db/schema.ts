@@ -114,7 +114,7 @@ export const catalogItems = pgTable(
     name: text("name").notNull(), // product name
     variant: text("variant"), // size / temp / capacity that changes the weight
     // Default generic label ("tent", "trekking poles") — auto-fills a list item's
-    // commonName on pick and via live-resolve. Generated per row (seed/common-names.json).
+    // commonName on pick and via live-resolve. Authored per research row (common_name).
     commonName: text("common_name"),
     // shelter|sleep|pack|cook|water|clothing|electronics|firstaid|consumable|other
     categoryHint: text("category_hint"),

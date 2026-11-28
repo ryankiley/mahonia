@@ -6,12 +6,12 @@
 import { describe, expect, it } from "vitest";
 import { findingText } from "../scripts/catalogChecks";
 import { runResearchChecks } from "../scripts/researchChecks";
-import { COMMON_NAMES_JSON, RESEARCH_DIR } from "../scripts/paths";
-import { formatResearchFile, loadCommonNames, readResearchFiles, researchFileNames } from "../scripts/research";
+import { RESEARCH_DIR } from "../scripts/paths";
+import { formatResearchFile, readResearchFiles, researchFileNames } from "../scripts/research";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const findings = runResearchChecks(readResearchFiles(RESEARCH_DIR), loadCommonNames(COMMON_NAMES_JSON));
+const findings = runResearchChecks(readResearchFiles(RESEARCH_DIR));
 
 describe("seed/_research data quality", () => {
   it("every research file is in the house layout (npm run catalog:format writes it)", () => {

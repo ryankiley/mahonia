@@ -1,6 +1,6 @@
 // The gear-type common-name vocabulary — the loose-canonical set of "what it is" labels
 // (tent, trail runners, trekking poles) shown as the quiet sub-line under a product name.
-// A label is generated per catalog row (seed/common-names.json), then normalized HERE so
+// A label is authored per research row (its common_name), then normalized HERE so
 // near-duplicates collapse to one term and the vocabulary stays consistent as rows are added.
 //
 // Aligned to the search spine (scripts/searchTerms.ts NOUNS) where the concepts overlap, so

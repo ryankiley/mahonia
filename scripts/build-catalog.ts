@@ -8,37 +8,19 @@
 
 import { writeFileSync } from "node:fs";
 import { buildCatalog, catalogCsvText, CATEGORY_ORDER } from "./catalogBuild";
-import { CATALOG_CSV, COMMON_NAMES_JSON, RESEARCH_DIR } from "./paths";
-import { loadCommonNames, readResearchFiles } from "./research";
+import { CATALOG_CSV, RESEARCH_DIR } from "./paths";
+import { readResearchFiles } from "./research";
 
 function main() {
-  // a broken checked-in map is a build failure like a missing common name is, and it
-  // is reported the same way rather than as a stack trace
-  let commonNames: Map<string, string>;
-  try {
-    commonNames = loadCommonNames(COMMON_NAMES_JSON);
-  } catch (e) {
-    console.error(`\n✗ ${(e as Error).message}`);
-    process.exit(1);
-  }
-  const { rows: built, skipped, missingCommon, orphaned, handWritten } = buildCatalog(readResearchFiles(RESEARCH_DIR), commonNames);
+  const { rows: built, skipped, missingCommon, handWritten } = buildCatalog(readResearchFiles(RESEARCH_DIR));
 
   // Fail BEFORE writing so no blank CSV is emitted.
   if (missingCommon.length) {
     console.error(`\n✗ ${missingCommon.length} row(s) have NO common name — every catalog row needs one.`);
-    console.error(`  Add "common_name" to the research row (or seed/common-names.json):`);
+    console.error(`  Add "common_name" to the research row:`);
     for (const r of missingCommon) console.error(`    - ${[r.brand, r.name, r.variant].filter(Boolean).join(" ")}`);
     process.exit(1);
   }
-  // Move the map entry with the row (or put common_name on the row).
-  if (orphaned.length) {
-    console.error(`\n✗ ${orphaned.length} seed/common-names.json entr${orphaned.length === 1 ? "y" : "ies"} matched no row`);
-    console.error(`  (identity changed in the research file → the row fell back to a derived gear type)`);
-    for (const k of orphaned.slice(0, 10)) console.error(`    - ${k.replace(/\|/g, " ")}`);
-    if (orphaned.length > 10) console.error(`    … and ${orphaned.length - 10} more`);
-    process.exit(1);
-  }
-
   writeFileSync(CATALOG_CSV, catalogCsvText(built), "utf8");
 
   // Report
