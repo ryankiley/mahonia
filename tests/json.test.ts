@@ -106,24 +106,25 @@ describe("jsonToListImport shape detection", () => {
     expect(parsed?.data.items).toHaveLength(3);
   });
 
-  it("treats blank meta as absent so the importer can fall back", () => {
-    const parsed = jsonToListImport('{"title":"  ","displayUnit":"furlong","folders":[],"items":[]}')!;
+  // a unit that is no unit is the create's to settle: tests/jsonImportCreate.test.ts
+  it("treats a blank title or description as absent so the dialog can fall back", () => {
+    const parsed = jsonToListImport('{"title":"  ","description":" \\n ","folders":[],"items":[]}')!;
     expect(parsed.title).toBeUndefined();
     expect(parsed.description).toBeUndefined();
-    expect(parsed.displayUnit).toBeUndefined();
+    expect(jsonToListImport('{"title":7,"folders":[],"items":[]}')!.title).toBeUndefined();
   });
 });
 
 describe("jsonToListImport sanitization", () => {
-  it("clamps hostile values through the shared reducer helpers", () => {
+  // the rows are normalized here because the catalog matcher reads them before the
+  // create does; the meta (an over-long title, say) is the create's: jsonImportCreate
+  it("clamps hostile row values through the shared reducer helpers", () => {
     const parsed = jsonToListImport(
       JSON.stringify({
-        title: "x".repeat(500),
         folders: [{ id: "f", name: "F", colorKey: "url(https://evil)", defaultClassification: "banana", sortOrder: 0 }],
         items: [{ id: "i", folderId: "f", name: "Anvil", unitWeightMg: 1e12, qty: 123456, classification: "banana", sortOrder: 0 }],
       }),
     )!;
-    expect(parsed.title).toHaveLength(200);
     // the injected value never survives: it falls to "other", which the import then
     // recolours to a palette hue like any folder that came without one
     expect(parsed.data.folders[0]!.colorKey).toMatch(/^[a-z]+$/);
@@ -213,12 +214,7 @@ describe("JSON export: trip dates", () => {
     expect(parsed?.startDate).toBe("2026-08-04");
     expect(parsed?.endDate).toBe("2026-08-06");
   });
-
-  it("drops a date that doesn't exist rather than importing it", () => {
-    const bad = JSON.parse(listToJson(snap()));
-    bad.startDate = "2026-02-31";
-    expect(jsonToListImport(JSON.stringify(bad))?.startDate).toBeUndefined();
-  });
+  // a date that doesn't exist is dropped by the create: tests/jsonImportCreate.test.ts
 });
 
 describe("JSON export: the route read off a GPX", () => {
@@ -237,17 +233,7 @@ describe("JSON export: the route read off a GPX", () => {
     expect(parsed?.trailDescentM).toBe(400);
   });
 
-  it("refuses a hand-edited profile that isn't one", () => {
-    // a backup is a file people edit; parseProfile is the single rule for what a profile
-    // is, and junk must import as nothing rather than render as terrain
-    const bad = JSON.parse(listToJson(snap()));
-    bad.trailProfile = "1000,not-a-number,1400";
-    expect(jsonToListImport(JSON.stringify(bad))?.trailProfile).toBeUndefined();
-
-    const absurd = JSON.parse(listToJson(snap()));
-    absurd.trailProfile = "1000,99999,1400";
-    expect(jsonToListImport(JSON.stringify(absurd))?.trailProfile).toBeUndefined();
-  });
+  // a hand-edited profile that isn't one is refused by the create: jsonImportCreate
 
   it("leaves a list with no GPX with no GPX", () => {
     const parsed = jsonToListImport(listToJson(snap()));
