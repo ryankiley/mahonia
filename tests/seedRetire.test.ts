@@ -48,7 +48,7 @@ describe("retireOrphans", () => {
     const [single] = await db.insert(schema.catalogItems).values(seeded({ variant: "single bar" })).returning();
     const [per] = await db.insert(schema.catalogItems).values(seeded({ variant: "per bar" })).returning();
 
-    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 2, removed: 0 });
+    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 2, removed: 0, unchanged: 0 });
     const after = await db.select().from(schema.catalogItems);
     expect(after).toHaveLength(3);
     for (const id of [single!.id, per!.id]) {
@@ -65,7 +65,7 @@ describe("retireOrphans", () => {
 
   it("retires with no successor when nothing is certain, and readers find nothing", async () => {
     const [gone] = await db.insert(schema.catalogItems).values(seeded({ brand: "OldCo", name: "Discontinued Thing" })).returning();
-    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 1 });
+    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 1, unchanged: 0 });
     const [after] = await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, gone!.id));
     expect(after).toMatchObject({ status: "removed", mergedIntoId: null });
     expect((await liveCatalogRows(db as never, [gone!.id])).size).toBe(0);
@@ -90,10 +90,18 @@ describe("retireOrphans", () => {
     expect(again!.updatedAt).toEqual(stamp);
   });
 
+  it("reports only what it changed: a second run over the same CSV retires nothing", async () => {
+    await db.insert(schema.catalogItems).values(seeded({}));
+    await db.insert(schema.catalogItems).values(seeded({ variant: "single bar" }));
+    await db.insert(schema.catalogItems).values(seeded({ brand: "OldCo", name: "Discontinued Thing" }));
+    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 1, removed: 1, unchanged: 0 });
+    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 0, unchanged: 2 });
+  });
+
   it("never touches a community row or a row the CSV still names", async () => {
     const [community] = await db.insert(schema.catalogItems).values(seeded({ name: "Typed Bar", verified: false, weightSource: "community" })).returning();
     const [kept] = await db.insert(schema.catalogItems).values(seeded({})).returning();
-    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 0 });
+    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 0, unchanged: 0 });
     const after = await db.select().from(schema.catalogItems);
     expect(after.find((r) => r.id === community!.id)!.status).toBe("active");
     expect(after.find((r) => r.id === kept!.id)!.status).toBe("active");
@@ -101,7 +109,7 @@ describe("retireOrphans", () => {
 
   it("never touches a row an admin verified in the app", async () => {
     const [inApp] = await db.insert(schema.catalogItems).values(seeded({ name: "Typed Bar", verifiedBy: 7 })).returning();
-    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 0 });
+    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 0, unchanged: 0 });
     const [after] = await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, inApp!.id));
     expect(after!.status).toBe("active");
   });
