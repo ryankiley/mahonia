@@ -17,10 +17,12 @@ export const ATTRIBUTE_KEYS = [
   "width",
   "temp_f",
   "fill_power",
+  "insulation_gsm",
   "r_value",
   "persons",
   "volume_l",
   "capacity_mah",
+  "lumens",
   "fuel_g",
   "fuel",
 ] as const;
@@ -46,6 +48,9 @@ export interface RowAttributes {
   temp_f?: number;
   /** Down fill power (500 to 1000). */
   fill_power?: number;
+  /** Weight of a synthetic fill or an insulating fabric per square metre: "APEX 167",
+   *  Coreloft 60, Alpha Direct 90gsm. Where the body and sleeves differ, the body's. */
+  insulation_gsm?: number;
   /** Sleeping-pad R-value (0.5 to 15, one decimal). */
   r_value?: number;
   /** Shelter capacity in people (1 to 8, halves allowed: a 1.5P tent). */
@@ -54,6 +59,8 @@ export interface RowAttributes {
   volume_l?: number;
   /** Battery capacity in mAh. */
   capacity_mah?: number;
+  /** A light's brightest output, in lumens, as the maker states it. */
+  lumens?: number;
   /** A fuel canister's net fuel, grams (the stored weight IS the gas). */
   fuel_g?: number;
   /** Stove / canister fuel type. */
@@ -89,6 +96,10 @@ const CONTAINER_BY_VOLUME: GearTraits = { container: true, soldBy: ["volume_l"] 
 const LENGTH_IN: GearTraits = { lengthIn: true };
 const FOOTWEAR: GearTraits = { footwear: true, soldBy: ["fit", "size"] };
 const FOOD: GearTraits = { food: true };
+// insulated garments: the size, and what keeps it warm
+const DOWN_GARMENT: GearTraits = { soldBy: ["size", "fill_power"] };
+const SYNTHETIC_GARMENT: GearTraits = { soldBy: ["size", "insulation_gsm"] };
+const LIGHT: GearTraits = { soldBy: ["lumens"] };
 
 /** Keyed by the canonical gear type (scripts/gearTypes.ts), lower-cased. A key that matches
  *  no catalog row fails tests/catalog-data.test.ts, so a renamed type cannot leave a dead
@@ -134,6 +145,15 @@ export const GEAR_TRAITS: Record<string, GearTraits> = {
   "spray bottle": CONTAINER,
   "toiletry bottle": CONTAINER,
   "insect repellent": CONTAINER,
+  // insulation
+  "down jacket": DOWN_GARMENT,
+  "down pants": DOWN_GARMENT,
+  "synthetic jacket": SYNTHETIC_GARMENT,
+  "insulated pants": SYNTHETIC_GARMENT,
+  // light
+  headlamp: LIGHT,
+  lantern: LIGHT,
+  flashlight: LIGHT,
   // power and fuel
   "power bank": { soldBy: ["capacity_mah"] },
   "fuel canister": { soldBy: ["fuel_g"] },

@@ -1475,9 +1475,9 @@
     {
       "brand": "Zpacks",
       "name": "Down Jacket",
-      "attributes": {"size": "S"},
+      "attributes": {"size": "S", "fill_power": 950},
       "attributes_source_url": "https://zpacks.com/products/zpacks-down-jacket",
-      "attributes_quote": "Small / Azure Blue - 174 … XX-Large / Navy Blue - 249",
+      "attributes_quote": "Small / Azure Blue - 174 … XX-Large / Navy Blue - 249 … Constructed with Responsible Down Standard-certified 950 fill power Muscovy Duck down.",
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 174,

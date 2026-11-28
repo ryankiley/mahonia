@@ -94,6 +94,9 @@
     {
       "brand": "Snow Peak",
       "name": "Mini Hozuki",
+      "attributes": {"lumens": 60},
+      "attributes_source_url": "https://www.altitude-sports.com/p/snow-peak-mini-hozuki-lantern-swp-es-041br",
+      "attributes_quote": "Brightness: 60 Lumens",
       "category_hint": "electronics",
       "common_name": "lantern",
       "weight_value": 54,
@@ -106,6 +109,9 @@
     {
       "brand": "Snow Peak",
       "name": "Hozuki Lantern",
+      "attributes": {"lumens": 100},
+      "attributes_source_url": "https://www.altitude-sports.com/p/snow-peak-hozuki-led-lantern-swp-es-070",
+      "attributes_quote": "Brightness 100 Lumens",
       "category_hint": "electronics",
       "common_name": "lantern",
       "weight_value": 164,

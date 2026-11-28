@@ -74,6 +74,9 @@
     {
       "brand": "BioLite",
       "name": "HeadLamp 425",
+      "attributes": {"lumens": 425},
+      "attributes_source_url": "https://www.altitude-sports.com/p/biolite-headlamp-425-blt-hpa0310",
+      "attributes_quote": "Max output 425 lumens",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 78,

@@ -137,6 +137,9 @@
     {
       "brand": "Snow Peak",
       "name": "Micro Hozuki",
+      "attributes": {"lumens": 27},
+      "attributes_source_url": "https://ec.snowpeak.co.jp/item/SNP0126A0011",
+      "attributes_quote": "●明るさ：Hi／27lm、Low／2.8lm",
       "category_hint": "electronics",
       "common_name": "lantern",
       "weight_value": 5,

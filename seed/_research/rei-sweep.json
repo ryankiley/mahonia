@@ -296,6 +296,9 @@
     {
       "brand": "Petzl",
       "name": "TIKKA CORE Headlamp",
+      "attributes": {"lumens": 450},
+      "attributes_source_url": "https://www.petzl.com/us/en/sport/products/hiking-camping-headlamps/tikka-core/TIKKA-CORE_SPO_a2mTx000000oV0bIAE.html",
+      "attributes_quote": "450 lumens (ANSI/PLATO FL 1)",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 84,
@@ -307,6 +310,9 @@
     {
       "brand": "Petzl",
       "name": "TIKKINA Headlamp",
+      "attributes": {"lumens": 300},
+      "attributes_source_url": "https://www.petzl.com/us/en/sport/products/hiking-camping-headlamps/tikkina/TIKKINA_SPO_a2mTx000000oAXGIA2.html",
+      "attributes_quote": "300 lumens (ANSI/PLATO FL 1)",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 92,
@@ -318,6 +324,9 @@
     {
       "brand": "Black Diamond",
       "name": "Spot 400-R Headlamp",
+      "attributes": {"lumens": 400},
+      "attributes_source_url": "https://blackdiamondequipment.com/products/spot-400-r-rechargeable-headlamp",
+      "attributes_quote": "400 Lumen max output",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 86,
