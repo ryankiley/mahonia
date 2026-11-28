@@ -251,25 +251,34 @@ function smallestCircle(x: readonly number[], y: readonly number[]): { cx: numbe
  * is the model's unit. A turn is as wide as that circle at its widest moment, and on a phone,
  * or in a vertical or square video, the width is what limits how big the line can be drawn;
  * about the middle of the track's bounds it swept a wider circle (Timberline's, 7% wider).
- * Flat-earth arithmetic is plenty at the size of a walk. A track across the antimeridian
- * would come out as wide as the world, and none of the readers produce one.
+ * Flat-earth arithmetic is plenty at the size of a walk. A track across the 180th meridian
+ * (Taveuni in Fiji straddles it, as do the Aleutians and Chukotka) is taken the short way
+ * round: its longitudes jump from 179.9 to -179.9, and read as they come the loop was as wide
+ * as the world and drew as one straight line.
  */
 export function spinModel(points: readonly TrackPoint[]): SpinModel | null {
   if (points.length < 2) return null;
+  // each longitude the short way round from the one before, so a jump across 180° is a step
+  const lons = new Float64Array(points.length);
+  for (let i = 0; i < points.length; i++) {
+    let lon = points[i]!.lon;
+    if (i) lon += Math.round((lons[i - 1]! - lon) / 360) * 360;
+    lons[i] = lon;
+  }
   let minLat = Infinity;
   let maxLat = -Infinity;
   let minLon = Infinity;
   let maxLon = -Infinity;
-  for (const p of points) {
+  points.forEach((p, i) => {
     minLat = Math.min(minLat, p.lat);
     maxLat = Math.max(maxLat, p.lat);
-    minLon = Math.min(minLon, p.lon);
-    maxLon = Math.max(maxLon, p.lon);
-  }
+    minLon = Math.min(minLon, lons[i]!);
+    maxLon = Math.max(maxLon, lons[i]!);
+  });
   const lat0 = (minLat + maxLat) / 2;
   const lon0 = (minLon + maxLon) / 2;
   const perDegEast = M_PER_DEG * Math.cos((lat0 * Math.PI) / 180);
-  const east = points.map((p) => (p.lon - lon0) * perDegEast);
+  const east = points.map((_, i) => (lons[i]! - lon0) * perDegEast);
   const north = points.map((p) => (p.lat - lat0) * M_PER_DEG);
   const { cx, cy, r: radius } = smallestCircle(east, north);
   if (!(radius > 0)) return null;

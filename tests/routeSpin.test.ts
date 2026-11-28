@@ -332,3 +332,23 @@ describe("drawing the line on", () => {
     expect(all.path.map((p) => Math.round(p.x))).toEqual([0, 100, 200]);
   });
 });
+
+describe("a route across the 180th meridian", () => {
+  // a 10 km loop drawn once round longitude 0 and once round 180, where its longitudes jump
+  // from 179.97 to -179.97: the two must come out the same shape
+  const ring = (lon0: number): TrackPoint[] =>
+    Array.from({ length: 200 }, (_, i) => {
+      const a = (i / 200) * 2 * Math.PI;
+      let lon = lon0 + 0.03 * Math.sin(a);
+      if (lon > 180) lon -= 360;
+      return { lat: -16.85 + 0.02 * Math.cos(a), lon, ele: 300 + 200 * Math.cos(a) };
+    });
+
+  it("is taken the short way round, not as wide as the world", () => {
+    const across = spinModel(ring(180))!;
+    const home = spinModel(ring(0))!;
+    expect(across.e.length).toBe(home.e.length);
+    across.e.forEach((e, i) => expect(e).toBeCloseTo(home.e[i]!, 6));
+    across.n.forEach((n, i) => expect(n).toBeCloseTo(home.n[i]!, 6));
+  });
+});

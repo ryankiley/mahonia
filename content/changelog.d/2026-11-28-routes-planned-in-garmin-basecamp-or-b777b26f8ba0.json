@@ -1,0 +1,8 @@
+{
+  "date": "2026-11-28",
+  "fixed": [
+    "Routes planned in Garmin BaseCamp or on a Garmin device now follow the trail instead of straight lines between the stops.",
+    "KML with spaces in its coordinates, and GPX saved as UTF-16 or Latin-1, now open, with accented names intact.",
+    "FIT courses now show their own name, and the route video draws a route that crosses the 180° meridian."
+  ]
+}
