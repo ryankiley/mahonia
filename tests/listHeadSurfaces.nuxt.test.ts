@@ -4,8 +4,9 @@
 // row holds which surface is up as one value, and these are the paths into and out of it.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
-import { mount, type VueWrapper } from "@vue/test-utils";
+import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { effectScope, nextTick } from "vue";
+import DateRangePicker from "~/components/DateRangePicker.vue";
 import ListHead from "~/components/ListHead.vue";
 import { onKeyStroke } from "~/composables/dom";
 import { snapshotFor } from "./helpers/list";
@@ -212,5 +213,55 @@ describe("the calendar's Clear row", () => {
     expect(clear().exists()).toBe(true);
     // the app's reveal: a grid row that opens, with the gap above it folding too
     expect(clear().element.parentElement?.className).toBe("reveal head__clearrow");
+  });
+});
+
+// The calendar puts itself away once the range is whole, a beat after the second date
+// so the range is seen to land. One date is half a job and it stays for the other.
+describe("the calendar once a range is picked", () => {
+  async function openPicker() {
+    await datesButton().trigger("click");
+    await flushPromises(); // the Lazy chunk
+    await nextTick();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    return wrapper.findComponent(DateRangePicker);
+  }
+  afterEach(() => vi.useRealTimers());
+
+  it("stays up on a start alone", async () => {
+    const picker = await openPicker();
+    picker.vm.$emit("update", { start: "2026-08-04" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(dates().exists()).toBe(true);
+    expect(setMeta).toHaveBeenLastCalledWith({ startDate: "2026-08-04", endDate: "" });
+  });
+
+  it("closes a beat after the end, not on the press", async () => {
+    const picker = await openPicker();
+    picker.vm.$emit("update", { start: "2026-08-04", end: "2026-08-06" });
+    await nextTick();
+    expect(dates().exists()).toBe(true);
+    await vi.advanceTimersByTimeAsync(349);
+    expect(dates().exists()).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(dates().exists()).toBe(false);
+  });
+
+  it("stays for the new end when a fresh start is picked inside the beat", async () => {
+    const picker = await openPicker();
+    picker.vm.$emit("update", { start: "2026-08-04", end: "2026-08-06" });
+    await vi.advanceTimersByTimeAsync(200);
+    picker.vm.$emit("update", { start: "2026-08-10" });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(dates().exists()).toBe(true);
+  });
+
+  it("hands focus back to the dates button when it was in the grid", async () => {
+    const picker = await openPicker();
+    const cell = (picker.element as HTMLElement).querySelector<HTMLElement>("[data-iso]")!;
+    cell.focus();
+    picker.vm.$emit("update", { start: "2026-08-04", end: "2026-08-06" });
+    await vi.advanceTimersByTimeAsync(350);
+    expect(document.activeElement).toBe(datesButton().element);
   });
 });
