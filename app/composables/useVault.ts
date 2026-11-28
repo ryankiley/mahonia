@@ -224,8 +224,15 @@ export function useVaultCapture() {
    * Only the lists the DEVICE holds, a draft or an edit link. A list opened through
    * the account is the account's however the session got here, and a press on a row's
    * own Save is its person's to make in any session (captureOne).
+   *
+   * About the session a request would go as, which is the cookie's: this tab's answer
+   * says nothing of one another tab has signed in to since, so that reads as unanswered.
    */
-  const broughtDeviceGear = (): boolean | null => (vaultKnown.value ? !!user.value?.sweep : null);
+  function broughtDeviceGear(): boolean | null {
+    if (!vaultKnown.value) return null;
+    if (user.value && user.value.owner !== sessionCacheOwner()) return null;
+    return !!user.value?.sweep;
+  }
   /** Signed in, by a sign-in that didn't: the rows are told, so a list the automatic
    *  path would have covered keeps its Save buttons. */
   const deviceGearWaits = computed(() => !!user.value && !user.value.sweep);

@@ -36,6 +36,7 @@ let serverList = fresh();
 /** Held to keep the session check unanswered; the check answers when it resolves. */
 let meGate: Promise<void> | null = null;
 let answerMe = () => {};
+let meDown = false; // the session check gets no answer at all
 /** Every write to My Gear: whose it reached, and whether a row's own Save sent it. */
 let captured: { as: string | null; byHand: boolean }[] = [];
 const unasked = () => captured.filter((c) => !c.byHand);
@@ -47,6 +48,7 @@ function allow(event: H3Event) {
 }
 registerEndpoint("/api/auth/me", async () => {
   await meGate;
+  if (meDown) throw createError({ statusCode: 503, statusMessage: "Unreachable" });
   return { user: signedInAs && { ...signedInAs, email: "a@example.com", displayName: null } };
 });
 registerEndpoint("/api/auth/signout", { method: "POST", handler: () => ((signedInAs = null), {}) });
@@ -121,6 +123,7 @@ beforeEach(() => {
   serverList = fresh();
   signedInAs = null;
   meGate = null;
+  meDown = false;
   window.dispatchEvent(new Event("online"));
 });
 afterEach(async () => {
@@ -176,6 +179,24 @@ describe("the gear of a list this device holds, under a sign-in only confirmed h
 
     expect(await c.saveItemToVault(TENT.id)).toBe("saved");
     expect(captured).toEqual([{ as: "aaaa", byHand: true }]);
+  });
+
+  it("sends none when that sign-in was in another tab, and this one has not heard of it", async () => {
+    madeHere();
+    await signIn(true); // this tab knows a sign-in made here
+    const c = await openEditor(HELD);
+    // in another tab someone confirms a link to their own account: the cookies are theirs
+    signedInAs = { owner: "2", account: "bbbb", sweep: false };
+    document.cookie = "mh_session_owner=2; path=/";
+    edit(c);
+    await settle();
+    expect(captured).toEqual([]);
+
+    // and none once this tab has heard
+    await useSession().refresh(true);
+    edit(c);
+    await settle();
+    expect(captured).toEqual([]);
   });
 
   it("sends it once the person says this browser's lists may come", async () => {
@@ -255,5 +276,27 @@ describe("gear that still goes without asking", () => {
     await vi.waitFor(() => expect(_pendingCapture()).toBe(true));
     window.dispatchEvent(new Event("pagehide"));
     expect(beacon).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("gear built to go to one session's My Gear", () => {
+  it("is not handed to a session that took its place, even one that brought the lists", async () => {
+    madeHere();
+    _setCaptureDebounce(5_000);
+    // a page loaded signed in, whose check got no answer
+    meDown = true;
+    await arrive(true);
+    const c = await openEditor(HELD);
+    edit(c);
+    await vi.waitFor(() => expect(_pendingCapture()).toBe(true));
+
+    // another account signs in from another tab, and this tab's next check hears of it
+    meDown = false;
+    signedInAs = { owner: "2", account: "bbbb", sweep: true };
+    document.cookie = "mh_session_owner=2; path=/";
+    await useSession().refresh(true);
+    expect(useSession().user.value?.account).toBe("bbbb");
+    window.dispatchEvent(new Event("pagehide"));
+    expect(beacon).not.toHaveBeenCalled();
   });
 });
