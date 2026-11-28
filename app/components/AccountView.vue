@@ -449,13 +449,9 @@ async function exportEverything() {
 }
 // The confirmation, shown after the account is gone and the panel has flipped back to
 // the sign-in screen (the dialog is still open then, as the sign-in card).
-// Longer-lived than the usual toast (8s, not useToast's two): there is nothing to act
-// on, and it's the only acknowledgement that an irreversible thing succeeded. Its
-// markup went missing when the account became this panel (#174), and for months the
-// account was deleted in silence.
-const gone = ref("");
-let goneTimer: ReturnType<typeof setTimeout> | undefined;
-onBeforeUnmount(() => clearTimeout(goneTimer));
+// Longer-lived than the usual toast (8s, not 2s): there is nothing to act on, and it's
+// the only acknowledgement that an irreversible thing succeeded.
+const { toast: gone, flash: flashGone } = useToast();
 async function deleteAccount() {
   // ONE dialog, two decisions. It used to ask twice — "delete your account?" then
   // "delete your lists too?" — and a second modal arriving after you'd already
@@ -495,11 +491,10 @@ async function deleteAccount() {
     // need app-wide plumbing this is the only caller for.
     await refresh(true);
     const n = res?.listsDeleted ?? 0;
-    gone.value = n
-      ? `Account deleted, along with ${counted(n, "list")}.`
-      : "Account deleted. Your lists are untouched.";
-    clearTimeout(goneTimer);
-    goneTimer = setTimeout(() => (gone.value = ""), 8000);
+    flashGone(
+      n ? `Account deleted, along with ${counted(n, "list")}.` : "Account deleted. Your lists are untouched.",
+      8000,
+    );
   } catch {
     deleteNote.value = "Couldn’t delete the account. Check your connection and try again.";
   }

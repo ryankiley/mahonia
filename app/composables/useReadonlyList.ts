@@ -3,7 +3,6 @@ import {
   chipWeightLabels,
   hasUnassignedTopLevel,
   selectItemsForPerson,
-  selectionGone,
   sortedPeople,
   type PersonSelection,
 } from "~~/shared/people";
@@ -26,15 +25,6 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   watch(() => snapshot.value?.shareCode, () => (personFilter.value = null));
   const people = computed(() => sortedPeople(snapshot.value?.people));
   const showUnassigned = computed(() => hasUnassignedTopLevel(snapshot.value?.items ?? []));
-  // /s polls live, so the owner can pull the filtered person (or claim the last
-  // unclaimed row) out from under a viewer — widen a selection that stopped
-  // resolving, exactly as the editor's watcher does, or the viewer is stranded
-  // on a blank list under a chips row with nothing lit and no tab stop.
-  watch([people, showUnassigned], () => {
-    const s = personFilter.value;
-    if (!s) return;
-    if (selectionGone(people.value, showUnassigned.value, s)) personFilter.value = null;
-  });
   // two readings of the filter, per shared/people.ts: the rows the page RENDERS
   // (matches plus a parent kept as context around a matching child) and the rows
   // a person's totals COUNT (strict — a context parent's own line is someone
