@@ -125,9 +125,10 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   for (const op of reportable) {
     switch (op.t) {
       case "addItem": {
-        // Read the way normalizeItem stores them: off the wire a name can be absent and
-        // a brand a number, the reducer keeps both rows, and itemDisplayName trims what
-        // it is handed, so a field that wasn't text threw here after the write landed.
+        // Read the way a whole row stores them (ITEM_RULES in shared/ops): off the wire a
+        // name can be absent and a brand a number, the reducer keeps both rows, and
+        // itemDisplayName trims what it is handed, so a field that wasn't text threw here
+        // after the write landed.
         const it: { brand?: unknown; name?: unknown; variant?: unknown } = op.item ?? {};
         const text = (v: unknown) => (v ? String(v) : undefined);
         added.add(itemDisplayName(text(it.brand), String(it.name ?? ""), text(it.variant)));
@@ -215,8 +216,8 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
           // history. Reading the patch raw made the summary say
           // «Renamed Ryan’s tent → Ryan's  big   tent» — the right of that arrow is a
           // string that exists nowhere in the list and never did.
-          // Only a STRING is a new value, which is the reducer's own test
-          // (cleanItemPatch): a null or a number in one of these leaves the field as it
+          // Only a STRING is a new value, which is the reducer's own test for a patch
+          // (ITEM_RULES): a null or a number in one of these leaves the field as it
           // stood, where handing it to tidyText threw.
           const next = (v: unknown, stood: string | undefined) => (typeof v === "string" ? tidyText(v) : stood);
           const afterLabel = was

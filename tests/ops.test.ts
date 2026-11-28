@@ -851,3 +851,125 @@ describe("isOpObject", () => {
     expect(s.items.map((i) => i.name)).toEqual(["Tent"]);
   });
 });
+
+// A row reaches storage whole (an add, a create, an import, a restore) or by patch (an
+// update). The two used to be two lists of rules, and five fields had drifted between
+// them. Each case here is one of those, held to the single rule both paths now read.
+describe("one rule for a whole row and for a patch", () => {
+  /** As a save stores it: JSON drops a key holding undefined. */
+  const stored = <T>(v: T): T => JSON.parse(JSON.stringify(v));
+  const patched = (s: ListState, patch: Record<string, unknown>) => {
+    applyOps(s, [{ t: "updateItem", id: "i1", patch }] as Op[]);
+    return stored(s.items[0]!);
+  };
+
+  it("a folder renamed to nothing keeps the name it had", () => {
+    const s = base();
+    applyOps(s, [{ t: "updateFolder", id: "f1", patch: { name: "  ⠀ ", colorKey: "sleep" } }]);
+    // the name stands, as a person's does; the colour in the same patch still lands
+    expect(s.folders[0]).toMatchObject({ name: "Pack", colorKey: "sleep" });
+    // a folder that ARRIVES nameless still takes the placeholder
+    applyOps(s, [{ t: "addFolder", folder: folder({ id: "f9", name: " " }) }]);
+    expect(s.folders.find((f) => f.id === "f9")!.name).toBe("Folder");
+  });
+
+  it("a note cleared by patch is absent, as a blank one on a whole row is", () => {
+    const row = patched(withItem({ description: "spare stakes" }), { description: "  " });
+    expect(row).not.toHaveProperty("description");
+    expect(row).toEqual(stored(normalizeItem(item({ description: "  " }))));
+  });
+
+  it("stores the two 'renamed' flags only when set", () => {
+    const s = withItem({ nameOverridden: true, commonNameOverridden: true });
+    const row = patched(s, { nameOverridden: false, commonNameOverridden: false });
+    expect(row).not.toHaveProperty("nameOverridden");
+    expect(row).not.toHaveProperty("commonNameOverridden");
+    expect(patched(s, { nameOverridden: true })).toMatchObject({ nameOverridden: true });
+  });
+
+  it("keeps a currency only beside an amount, on a whole row as by patch", () => {
+    expect(stored(normalizeItem(item({ currency: "EUR" })))).not.toHaveProperty("currency");
+    // free is a price, so its currency stays
+    expect(normalizeItem(item({ priceCents: 0, currency: "EUR" }))).toMatchObject({ priceCents: 0, currency: "EUR" });
+    expect(patched(withItem(), { currency: "EUR" })).not.toHaveProperty("currency");
+  });
+
+  it("keeps the catalog's weight at link time only beside a link", () => {
+    expect(stored(normalizeItem(item({ catalogWeightMgAtLink: 688_000 })))).not.toHaveProperty("catalogWeightMgAtLink");
+    // an id the database can't hold is no link, so its weight goes with it
+    expect(stored(normalizeItem(item({ catalogItemId: 0, catalogWeightMgAtLink: 688_000 })))).not.toHaveProperty("catalogWeightMgAtLink");
+    expect(patched(withItem(), { catalogWeightMgAtLink: 688_000 })).not.toHaveProperty("catalogWeightMgAtLink");
+    // beside a link it lands, whichever path brings it
+    expect(normalizeItem(item({ catalogItemId: 7, catalogWeightMgAtLink: 688_000 })).catalogWeightMgAtLink).toBe(688_000);
+    expect(patched(withItem({ catalogItemId: 7 }), { catalogWeightMgAtLink: 688_000 }).catalogWeightMgAtLink).toBe(688_000);
+  });
+
+  // The general form of the cases above: the same value, in a field's own JSON type,
+  // stores the same row whether it arrives on a whole row or in a patch.
+  it("stores the same row for the same value by either path", () => {
+    const values: Record<string, unknown[]> = {
+      name: [" a  b ", "it's", ""],
+      brand: ["", "  ", " Zpacks "],
+      variant: ["", "Men's  L"],
+      commonName: ["", " tent "],
+      description: ["", "  ", " spare  stakes "],
+      commonNameOverridden: [true, false],
+      nameOverridden: [true, false],
+      unitWeightMg: [12.5, -1, 1e13],
+      weightOverridden: [true, false],
+      entryUnit: ["oz"],
+      qty: [0, 2.6, 1e9],
+      classification: ["worn", "consumable", null],
+      kcal: [0, -1, 12.4, 1e9],
+      productUrl: ["", "javascript:alert(1)", " https://example.com/x "],
+      priceCents: [0, 66_900.4, -5],
+      packed: [true, false],
+      needsCooking: [true, false],
+      sortOrder: [3.5, -2],
+    };
+    for (const [field, tries] of Object.entries(values)) {
+      for (const value of tries) {
+        const whole = stored(normalizeItem(item({ [field]: value })));
+        expect(patched(withItem(), { [field]: value }), `${field}: ${JSON.stringify(value)}`).toEqual(whole);
+      }
+    }
+  });
+
+  // The rule the backfill was written to: a value read back equals the value a write
+  // stored, so a save's answer never differs from the list on screen.
+  it("reads back exactly what the ops stored", () => {
+    const s = withItem({ description: "note", nameOverridden: true, catalogItemId: 7, catalogWeightMgAtLink: 500 });
+    applyOps(s, [
+      { t: "updateFolder", id: "f1", patch: { name: "" } },
+      { t: "updateItem", id: "i1", patch: { description: "", nameOverridden: false, catalogItemId: null } },
+    ]);
+    expect(stored(tidyStoredList(structuredClone(s)))).toEqual(stored(s));
+  });
+
+  // Rows written before the rules agreed. Nothing rewrites them in place: a read tidies
+  // the text, and the rest goes the next time the row is written.
+  describe("a row stored under the old rules", () => {
+    const legacy = (): ListState => {
+      const s = base();
+      s.items.push(item({ description: "", nameOverridden: false, commonNameOverridden: false, currency: "EUR", catalogWeightMgAtLink: 688_000 }));
+      return s;
+    };
+
+    it("reads with its blank note gone and nothing else touched", () => {
+      const row = stored(tidyStoredList(legacy()).items[0]!);
+      expect(row).not.toHaveProperty("description");
+      expect(row).toMatchObject({ nameOverridden: false, commonNameOverridden: false, currency: "EUR", catalogWeightMgAtLink: 688_000 });
+    });
+
+    it("sheds the stray currency and link weight on the next edit to the row", () => {
+      const row = patched(legacy(), { qty: 2 });
+      expect(row).not.toHaveProperty("currency");
+      expect(row).not.toHaveProperty("catalogWeightMgAtLink");
+    });
+
+    it("comes out of a whole-row rewrite in today's form", () => {
+      const row = stored(normalizeItem(legacy().items[0]!));
+      for (const key of ["description", "nameOverridden", "commonNameOverridden", "currency", "catalogWeightMgAtLink"]) expect(row).not.toHaveProperty(key);
+    });
+  });
+});

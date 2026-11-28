@@ -1720,8 +1720,8 @@ type CatalogRow = CatalogRows extends Map<number, infer R> ? R : never;
 
 /**
  * One row's changes as the reducer's own patch, or the sentence saying why not.
- * Values are typed and bounded here; cleanItemPatch caps and tidies them on the way
- * in, the same rules the editor's writes get. The owner's-own marks follow the
+ * Values are typed and bounded here; the reducer caps and tidies them on the way in
+ * (ITEM_RULES in shared/ops), the same rules the editor's writes get. The owner's-own marks follow the
  * editor: a typed weight on a catalog-linked row is the owner's, and so is a typed
  * name that differs from the catalog's, which keeps the link and the catalog's
  * corrections from rewriting it. A catalog_id is the editor's own pick, done here
