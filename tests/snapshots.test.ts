@@ -262,6 +262,18 @@ describe("snapshots — vandalism recovery", () => {
     expect(restored!.endDate).toBeUndefined();
   });
 
+  // A list's title can be blank: the editor shows its ghosted placeholder. Going back to
+  // a point taken while it was blank handed back the literal words "Untitled list",
+  // which is the name a brand-new list starts with and not one this list ever had.
+  it("keeps a blank title through a restore", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent")] }, "");
+    await applyOpsByEditToken(editToken, [{ t: "setMeta", patch: { title: "Named since" } }], db);
+    const snaps = await listSnapshotsByEditToken(editToken, db);
+    const restored = await restoreSnapshotByEditToken(editToken, snaps![0]!.id, db);
+    expect(restored!.title).toBe("");
+  });
+
   it("keeps the pins of a snapshot that never had a route", async () => {
     // a pin is a distance along the route, so a CHANGED route drops them (above) — but
     // a list can carry pins with no route at all (addWaypoint asks for none; a backup

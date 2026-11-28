@@ -336,84 +336,250 @@ const httpUrl = (raw: string): string | undefined => {
 // and curling one rewrites the address to a page that isn't there.
 const cleanText = (raw: string, max: number) => tidyText(raw.slice(0, max));
 
-// Defensive clamps so a malformed op (or hostile client) can't corrupt state.
-function cleanItemPatch(patch: ItemPatch): Partial<Item> {
-  const out: Partial<Item> = {};
-  if (typeof patch.name === "string") out.name = cleanText(patch.name, MAX_ITEM_NAME_LEN);
-  // brand/variant: a non-empty string sets it; "" clears it (so a free rename can
-  // drop the catalog-derived brand/variant from a now-custom item). The emptiness test
-  // reads the TIDIED value, so an all-whitespace field clears rather than storing " ".
-  if (typeof patch.brand === "string") out.brand = cleanText(patch.brand, MAX_BRAND_LEN) || undefined;
-  if (typeof patch.variant === "string") out.variant = cleanText(patch.variant, MAX_VARIANT_LEN) || undefined;
-  // common name: a non-empty string sets it; "" clears it (mirrors brand/variant)
-  if (typeof patch.commonName === "string") out.commonName = cleanText(patch.commonName, MAX_GEAR_TYPE_LEN) || undefined;
-  if (typeof patch.commonNameOverridden === "boolean") out.commonNameOverridden = patch.commonNameOverridden;
-  if (typeof patch.nameOverridden === "boolean") out.nameOverridden = patch.nameOverridden;
-  if (typeof patch.description === "string") out.description = cleanText(patch.description, MAX_ITEM_NOTE_LEN);
+// ---- an item's fields: one rule each ------------------------------------------------
+//
+// A row reaches storage two ways. WHOLE: an add, a create, an import, a restore, where
+// every field is read off a foreign object and one with nothing usable in it takes its
+// default. By PATCH: an update, which names only the fields it changes. These were two
+// lists of the same rules, and they drifted: a price the patch had no branch for, a
+// stored zero the whole row read as one, a cleared note kept as "" by one and dropped by
+// the other. ITEM_RULES is the one list. Each field's row holds both readings, built
+// from the same value rule, and normalizeItem and cleanItemPatch only walk it.
+//
+// What stays different between the two is the same for every field, and deliberate:
+//   - a whole row is foreign JSON (a hand-edited backup, a raw create), so it takes a
+//     number written as a string and a name written as a number; a patch is an op a
+//     typed client built, and a value of the wrong type in it is IGNORED, not coerced;
+//   - a whole row with nothing usable in a field takes the default; a patch leaves the
+//     stored value standing (SKIP), and removes it only when told to (CLEAR): "" for a
+//     text field, null for the fields that have no empty value of their own, false for
+//     a flag that is stored only when set. `undefined` can't say it: JSON drops the key.
+//
+// The rules that need two fields at once are not here. finishItem holds them, and both
+// paths end in it.
+
+/** A patch value that isn't one for this field: the stored value stands. */
+const SKIP = Symbol("skip");
+/** A patch value that says "nothing": the field is removed. */
+const CLEAR = Symbol("clear");
+
+interface ItemRule<T> {
+  /** The field off a whole row. Always answers: the default, or absent, when nothing
+   *  usable is there. */
+  whole: (raw: unknown) => T;
+  /** The field off a patch. Left out for a field no patch may set. */
+  patch?: (raw: unknown) => T | typeof SKIP | typeof CLEAR;
+}
+
+const isNum = (v: unknown): v is number => typeof v === "number" && isFinite(v);
+const isUnit = (v: unknown): v is Unit => typeof v === "string" && UNITS.includes(v as Unit);
+const isClassification = (v: unknown): v is Classification =>
+  typeof v === "string" && CLASSIFICATIONS.includes(v as Classification);
+/** A reference to another row, a folder or a person: a non-empty string, clamped. "" is
+ *  a truthy-looking non-id that would dodge the dangling-ref heals, so it is no id. */
+const refId = (raw: unknown) => (typeof raw === "string" && raw ? raw.slice(0, MAX_ID_LEN) : undefined);
+/** a row's count, whole and bounded; zero is a count */
+const countOf = (n: number) => Math.max(0, Math.min(MAX_QTY, Math.round(n)));
+
+/**
+ * An optional string, absent rather than empty. `store` is the field's rule. A whole row
+ * takes any truthy value as text; a patch takes only a string, and one that stores as
+ * nothing CLEARS, so "" removes a brand, a note or a link, and an all-whitespace field
+ * clears rather than storing " " (the emptiness test reads the stored value).
+ */
+const optText = (store: (s: string) => string | undefined): ItemRule<string | undefined> => ({
+  whole: (raw) => (raw ? store(String(raw)) : undefined),
+  patch: (raw) => (typeof raw === "string" ? (store(raw) ?? CLEAR) : SKIP),
+});
+/** A human-typed one-line field: capped, then tidied (cleanText). */
+const typed = (max: number) => optText((s) => cleanText(s, max) || undefined);
+
+/**
+ * A flag stored only when it is set: true, or absent. A false would be a second way to
+ * say what absent already says, and the two paths said it differently: a catalog pick in
+ * a row's name field stored `nameOverridden: false` where the same pick added as a new
+ * row stored nothing. `set` is what a whole row counts as set.
+ */
+const flag = (set: (raw: unknown) => boolean): ItemRule<boolean | undefined> => ({
+  whole: (raw) => (set(raw) ? true : undefined),
+  patch: (raw) => (typeof raw === "boolean" ? raw || CLEAR : SKIP),
+});
+/** A flag that is always stored, true or false. */
+const bool: ItemRule<boolean> = {
+  whole: Boolean,
+  patch: (raw) => (typeof raw === "boolean" ? raw : SKIP),
+};
+
+/** A number the row always has. Off a whole row anything Number() can't read, and a
+ *  zero, is `missing`. */
+const reqNum = (store: (n: number) => number, missing: number): ItemRule<number> => ({
+  whole: (raw) => store(Number(raw) || missing),
+  patch: (raw) => (isNum(raw) ? store(raw) : SKIP),
+});
+/** An optional number: `store` answers undefined for a value it won't keep, which is
+ *  absent off a whole row and CLEARS by patch. With `nullClears`, so does a null. */
+const optNum = (store: (n: number) => number | undefined, nullClears = false): ItemRule<number | undefined> => ({
+  whole: (raw) => (isNum(raw) ? store(raw) : undefined),
+  patch: (raw) => (isNum(raw) ? (store(raw) ?? CLEAR) : raw === null && nullClears ? CLEAR : SKIP),
+});
+
+/** An optional field a patch turns off with null. `read` answers the value, or undefined
+ *  for anything that isn't one: absent off a whole row, left standing by a patch. */
+const nullCleared = <T>(read: (raw: unknown) => T | undefined): ItemRule<T | undefined> => ({
+  whole: read,
+  patch: (raw) => (raw === null ? CLEAR : (read(raw) ?? SKIP)),
+});
+
+/** The first eight characters of whatever names the currency, or nothing. */
+const currencyOf = (raw: unknown) => (raw ? String(raw).slice(0, 8) : undefined);
+
+const ITEM_RULES = {
+  id: { whole: (raw) => String(raw).slice(0, MAX_ID_LEN) },
+  // No patch for either: moveItem is the sole op that changes a row's folder or parent
+  // (see ItemPatch), so a raw op smuggling one in is ignored. Clamped only here: the
+  // addItem and moveItem cases validate them against the real folders and top-level
+  // rows, which they can see and this can't.
+  folderId: { whole: (raw) => refId(raw) ?? null },
+  parentId: { whole: (raw) => refId(raw) ?? null },
+  // the one text field that is never absent: a blank name is stored as ""
+  name: {
+    whole: (raw) => cleanText(String(raw ?? ""), MAX_ITEM_NAME_LEN),
+    patch: (raw) => (typeof raw === "string" ? cleanText(raw, MAX_ITEM_NAME_LEN) : SKIP),
+  },
+  // "" clears these, so a free rename can drop the catalog-derived brand and variant
+  // from a row that is now a custom one
+  brand: typed(MAX_BRAND_LEN),
+  variant: typed(MAX_VARIANT_LEN),
+  commonName: typed(MAX_GEAR_TYPE_LEN),
+  commonNameOverridden: flag(Boolean),
+  nameOverridden: flag(Boolean),
+  unitWeightMg: reqNum(clampUnitWeightMg, 0),
+  weightOverridden: bool,
+  // DISPLAY ONLY (see types.ts), but checked against the unit list so a hostile op can't
+  // put arbitrary text where a unit label renders. null clears it, dropping the row back
+  // to the list's displayUnit. It must survive a whole row, or a JSON round-trip and
+  // every addItem would quietly reset each row to the list's unit.
+  entryUnit: nullCleared((raw) => (isUnit(raw) ? raw : undefined)),
+  qty: {
+    // `Number(raw) || 1` read a stored 0 as 1: 0 is falsy, so the default meant for a
+    // MISSING qty swallowed a real one, and a JSON backup round-tripped a qty-0 row back
+    // as qty 1 and the list gained its weight. Default only when the field is absent or
+    // unusable. null / undefined / "" are named because Number() turns all three into a
+    // zero nobody typed.
+    whole: (raw) => {
+      const n = raw == null || raw === "" ? NaN : Number(raw);
+      return countOf(Number.isFinite(n) ? n : 1);
+    },
+    patch: (raw) => (isNum(raw) ? countOf(raw) : SKIP),
+  },
+  // zero or below is no split. What a split may be beside the count and the class is
+  // finishItem's (normalizeWornSplit), which sees all three.
+  wornQty: optNum((n) => (Math.round(n) > 0 ? Math.min(MAX_QTY, Math.round(n)) : undefined)),
+  // null is a value here, not a clear: it means "follow the folder"
+  classification: {
+    whole: (raw) => (isClassification(raw) ? raw : null),
+    patch: (raw) => (raw === null || isClassification(raw) ? raw : SKIP),
+  },
+  // anything kcalOf won't store is absent rather than zero (see Item.kcal); null clears
+  kcal: optNum(kcalOf, true),
+  // An ITEM's note is a one-line input, so it is tidied like the rest and absent when
+  // blank. (The LIST description is the field that holds paragraphs; see setMeta.)
+  description: typed(MAX_ITEM_NOTE_LEN),
   // Scheme-checked like every other stored URL (trailUrl via normalizeTrailUrl, the
   // vault's own field via its ^https?:// gate). It had only a length clamp, so
   // "javascript:..." stored verbatim -- inert today, since nothing on a list surface
   // renders it as an href, but the CSP carries 'unsafe-inline', so the day something
-  // does it is a live sink on a page strangers open. "" clears it, like brand/variant.
-  if (typeof patch.productUrl === "string") out.productUrl = httpUrl(patch.productUrl);
-  // What it cost, on normalizeItem's rule. The two travel as one field: a currency is
-  // read only beside an amount (alone it would re-denominate the figure already
-  // stored), and an amount that names none takes none rather than keeping the last
-  // one's. A piece picked from My Gear in a row's name field arrives here, and with no
-  // branch for the pair the pick lost the price the pane's add (addItem) kept.
-  if (typeof patch.priceCents === "number" && isFinite(patch.priceCents)) {
-    out.priceCents = Math.max(0, Math.round(patch.priceCents));
-    out.currency = patch.currency ? String(patch.currency).slice(0, 8) : undefined;
+  // does it is a live sink on a page strangers open. Not tidied: see cleanText.
+  productUrl: optText(httpUrl),
+  // What it cost. No upper bound, and free is a price.
+  priceCents: optNum((n) => Math.max(0, Math.round(n))),
+  // Read beside an amount and never without one: finishItem drops a currency a row has
+  // no amount for, and cleanItemPatch reads this only from a patch that sets the amount.
+  // So by patch every value answers, a blank one as "none", and nothing is skipped.
+  currency: { whole: currencyOf, patch: (raw) => currencyOf(raw) ?? CLEAR },
+  // A number re-links (a rename to a catalog pick). null UNLINKS: a free rename makes
+  // the row a custom one, and the old product's link must not survive it. An id the
+  // database can't hold is no link off a whole row, and by patch is ignored, so the link
+  // the row has stands.
+  catalogItemId: nullCleared((raw) => (isCatalogId(raw) ? raw : undefined)),
+  // the linked product's weight when it was linked; kept only beside a link (finishItem)
+  catalogWeightMgAtLink: optNum(clampUnitWeightMg),
+  packed: bool,
+  // only `true` is stored, and only a real true off a whole row
+  needsCooking: flag((raw) => raw === true),
+  // Who carries it: null clears. Clamped only: the addItem and updateItem cases check it
+  // against the list's people (healPersonId), which this can't see. It must survive a
+  // whole row, or every addItem and every JSON import would strip the assignment.
+  personId: nullCleared(refId),
+  sortOrder: reqNum((n) => n, 0),
+  // `satisfies` over every key of Item, optional ones included: a field added to Item
+  // does not compile until it has a row here, so it can't reach one path and not the other.
+} satisfies { [K in keyof Item]-?: ItemRule<Item[K]> };
+
+const ITEM_KEYS = Object.keys(ITEM_RULES) as (keyof Item)[];
+/** The optional text fields, which the read-time tidy brings up to date (tidyStoredList). */
+const ITEM_TEXT_KEYS = ["brand", "variant", "commonName", "description"] as const;
+
+/**
+ * The rules that take more than one field, run on the finished row by BOTH paths: a
+ * whole row after its fields are read, a patched row after the patch is merged. Here
+ * rather than in the table because none of them can be judged from one field.
+ *
+ *   - water's count folds into its volume (foldWaterQty);
+ *   - a worn split is only a genuine partial of a base line (normalizeWornSplit);
+ *   - a currency belongs to an amount: alone it says nothing, and the next amount saved
+ *     without one would wipe it anyway;
+ *   - catalogWeightMgAtLink describes the product catalogItemId names (it is the
+ *     baseline the "the catalog's weight changed" nudge measures against), so a row
+ *     with no link has none.
+ */
+function finishItem(it: Item): Item {
+  Object.assign(it, foldWaterQty(it.name, it.qty, it.unitWeightMg));
+  const worn = normalizeWornSplit(it.qty, it.classification, it.wornQty);
+  it.classification = worn.classification;
+  it.wornQty = worn.wornQty;
+  if (it.priceCents == null) it.currency = undefined;
+  if (it.catalogItemId == null) it.catalogWeightMgAtLink = undefined;
+  return it;
+}
+
+/** A raw row → its stored form: every field by its rule in ITEM_RULES, then finishItem.
+ *  The list-wide half (a real folder, a real parent, a real carrier) is the caller's. */
+export function normalizeItem(raw: Item): Item {
+  const source = raw as unknown as Record<string, unknown>;
+  const it: Record<string, unknown> = {};
+  for (const key of ITEM_KEYS) it[key] = ITEM_RULES[key].whole(source[key]);
+  return finishItem(it as unknown as Item);
+}
+
+/** A patch → the fields it sets, each by its rule in ITEM_RULES. A cleared field comes
+ *  back as an explicit undefined, which is what Object.assign needs to remove it. The
+ *  merged row still owes finishItem: the updateItem case runs it. */
+function cleanItemPatch(patch: ItemPatch): Partial<Item> {
+  const source = patch as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of ITEM_KEYS) {
+    const read = (ITEM_RULES[key] as ItemRule<unknown>).patch;
+    const value = read ? read(source[key]) : SKIP;
+    if (value !== SKIP) out[key] = value === CLEAR ? undefined : value;
   }
-  if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
-    out.unitWeightMg = clampUnitWeightMg(patch.unitWeightMg);
-  // entryUnit is DISPLAY ONLY (see types.ts) — validated against the unit list so a
-  // hostile op can't put arbitrary text where a unit label renders. null/"" clears
-  // it, dropping the row back to the list's displayUnit.
-  if (patch.entryUnit === null) out.entryUnit = undefined;
-  else if (typeof patch.entryUnit === "string" && UNITS.includes(patch.entryUnit))
-    out.entryUnit = patch.entryUnit;
-  // kcal: null clears, and so does a number kcalOf won't store (zero or below), rather
-  // than storing 0. Anything that isn't a finite number is left alone.
-  if (patch.kcal === null) out.kcal = undefined;
-  else if (typeof patch.kcal === "number" && isFinite(patch.kcal)) out.kcal = kcalOf(patch.kcal);
-  if (typeof patch.qty === "number" && isFinite(patch.qty))
-    out.qty = Math.max(0, Math.min(MAX_QTY, Math.round(patch.qty)));
-  if (typeof patch.wornQty === "number" && isFinite(patch.wornQty)) {
-    const wq = Math.round(patch.wornQty);
-    out.wornQty = wq > 0 ? Math.min(MAX_QTY, wq) : undefined; // ≤0 clears the split
-  }
-  if (patch.classification === null || (typeof patch.classification === "string" && CLASSIFICATIONS.includes(patch.classification)))
-    out.classification = patch.classification;
-  // NO worn/consumable-clears-wornQty rule here: applyOp's updateItem arm runs it
-  // on the merged item (where it can also see qty), so stating it twice only
-  // creates two versions to drift.
-  if (typeof patch.weightOverridden === "boolean") out.weightOverridden = patch.weightOverridden;
-  // catalog link fields — a number re-links (rename to a catalog pick, or the
-  // nudge re-baselining to the current weight); null UNLINKS both fields (free
-  // rename → now a custom item, the old product's link must not survive)
-  if (patch.catalogItemId === null) {
-    out.catalogItemId = undefined;
-    out.catalogWeightMgAtLink = undefined;
-  } else if (isCatalogId(patch.catalogItemId)) out.catalogItemId = patch.catalogItemId;
-  if (patch.catalogItemId !== null && typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
-    out.catalogWeightMgAtLink = clampUnitWeightMg(patch.catalogWeightMgAtLink);
-  if (typeof patch.packed === "boolean") out.packed = patch.packed;
-  if (typeof patch.needsCooking === "boolean") out.needsCooking = patch.needsCooking || undefined;
-  // who carries it: null clears; a string is only clamped here and validated against
-  // the list's people in applyOp's updateItem arm — same division of labor as the
-  // wornQty rule, because this function can't see the list.
-  if (patch.personId === null) out.personId = undefined;
-  else if (typeof patch.personId === "string" && patch.personId)
-    out.personId = patch.personId.slice(0, MAX_ID_LEN);
-  if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
-  // no folderId branch: a raw op smuggling one in is ignored (see ItemPatch)
-  return out;
+  // The amount and its currency travel as one field. A currency is read only beside an
+  // amount (alone it would re-denominate the figure already stored), and an amount that
+  // names none takes none rather than keeping the last one's.
+  if (!("priceCents" in out)) delete out.currency;
+  return out as Partial<Item>;
 }
 
 function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   const out: Partial<Folder> = {};
-  if (typeof patch.name === "string") out.name = cleanText(patch.name, MAX_FOLDER_NAME_LEN);
+  // A rename to nothing is IGNORED, as a person's is (cleanPersonPatch): a folder keeps
+  // a name. It was stored blank here while normalizeFolder and the read-time tidy both
+  // call a blank name "Folder", so the editor showed an empty box until the save's
+  // answer came back and typed "Folder" into it, and the name it had was gone.
+  if (typeof patch.name === "string") {
+    const name = cleanText(patch.name, MAX_FOLDER_NAME_LEN);
+    if (name) out.name = name;
+  }
   if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
   if (typeof patch.defaultClassification === "string" && CLASSIFICATIONS.includes(patch.defaultClassification))
     out.defaultClassification = patch.defaultClassification;
@@ -671,10 +837,8 @@ function applyOp(state: ListState, op: Op): void {
         const linkedTo = it.catalogItemId;
         const patch = cleanItemPatch(op.patch || {});
         Object.assign(it, patch);
-        Object.assign(it, foldWaterQty(it.name, it.qty, it.unitWeightMg));
-        // catalogWeightMgAtLink describes the product named by catalogItemId — it is
-        // the baseline the "the catalog's weight changed" nudge measures against. So
-        // it can only outlive a RE-LINK if the same patch stamps a fresh one.
+        // The link weight can only outlive a RE-LINK if the same patch stamps a fresh
+        // one (finishItem has why the two are a pair).
         //
         // A catalog pick does stamp one. A pick from your own VAULT deliberately
         // doesn't (its weight is yours, not the catalog's — see ItemRow.onNameCommit),
@@ -683,12 +847,11 @@ function applyOp(state: ListState, op: Op): void {
         // suggest a fix", offering to correct the QUILT's catalog entry to the tent's
         // weight. Lives here, not in the row, because the pair is a fact about the
         // item — every path that re-links (an import, another client, the raw API)
-        // owes the same invariant.
+        // owes the same invariant. And here rather than in finishItem, because only a
+        // patch has a link the row held BEFORE to compare with.
         if (it.catalogItemId !== linkedTo && typeof patch.catalogWeightMgAtLink !== "number")
           it.catalogWeightMgAtLink = undefined;
-        const worn = normalizeWornSplit(it.qty, it.classification, it.wornQty);
-        it.classification = worn.classification;
-        it.wornQty = worn.wornQty;
+        finishItem(it);
         healPersonId(state, it);
       }
       break;
@@ -812,7 +975,7 @@ function applyOp(state: ListState, op: Op): void {
       // paragraphs (no editor anywhere — it arrives from a LighterPack import or a JSON
       // backup), so it gets the apostrophes and the invisibles but keeps every line
       // break, and a backup still round-trips. An ITEM's description is a real one-line
-      // input and goes through cleanText like the rest — see cleanItemPatch.
+      // input and goes through cleanText like the rest — see its row in ITEM_RULES.
       if (typeof p.description === "string")
         state.description = tidyProse(p.description.slice(0, MAX_DESCRIPTION_LEN));
       if (typeof p.displayUnit === "string" && UNITS.includes(p.displayUnit)) state.displayUnit = p.displayUnit;
@@ -863,83 +1026,6 @@ export function applyOps(state: ListState, ops: Op[]): ListState {
   return state;
 }
 
-export function normalizeItem(raw: Item): Item {
-  // `Number(raw.qty) || 1` read a stored 0 as 1 — 0 is falsy, so the default meant
-  // for a MISSING qty swallowed a real one. cleanItemPatch accepts 0 (Math.max(0, …)),
-  // so a zero is a state the write path stores and this one could not express: a JSON
-  // backup round-tripped a qty-0 row back as qty 1 and the list gained its weight,
-  // and so did every whole-list rebuild (create, and a recovery-point restore).
-  // Default only when the field is genuinely absent or unusable. null / undefined /
-  // "" are listed explicitly because Number() turns all three into a zero nobody
-  // typed; everything else coerces as before. No String()/trim() round-trip — this
-  // runs per item on every batch and every whole-list rebuild.
-  const rawQty: unknown = raw.qty; // typed number, but this parses foreign JSON too
-  const n = rawQty == null || rawQty === "" ? NaN : Number(rawQty);
-  const name = cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN);
-  const { qty, unitWeightMg } = foldWaterQty(
-    name,
-    Math.max(0, Math.min(MAX_QTY, Math.round(Number.isFinite(n) ? n : 1))),
-    clampUnitWeightMg(Number(raw.unitWeightMg) || 0),
-  );
-  let classification = CLASSIFICATIONS.includes(raw.classification as Classification)
-    ? (raw.classification as Classification)
-    : null;
-  const worn = normalizeWornSplit(qty, classification, raw.wornQty);
-  classification = worn.classification;
-  return {
-    id: String(raw.id).slice(0, MAX_ID_LEN),
-    // empty string collapses to null — a real id or nothing. "" is a truthy-looking
-    // non-id that would dodge the dangling-ref heals (both are `if (folderId && …)`)
-    // AND the strict `=== null` ungrouped predicate, leaving the item rendered in no
-    // folder yet counted in totals: invisible, UI-undeletable weight.
-    folderId: typeof raw.folderId === "string" && raw.folderId ? raw.folderId.slice(0, MAX_ID_LEN) : null,
-    // the item this is nested under (validated against real, top-level items by the
-    // addItem/moveItem reducer cases, which can see the whole list; here we only clamp)
-    parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
-    name,
-    brand: raw.brand ? cleanText(String(raw.brand), MAX_BRAND_LEN) || undefined : undefined,
-    variant: raw.variant ? cleanText(String(raw.variant), MAX_VARIANT_LEN) || undefined : undefined,
-    commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
-    commonNameOverridden: raw.commonNameOverridden ? true : undefined,
-    nameOverridden: raw.nameOverridden ? true : undefined,
-    unitWeightMg,
-    weightOverridden: !!raw.weightOverridden,
-    // display-only, but it must survive normalize or a JSON round-trip (and every
-    // addItem, which also runs through here) would quietly reset each row to the
-    // list's unit — losing a choice the user made, invisibly
-    entryUnit:
-      typeof raw.entryUnit === "string" && UNITS.includes(raw.entryUnit) ? raw.entryUnit : undefined,
-    qty,
-    wornQty: worn.wornQty,
-    classification,
-    // same rule as cleanItemPatch: anything kcalOf won't store is absent rather than
-    // zero (see Item.kcal)
-    kcal: kcalOf(raw.kcal),
-    description: raw.description ? cleanText(String(raw.description), MAX_ITEM_NOTE_LEN) || undefined : undefined,
-    productUrl: raw.productUrl ? httpUrl(String(raw.productUrl)) : undefined,
-    priceCents:
-      typeof raw.priceCents === "number" && isFinite(raw.priceCents)
-        ? Math.max(0, Math.round(raw.priceCents))
-        : undefined,
-    currency: raw.currency ? String(raw.currency).slice(0, 8) : undefined,
-    catalogItemId:
-      isCatalogId(raw.catalogItemId)
-        ? raw.catalogItemId
-        : undefined,
-    catalogWeightMgAtLink:
-      typeof raw.catalogWeightMgAtLink === "number" && isFinite(raw.catalogWeightMgAtLink)
-        ? clampUnitWeightMg(raw.catalogWeightMgAtLink)
-        : undefined,
-    packed: !!raw.packed,
-    needsCooking: raw.needsCooking === true ? true : undefined,
-    // clamped only — the reducer's addItem case validates it against the list's
-    // people (this function can't see them). Must survive normalize or every
-    // addItem and every JSON import would quietly strip the assignment.
-    personId: typeof raw.personId === "string" && raw.personId ? raw.personId.slice(0, MAX_ID_LEN) : undefined,
-    sortOrder: Number(raw.sortOrder) || 0,
-  };
-}
-
 /**
  * An already-stored list brought up to the current tidy rules, IN PLACE: its text, and
  * one shape rule, water's count folded into its volume (foldWaterQty).
@@ -959,9 +1045,11 @@ export function normalizeItem(raw: Item): Item {
  * at exactly the pace the lists are actually used.
  *
  * Deliberately NOT normalizeItem: that clamps and coerces every field and allocates a
- * new object per row. This touches only the text fields cleanItemPatch would have
- * touched, plus a water row that still carries a count, so a read can afford to run it
- * every time.
+ * new object per row. This touches only the text fields, by the rules a write stores
+ * them with, plus a water row that still carries a count, so a read can afford to run
+ * it every time. What else an older row may hold (a "renamed" flag stored false, a
+ * currency with no amount, a link weight with no link) reads the same as its absence
+ * everywhere, and goes the next time the row is written.
  */
 export function tidyStoredList<T extends {
   title?: string;
@@ -984,11 +1072,11 @@ export function tidyStoredList<T extends {
   for (const f of list.folders) f.name = cleanText(f.name ?? "", MAX_FOLDER_NAME_LEN) || "Folder";
   for (const p of list.people ?? []) p.name = cleanText(p.name ?? "", MAX_PERSON_NAME_LEN) || "Person";
   for (const it of list.items) {
-    it.name = cleanText(it.name ?? "", MAX_ITEM_NAME_LEN);
-    if (it.brand) it.brand = cleanText(it.brand, MAX_BRAND_LEN) || undefined;
-    if (it.variant) it.variant = cleanText(it.variant, MAX_VARIANT_LEN) || undefined;
-    if (it.commonName) it.commonName = cleanText(it.commonName, MAX_GEAR_TYPE_LEN) || undefined;
-    if (it.description) it.description = cleanText(it.description, MAX_ITEM_NOTE_LEN) || undefined;
+    // Each text field by its own row in ITEM_RULES, so a read can't spell a field
+    // differently from a write. A field the row doesn't have is left alone; one stored
+    // blank (a note cleared before a cleared note was absent) reads as absent.
+    it.name = ITEM_RULES.name.whole(it.name);
+    for (const key of ITEM_TEXT_KEYS) if (it[key] != null) it[key] = ITEM_RULES[key].whole(it[key]);
     // productUrl left alone — an apostrophe in a path is part of the address
     // A water row stored with a count before the reducer folded one: the same fold and
     // worn-split clean-up updateItem runs, so no reader sees the count and nothing has

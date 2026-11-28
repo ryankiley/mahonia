@@ -547,7 +547,7 @@ export type VaultItemOp =
  * A field ABSENT here is untouched; present, it is set AND pinned; null (or a
  * string that tidies to "") CLEARS it and pins the emptiness — otherwise deleting a
  * bogus product URL would be undone by the next capture's coalesce. The same
- * semantics cleanItemPatch gives a list row in shared/ops.
+ * semantics a patch has on a list row (ITEM_RULES in shared/ops).
  *
  */
 export interface VaultItemPatch {

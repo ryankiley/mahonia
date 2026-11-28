@@ -239,7 +239,8 @@ describe("pasting a list into an item's name", () => {
     c.undoRemove();
     expect(itemsOf(c).map((i) => i.name)).toEqual(["Duplex"]);
     expect(byId(c, "dup")).toMatchObject({ brand: "Zpacks", commonName: "Tent", catalogItemId: 200, unitWeightMg: 545_000, catalogWeightMgAtLink: 545_000 });
-    expect(byId(c, "dup")!.nameOverridden).toBe(false);
+    // the pasted name's "renamed" mark is gone: a flag is stored only when set
+    expect(byId(c, "dup")!.nameOverridden).toBeUndefined();
     // and the field, still focused, shows the restored name, not the pasted one
     await flushPromises();
     expect(w.find<HTMLInputElement>('input[aria-label="Name of item"]').element.value).toBe("Zpacks Duplex");
@@ -295,10 +296,10 @@ describe("pasting a list into an item's name", () => {
       commonName: "Tent",
       unitWeightMg: 688_000,
       weightOverridden: false,
-      nameOverridden: false,
       catalogItemId: 1,
       catalogWeightMgAtLink: 688_000,
     });
+    expect(tent.nameOverridden).toBeUndefined(); // the catalog's name, not marked as the owner's
     expect(tent.classification).toBeNull(); // a shelter stays on the folder's default
     // a weight on the line stands, marked as disagreeing with the catalog; food
     // arrives consumable with its calories
@@ -407,7 +408,8 @@ describe("pasting a list into an item's name", () => {
     expect(input.element.value).toBe("3FULGEAR Lanshan 1 Pro Tent");
     await w.find(".ac").trigger("focusout", { relatedTarget: document.body });
     await flushPromises();
-    expect(byId(c, "blank")).toMatchObject({ catalogItemId: 1, brand: "3FULGEAR", nameOverridden: false });
+    expect(byId(c, "blank")).toMatchObject({ catalogItemId: 1, brand: "3FULGEAR" });
+    expect(byId(c, "blank")!.nameOverridden).toBeUndefined();
   });
 
   // lines arrive trimmed, so this reads as one word — the case is about WHERE the
