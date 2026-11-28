@@ -8,7 +8,7 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } fro
 import { alias, type PgColumn } from "drizzle-orm/pg-core";
 import { vaultItems, vaultKitParts, vaults } from "../db/schema";
 import { countRows, type Db } from "./db";
-import { liveCatalogRows } from "./catalog";
+import { liveCatalogAttributes, liveCatalogRows } from "./catalog";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
 import {
   VAULT_CAPTURE_MAX,
@@ -668,7 +668,21 @@ function keepIfPinned(flag: PgColumn, keep: PgColumn, rule: SQL): SQL {
 /** Every live row in a user's vault, most-recently-used first — the /vault page's
  *  read. Small by nature, so it's one unpaginated query. */
 export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
-  return withKits(db, vaultId, (await liveRows(db, vaultId)).map(toEntry));
+  return withSpecs(db, await withKits(db, vaultId, (await liveRows(db, vaultId)).map(toEntry)));
+}
+
+/** Each linked piece's specs, from its catalog row as it reads now (following a merge to
+ *  the row that replaced it): one query for the whole vault's links. Read, not stored, so
+ *  a spec the research corrects reaches the piece on the next read. */
+async function withSpecs(db: Db, entries: VaultEntry[]): Promise<VaultEntry[]> {
+  const ids = entries.flatMap((e) => (e.catalogItemId != null ? [e.catalogItemId] : []));
+  if (!ids.length) return entries;
+  const specs = await liveCatalogAttributes(db, ids);
+  for (const e of entries) {
+    const cell = e.catalogItemId != null ? specs.get(e.catalogItemId) : undefined;
+    if (cell) e.specs = cell;
+  }
+  return entries;
 }
 
 /**

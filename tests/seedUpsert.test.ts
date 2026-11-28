@@ -117,6 +117,20 @@ describe("upsertSeedRows", () => {
     expect((await all()).map((r) => Number(r.weightMg))).toEqual([500_000]);
   });
 
+  it("writes a row's typed axes as the cell the build writes, and updates them when they change", async () => {
+    const quilt = csv({ name: "Revelation", variant: "20F, Regular", attributes: { length: "Regular", temp_f: 20 } });
+    await upsertSeedRows(db, [quilt]);
+    expect((await all())[0]!.attributes).toBe("length=Regular; temp_f=20");
+    // the same axes are no change
+    expect(await upsertSeedRows(db, [quilt])).toMatchObject({ updated: 0, unchanged: 1 });
+    // a research fix to one is
+    expect(await upsertSeedRows(db, [{ ...quilt, attributes: { length: "Regular", temp_f: 20, fill_power: 850 } }])).toMatchObject({ updated: 1 });
+    expect((await all())[0]!.attributes).toBe("length=Regular; temp_f=20; fill_power=850");
+    // a row with none stores none
+    await upsertSeedRows(db, [csv({ name: "Bandana", attributes: {} })]);
+    expect((await all()).find((r) => r.name === "Bandana")!.attributes).toBeNull();
+  });
+
   it("inserts past one batch", async () => {
     const many = Array.from({ length: 1203 }, (_, i) => csv({ name: `Stake ${i}` }));
     expect(await upsertSeedRows(db, many)).toEqual({ inserted: 1203, updated: 0, unchanged: 0, held: 0, kept: [] });

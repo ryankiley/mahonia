@@ -6,6 +6,7 @@ import { catalogEdits, catalogItems } from "../server/db/schema";
 import type { Db } from "../server/utils/db";
 import { seedManaged } from "../shared/catalogQuality";
 import { identity, type CatalogCsvRow } from "./catalogCsv";
+import { serializeAttributes } from "./catalogAttributes";
 
 /** Rows per INSERT: eleven columns each, well under the driver's parameter ceiling. */
 const INSERT_BATCH = 500;
@@ -102,6 +103,8 @@ export async function upsertSeedRows(
     categoryHint: row.categoryHint,
     searchTerms: row.searchTerms,
     commonName: row.commonName,
+    // the cell as the build writes it, so "unchanged" is a string compare
+    attributes: (row.attributes && serializeAttributes(row.attributes)) || null,
     verified: true,
     verifiedBy: null,
     sourceQuote: null,
@@ -145,6 +148,7 @@ export async function upsertSeedRows(
       cur.categoryHint !== want.categoryHint ||
       cur.searchTerms !== want.searchTerms ||
       cur.commonName !== want.commonName ||
+      (cur.attributes ?? null) !== want.attributes ||
       !seedManaged(cur) ||
       cur.status !== "active";
     if (!changed) {
