@@ -546,7 +546,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      the ambient layer sits nearly centred (2px down, no negative spread) so the top
      gets its share of the lift. */
   --shadow-soft: 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 24px rgba(0, 0, 0, 0.1);
-  /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
+  /* floating-menu surface: bright white in light (NOT the grey --background-secondary — popovers
      should read crisp, lifted off the page), a clearly-elevated grey in dark */
   --surface-1: light-dark(#ffffff, #1f1f1f);
   /* a float over a float — a menu opened inside a dialog, or inside a popover like the

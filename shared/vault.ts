@@ -153,6 +153,11 @@ export interface VaultEntry extends VaultCapture, VaultKitFields {
   timesSeen: number;
   lastUsedAt: string;
   createdAt: string;
+  /** Its catalog row's typed axes, the `attributes` cell ("temp_f=20; fill_power=950"),
+   *  read live through the link on each read and never stored on the piece: what the
+   *  row shows as its specs (shared/catalogSpecs). Absent on gear with no link, or a
+   *  linked row the catalog holds no axes for. */
+  specs?: string;
 }
 
 // ---------------------------------------------------------------------------

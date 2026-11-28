@@ -4,7 +4,8 @@ import { stubLocalStorage } from "./helpers/storage";
 import { listEntry } from "./helpers/myLists";
 import { gear } from "./helpers/list";
 import { DUPLEX, cap } from "./helpers/vault";
-import { vaultItems, vaults } from "../server/db/schema";
+import { catalogItems, vaultItems, vaults } from "../server/db/schema";
+import { CATALOG_DDL } from "../server/utils/catalog";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
 import {
@@ -1432,5 +1433,30 @@ describe("vault import — putting a file's worth of gear back", () => {
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     expect(shape(after)).toEqual(shape(before));
+  });
+});
+
+describe("listVaultItems: a linked piece's specs", () => {
+  let db: TestDb;
+  const VAULT = 1;
+  beforeEach(async () => {
+    db = await createTestDb(VAULT_DDL, CATALOG_DDL);
+  });
+
+  it("reads them live from the catalog row, following a merge, and stores nothing on the piece", async () => {
+    const [old] = await db.insert(catalogItems).values({ brand: "Zpacks", name: "Duplex", weightMg: 539_000, weightSource: "manufacturer", verified: true, status: "merged" }).returning();
+    const [live] = await db.insert(catalogItems).values({ brand: "Zpacks", name: "Duplex", variant: "DCF", weightMg: 539_000, weightSource: "manufacturer", verified: true, attributes: "persons=2" }).returning();
+    await db.update(catalogItems).set({ mergedIntoId: live!.id }).where(eq(catalogItems.id, old!.id));
+    const [quilt] = await db.insert(catalogItems).values({ brand: "EE", name: "Revelation", weightMg: 600_000, weightSource: "manufacturer", verified: true }).returning();
+    await captureVaultItems(db, VAULT, [
+      cap({ catalogItemId: old!.id }),
+      cap({ brand: "EE", name: "Revelation", catalogItemId: quilt!.id }),
+      cap({ brand: "Mine", name: "Tarp" }),
+    ]);
+    const byName = new Map((await listVaultItems(db, VAULT)).map((e) => [e.name, e]));
+    expect(byName.get("Duplex")!.specs).toBe("persons=2");
+    // a linked row with no axes, and gear with no link, carry none
+    expect(byName.get("Revelation")!.specs).toBeUndefined();
+    expect(byName.get("Tarp")!.specs).toBeUndefined();
   });
 });

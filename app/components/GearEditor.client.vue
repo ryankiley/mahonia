@@ -749,7 +749,6 @@ async function rotate() {
     title: "Replace the edit link?",
     message: "The old link stops working, so anyone you sent it to can no longer edit. You get a new one.",
     confirmLabel: "Replace link",
-    danger: true,
   }))) return;
   const next = await c.rotate();
   if (next) {
@@ -819,11 +818,6 @@ async function forgetThisList() {
       ? `“${title}” no longer works online, so the copy on this device may be the last one. Forgetting it deletes that copy.`
       : `“${title}” stays online for anyone with its link. You’ll need the edit link to open it here again.`,
     confirmLabel: "Forget",
-    // marked the way the delete's dialog is: dead, this costs something no link
-    // can recover. (Today the dialog renders danger monochrome, like everything
-    // in the chrome — the flag records the severity, and any styling AppDialogs
-    // ever gives danger will pick this up with the delete's.)
-    danger: dead,
   }))) return;
   // Same ordering rule the delete below turns on, for the same reason: teardown
   // writes this list's on-device copy, so forgetting first would leave that copy
@@ -847,7 +841,6 @@ async function deleteThisList() {
     title: "Delete this list?",
     message: `“${savedListTitle(snapshot.value?.title ?? "")}” is deleted for everyone with its link. This can’t be undone.`,
     confirmLabel: "Delete",
-    danger: true,
   }))) return;
   // CLOSE THE SESSION FIRST, then delete — the order is the whole of it. Teardown
   // flushes the queue and writes this list's on-device copy; run the other way round,
@@ -1702,7 +1695,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link
-   voice (ink-3, darkens on hover, no chrome). */
+   voice (--foreground-tertiary, darkens on hover, no chrome). */
 /* reveal wrapper: carries the tuck + the grid-rows height/fade slide (shared recipe
    with ItemRow's .reveal). The tuck lives here, not on the inner .packbar, so the
    inner line isn't clipped by the wrapper's overflow as it slides. */

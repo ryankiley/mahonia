@@ -96,7 +96,8 @@ describe("Tooltip positioning", () => {
     const tip = (await hover())!;
 
     expect(tip.dataset.placement).toBe("top");
-    // trigger centre 516 − half the 100px popup = 466
+    // trigger centre 516 − half the 100px popup = 466. No --tip-shift here, as on most
+    // triggers: an absent custom property reads back as "", which must mean 0, not NaN.
     expect(tip.style.left).toBe("466px");
     // 400 (trigger top) − 24 (popup height) − 8 (default offset)
     expect(tip.style.top).toBe("368px");
@@ -115,14 +116,6 @@ describe("Tooltip positioning", () => {
 
     // trigger centre 516, ink centre 524, − half the 100px popup = 474
     expect(tip.style.left).toBe("474px");
-  });
-
-  it("leaves an unshifted trigger exactly where it was", async () => {
-    // the property is absent on every other trigger in the app, and an absent custom
-    // property reads back as "" — which must mean 0 and not NaN
-    mountTooltip({ text: "Remove" });
-    const tip = (await hover())!;
-    expect(tip.style.left).toBe("466px");
   });
 
   it("flips to bottom when the space above can't hold it", async () => {

@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "A number typed with a thousands comma or space, like \"2,000 ml\" or \"12 000 g\", now reads as the number it says in every field."
+  ]
+}

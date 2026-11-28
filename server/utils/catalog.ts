@@ -102,6 +102,9 @@ export const CATALOG_DDL: string[] = [
     verified_by integer,
     source_quote text
   )`,
+  // attributes: the row's typed axes as the CSV writes them (schema.ts). New 2026-11-27;
+  // folds into the CREATE once it has deployed (CLAUDE.md).
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS attributes text`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
@@ -325,8 +328,22 @@ export async function catalogRowsById(db: Db, ids: readonly number[], anyStatus 
  * still active, costs the one query catalogRowsById would.
  */
 export async function liveCatalogRows(db: Db, ids: readonly number[]): Promise<Map<number, CatalogSearchResult>> {
-  const asked = [...new Set(ids.filter(isCatalogId))];
   const out = new Map<number, CatalogSearchResult>();
+  for (const [id, row] of await liveRowsById(db, ids)) out.set(id, toCatalogResult(row));
+  return out;
+}
+
+/** Each id's live row's typed axes (the `attributes` cell), following merges the way
+ *  liveCatalogRows does; ids whose live row has none are left out. My Gear's specs. */
+export async function liveCatalogAttributes(db: Db, ids: readonly number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  for (const [id, row] of await liveRowsById(db, ids)) if (row.attributes) out.set(id, row.attributes);
+  return out;
+}
+
+async function liveRowsById(db: Db, ids: readonly number[]): Promise<Map<number, typeof catalogItems.$inferSelect>> {
+  const asked = [...new Set(ids.filter(isCatalogId))];
+  const out = new Map<number, typeof catalogItems.$inferSelect>();
   if (!asked.length) return out;
   await ensureCatalogSchema(db);
   const rows = await db.select().from(catalogItems).where(inArray(catalogItems.id, asked));
@@ -340,7 +357,7 @@ export async function liveCatalogRows(db: Db, ids: readonly number[]): Promise<M
     const row = byId.get(id);
     const successor = row && successorOf(row);
     const live = successor != null ? byId.get(successor) : row;
-    if (live?.status === "active") out.set(id, toCatalogResult(live));
+    if (live?.status === "active") out.set(id, live);
   }
   return out;
 }

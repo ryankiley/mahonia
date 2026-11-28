@@ -15,13 +15,6 @@ useHead({
 
 // surface the raw error in dev builds only (the branch compiles out of prod)
 const dev = import.meta.dev;
-
-// Nuxt renders this page INSTEAD of app.vue, so app.vue's app-wide mounts aren't here:
-// without its own, the top bar's Sign in opened nothing, then popped up unasked once a
-// link left the error.
-const { state: accountModal } = useAccountModal();
-const { mount: dialogs } = useDialogs();
-const signInLink = useSignInLinkState();
 </script>
 
 <template>
@@ -57,10 +50,10 @@ const signInLink = useSignInLinkState();
       </div>
     </main>
   </NuxtLayout>
-  <!-- app.vue's three, in its order: the dialogs last, over the account they can be raised from -->
-  <LazyAccountModal v-if="accountModal.everOpened" />
-  <LazySignInLinkDialog v-if="signInLink.everOpened" />
-  <LazyAppDialogs v-if="dialogs.everOpened" />
+  <!-- Nuxt renders this page INSTEAD of app.vue, so it mounts the app-wide overlays
+       itself: without them the top bar's Sign in opened nothing, then popped up
+       unasked once a link left the error. -->
+  <AppOverlays />
 </template>
 
 <style scoped>

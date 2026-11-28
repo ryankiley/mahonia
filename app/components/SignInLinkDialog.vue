@@ -14,7 +14,7 @@ const title = computed(() => {
     case "confirm":
       return `Sign in as ${state.asking.email}?`;
     case "lists":
-      return `Add this browser’s ${one ? "list" : "lists"} to your account?`;
+      return `Add this browser’s ${one.value ? "list" : "lists"} to your account?`;
     default:
       // nothing has failed while there is no network to fail on
       return state.offline ? "You’re offline" : "Couldn’t sign you in";
