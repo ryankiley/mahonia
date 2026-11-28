@@ -147,12 +147,6 @@ describe("upsertSeedRows", () => {
     expect(await pair()).toEqual([[530_000, moved]]);
   });
 
-  it("refuses a table whose seed rows predate the record, rather than read them all as moved", async () => {
-    await db.insert(schema.catalogItems).values({ brand: "Zpacks", name: "Duplex", weightMg: 545_000, weightSource: "manufacturer", verified: true });
-    await expect(upsertSeedRows(db, [csv({})])).rejects.toThrow("backfillSeedColumns");
-    expect((await all()).map((r) => Number(r.weightMg))).toEqual([545_000]);
-  });
-
   it("inserts past one batch", async () => {
     const many = Array.from({ length: 1203 }, (_, i) => csv({ name: `Stake ${i}` }));
     expect(await upsertSeedRows(db, many)).toEqual({ inserted: 1203, updated: 0, unchanged: 0, held: 0, kept: [] });

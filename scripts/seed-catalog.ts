@@ -3,12 +3,10 @@
 // re-running never duplicates — it inserts new rows and updates changed
 // weights/sources in place, except a visitor's cited correction the research hasn't moved
 // past, which stays (seedUpsert.ts). Each row it writes also records what the research
-// said (seed_weight_mg, seed_source_url); on a database older than those columns the
-// first run fills them in before anything reads them (seedBackfill.ts). A row whose
-// variant was tidied keeps its id (seedRenames.ts: same product, one orphan and one
-// newcomer, renamed before the upsert), and a row the CSV stops naming is retired with a
-// pointer to its successor, never deleted (seedRetire.ts). Seeded rows are owner-curated +
-// cited, so they're marked verified=true.
+// said (seed_weight_mg, seed_source_url). A row whose variant was tidied keeps its id
+// (seedRenames.ts: same product, one orphan and one newcomer, renamed before the upsert),
+// and a row the CSV stops naming is retired with a pointer to its successor, never deleted
+// (seedRetire.ts). Seeded rows are owner-curated + cited, so they're marked verified=true.
 //
 // Run under Node 26 (the repo's pinned toolchain) via the `seed` npm script,
 // which uses jiti (ships with Nuxt) to resolve the project's TS imports:
@@ -19,7 +17,6 @@
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
-import { backfillSeedColumns } from "./seedBackfill";
 import { renameMovedVariants } from "./seedRenames";
 import { retireOrphans } from "./seedRetire";
 import { upsertSeedRows } from "./seedUpsert";
@@ -35,21 +32,6 @@ async function main() {
   console.log(`Loaded ${rows.length} rows from seed/catalog.csv`);
 
   const db = await useDb();
-
-  const backfilled = await backfillSeedColumns(db, rows);
-  if (backfilled) {
-    const ids = (list: number[]) => (list.length ? ` (${list.map((id) => `#${id}`).join(", ")})` : "");
-    console.log(
-      `Seed columns filled in: ${backfilled.seedRows} seed rows from their own weight and link, ` +
-        `${backfilled.corrected.length} holding a visitor's correction from the research${ids(backfilled.corrected)}, ` +
-        `${backfilled.inApp.length} verified in the app from the research${ids(backfilled.inApp)}.`,
-    );
-    if (backfilled.inAppDiffers.length)
-      console.log(
-        `  ${backfilled.inAppDiffers.length} of those were verified over a weight the research doesn't say now${ids(backfilled.inAppDiffers)}: ` +
-          `a visitor's correction, or research edited since. Graduating won't mark them; compare each with its research row first.`,
-      );
-  }
 
   const renamed = await renameMovedVariants(db, rows);
   if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);

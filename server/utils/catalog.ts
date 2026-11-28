@@ -88,6 +88,9 @@ export const CATALOG_DDL: string[] = [
   //
   // attributes — the row's typed axes as the CSV writes them, what My Gear shows as a
   // piece's specs (schema.ts).
+  //
+  // seed_weight_mg + seed_source_url — what the research last said of the row, written
+  // only by the seed (schema.ts).
   `CREATE TABLE IF NOT EXISTS catalog_items (
     id serial PRIMARY KEY,
     brand text,
@@ -109,11 +112,10 @@ export const CATALOG_DDL: string[] = [
     kcal integer,
     verified_by integer,
     source_quote text,
-    attributes text
+    attributes text,
+    seed_weight_mg bigint,
+    seed_source_url text
   )`,
-  // seed_weight_mg + seed_source_url — what the research last said of the row, written
-  // only by the seed (schema.ts). Folds into the CREATE once it has deployed (CLAUDE.md).
-  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS seed_weight_mg bigint, ADD COLUMN IF NOT EXISTS seed_source_url text`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used

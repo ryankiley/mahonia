@@ -7,12 +7,12 @@
 // once the research agrees with it on the weight and its citation; until then the reseed
 // leaves it be (upsertSeedRows), and catalog:graduate writes it back into the research.
 //
-// A row from the research files (seedManaged, or one the seed wrote before an earlier call
-// here: seed_weight_mg) takes a new maker's weight with its page and quote, so a maker's
-// re-specced figure needs no research PR. Nothing else about it is the tool's to change: a
-// new name or gear type would leave the research naming the old one, which the next reseed
-// would add again beside it, and a scale weight is the person's own piece's, not the
-// maker's figure.
+// A row from the research files (one the seed has written: seed_weight_mg, which an
+// earlier call here leaves on it) takes a new maker's weight with its page and quote, so a
+// maker's re-specced figure needs no research PR. Nothing else about it is the tool's to
+// change: a new name or gear type would leave the research naming the old one, which the
+// next reseed would add again beside it, and a scale weight is the person's own piece's,
+// not the maker's figure.
 //
 // A chat writes these rows, so the tool carries the rules a person would otherwise have to
 // repeat to every chat, and refuses in a sentence the model can act on:
@@ -265,7 +265,7 @@ export async function verifyCatalogItem(
     const renames = identity.brand !== current.brand || identity.name !== current.name || identity.variant !== current.variant;
     const retypes = (gearType !== "" && normKey(gearType) !== normKey(current.commonName)) || (category != null && category !== current.categoryHint);
     const measures = source === "measured";
-    research = seedManaged(current) || current.seedWeightMg != null;
+    research = current.seedWeightMg != null;
     if (research && measures) {
       return `Row ${current.id} comes from Mahonia's research files, which hold the maker's published weight: a weight from the person's own scale belongs on their piece of My Gear (edit_my_gear's weight_g), not on the catalog's row.`;
     }
