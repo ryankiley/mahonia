@@ -11,11 +11,9 @@
 // Body weight is the one deliberate omission, and it is deliberate in both directions:
 // see tests/bodyWeightPrivacy.test.ts.
 
-import type { Folder, Item, ListData, ListMeta, Person, TripDay, Unit, Waypoint } from "../types";
-import { pickListMeta, UNITS } from "../types";
-import { MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN, normalizeMetaFields } from "../ops";
-import { normalizeTrailUrl } from "../trailLink";
-import { normalizeRouteGeometry } from "../polyline";
+import type { Folder, Item, ListData, ListMeta, Person, TripDay, Waypoint } from "../types";
+import { pickListMeta } from "../types";
+import { MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint } from "../ops";
 import { uid } from "../id";
 import { uniquifyPersonNames } from "../people";
 import { colorKeyForName, usedColorKeys } from "../categories";
@@ -67,14 +65,18 @@ function remintOrdered<T extends { id: string; sortOrder: number }>(
 /**
  * Parse a "Download JSON" backup back into list content. Returns null when the
  * text isn't JSON or isn't our shape (an object with `folders` + `items`
- * arrays), so callers can fall back to CSV. Content is sanitized through the
- * SAME reducer helpers the server runs on create (normalizeFolder/
- * normalizeItem) — the client never trusts a file, even its own export. Ids
- * are re-minted: a backup's ids are foreign strings, and duplicates must not
- * survive into the new list (they'd break op targeting). folderId references
- * are re-pointed through the old→new map (dangling → null, like addItem's
- * coercion), and sortOrder is renumbered from the backup's ordering, so a
- * hand-edited file with gaps or ties still imports sanely.
+ * arrays), so callers can fall back to CSV.
+ *
+ * The whole-list healing (caps, dangling references, one nesting level, unique person
+ * names, every meta field) is the create's: its normalizeListData and normalizeListMeta
+ * run on whatever this returns. What stays here is what the server can't do or what is
+ * read before it: rows still go through the reducer's per-entity normalizers, because
+ * the catalog matcher reads their names first. Ids are re-minted BEFORE anything else:
+ * a backup's ids are foreign strings, and two rows sharing one are two rows here, where
+ * the server would keep only the first. References are re-pointed through the old→new
+ * maps (dangling → null, like addItem's coercion), and sortOrder is renumbered from the
+ * backup's ordering, so a hand-edited file with gaps or ties still imports sanely; the
+ * server leaves folder and item order as it finds them.
  */
 export function jsonToListImport(text: string): JsonImport | null {
   let raw: unknown;
@@ -124,7 +126,10 @@ export function jsonToListImport(text: string): JsonImport | null {
   const items = normalized.map((it, k) => {
     const id = newIds[k]!;
     const folderId = (it.folderId && folderIdMap.get(it.folderId)) || null;
-    // re-point parentId through the id map; a dangling or self parent → top-level
+    // re-point parentId through the id map; a dangling parent → top-level. A self parent
+    // is cleared HERE although the server clears it too, because the container it is
+    // numbered in below has to be the one it ends up in. Deeper nesting is left for the
+    // server's normalizeListData to flatten: that happens after the numbering either way.
     let parentId = (it.parentId && itemIdMap.get(it.parentId)) || null;
     if (parentId === id) parentId = null;
     const key = `${folderId}\u0000${parentId}`;
@@ -134,10 +139,6 @@ export function jsonToListImport(text: string): JsonImport | null {
     const personId = (it.personId && personIdMap.get(it.personId)) || undefined;
     return { ...it, id, folderId, parentId, personId, sortOrder };
   });
-  // enforce one level: if a re-pointed parent is itself nested, flatten its children to
-  // top-level (a hand-edited/2-level backup can't smuggle in deeper trees)
-  const topLevel = new Set(items.filter((i) => i.parentId == null).map((i) => i.id));
-  for (const it of items) if (it.parentId && !topLevel.has(it.parentId)) it.parentId = null;
 
   // Days: re-minted ids and renumbered order, like folders. Nothing points at a day, so
   // there is no reference map to rebuild — but a backup written before days existed has
@@ -156,34 +157,18 @@ export function jsonToListImport(text: string): JsonImport | null {
 
   const days = remintOrdered<TripDay>(raw.days, MAX_DAYS, normalizeDay);
 
+  // The meta goes through as the file has it: the create's normalizeListMeta validates
+  // every field, typeof included (a javascript: trail link, a half-typed date, a unit
+  // that is none), and nothing reads these values before the create but the title. The
+  // route's shape rides along deliberately, where body weight deliberately doesn't: a
+  // backup is the owner downloading their own list.
+  const meta = pickListMeta(raw as Partial<ListMeta>);
+  // A blank title or description is absent, so the dialog's own "Imported list" applies.
+  const blank = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined);
   return {
-    // clamps mirror setMeta's (the server re-clamps on create regardless)
-    title:
-      typeof raw.title === "string" && raw.title.trim() ? raw.title.slice(0, MAX_TITLE_LEN) : undefined,
-    description:
-      typeof raw.description === "string" && raw.description.trim()
-        ? raw.description.slice(0, MAX_DESCRIPTION_LEN)
-        : undefined,
-    displayUnit:
-      typeof raw.displayUnit === "string" && UNITS.includes(raw.displayUnit as Unit)
-        ? (raw.displayUnit as Unit)
-        : undefined,
-    // a hand-edited backup can carry any string here, so re-validate rather than clamp:
-    // this ends up in a :href on a page strangers open
-    trailUrl: normalizeTrailUrl(raw.trailUrl) ?? undefined,
-    // The label, distance, unit, profile, climb, descent and dates are re-validated by
-    // the reducer's own setMeta rules (normalizeMetaFields): a hand-edited backup can
-    // carry a negative, a string or an absurd number in any of them, and the one table
-    // is the one rule for all of them — a half-typed "2026-0" clears rather than
-    // persisting as a date, a truncated profile clears rather than drawing.
-    ...normalizeMetaFields(raw),
-    // The route's SHAPE. listToJson writes it, so not reading it back made the backup
-    // lossy in the one way the header promises it isn't — and lossy for the field an
-    // owner cannot retype, since it came off a GPX file they may no longer have. It
-    // rides the backup DELIBERATELY, where body weight deliberately doesn't: a backup is
-    // the owner downloading their own list. Safe by construction on the read views —
-    // their "Download JSON" runs on the public snapshot, which has no geometry to write.
-    routeGeometry: normalizeRouteGeometry(raw.routeGeometry),
+    ...meta,
+    title: blank(raw.title),
+    description: blank(raw.description),
     data: { folders, items, days, waypoints, people },
   };
 }
