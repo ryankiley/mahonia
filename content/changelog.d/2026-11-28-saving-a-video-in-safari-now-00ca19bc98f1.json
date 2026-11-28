@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-28",
+  "fixed": [
+    "Saving a video in Safari now takes a few seconds, instead of sitting at 0% and then recording in real time."
+  ]
+}
