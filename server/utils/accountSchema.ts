@@ -36,6 +36,14 @@ export const ACCOUNT_DDL: string[] = [
     display_name text,
     email_verified boolean NOT NULL DEFAULT false
   )`,
+  // account_marker: which account this is, as its browsers know it (users.accountMarker
+  // in server/db/schema.ts). Nullable, and nothing here fills it: a row from before is
+  // given one when its account next signs in, so no cold start writes the table. Folds
+  // into the CREATE once it has deployed (CLAUDE.md).
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS account_marker text`,
+  // Two accounts with one marker would read each other's unsent edits on a browser
+  // they share. Rows still without one don't collide: NULLs are distinct here.
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_marker ON users (account_marker)`,
   // REQUIRED, including on the passkey signup path. The passkey is what identifies
   // you; the address is the only way back in when every authenticator is lost, and
   // a vault is exactly the thing that can't be rebuilt from memory. Making it

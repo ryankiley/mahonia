@@ -16,12 +16,12 @@ import * as schema from "../server/db/schema";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
   SESSION_COOKIE,
-  accountMarker,
   allowSessionSweep,
   askingBrowserHash,
   endAllSessions,
   endSession,
   findOrCreateUser,
+  formerAccountMarker,
   issueMagicToken,
   markAskingBrowser,
   redeemMagicLink,
@@ -79,8 +79,9 @@ describe("startSession → resolveSession", () => {
 
     const resolved = visit(`${SESSION_COOKIE}=${token}`);
     const user = await resolveSession(resolved);
-    const account = accountMarker({ id: userId, email: "ryan@example.com" });
-    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null, owner, sweep: true, unproven: false, account });
+    const account = (await db.select({ marker: schema.users.accountMarker }).from(schema.users))[0]!.marker;
+    const accountWas = formerAccountMarker({ id: userId, email: "ryan@example.com" });
+    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null, owner, sweep: true, unproven: false, account, accountWas });
     // Sessions from before the marker existed acquire it without reissuing their
     // credential or writing the database.
     expect(setCookieValue(resolved, SESSION_OWNER_COOKIE)).toBe(owner);
@@ -96,8 +97,6 @@ describe("startSession → resolveSession", () => {
     const second = await resolveSession(visit(`${SESSION_COOKIE}=${setCookieValue(again, SESSION_COOKIE)}`));
     expect(second!.account).toBe(account);
     expect(account).toMatch(/^[0-9a-f]{16}$/);
-    const other = await findOrCreateUser(db, "someone-else@example.com");
-    expect(accountMarker(other)).not.toBe(account);
   });
 
   // Whether this browser's lists may follow it into the account unasked. Kept on

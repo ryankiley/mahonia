@@ -50,8 +50,11 @@ export const OWNED = {
   claimedOpens: "gear.claimed.opens.v2",
   /** this device's copy of My Gear (useVaultList) */
   gearCopy: "gear.vault.copy.v1",
-  /** which account the session belongs to (sessionAccount, below) */
+  /** which account the session belongs to, as the server's `account` said
+   *  (sessionAccountNames, below) */
   account: "gear.account.v1",
+  /** ...and as its `accountNow` said, while it says both */
+  accountNow: "gear.account.now.v1",
 } as const;
 
 /** Let go of everything kept for `owner`. Part of forgetAccountMemos, run on every
@@ -104,16 +107,40 @@ export function sweepStaleOwned(hasSessionHint: boolean): void {
   if (owner || !hasSessionHint) sweepOwned(owner);
 }
 
-/** Which account the current session belongs to, as the marker /api/auth/me gave
- *  for it (accountMarker on the server), or null before that answer or signed out.
- *  Kept beside the session's owner marker so it can be read with no network: the
- *  on-device copy of a list opened through the account is filed under it. */
-export function sessionAccount(): string | null {
-  const key = ownedKey(OWNED.account, sessionCacheOwner());
+/** The stored account marker the server gave for the session `owner` (its
+ *  `accountNow`), or null if it has given none. */
+export function storedAccountOf(owner: string | null): string | null {
+  const key = ownedKey(OWNED.accountNow, owner);
   return key ? recall(key) : null;
 }
 
-export function rememberSessionAccount(owner: string, account: string): void {
+/**
+ * Which account the current session belongs to, as the markers /api/auth/me gave for
+ * it, or null before that answer or signed out. Kept beside the session's owner
+ * marker so it can be read with no network: the on-device copy of a list opened
+ * through the account is filed under `account`.
+ *
+ * `was` is the marker the account went by before markers were stored, for as long as
+ * the server still answers it (formerAccountMarker, server/utils/authSession.ts, says
+ * until when): a copy filed under it is this account's too. Where the server has said
+ * only `account` (one from before the stored marker, or from after the former one is
+ * gone) that is the account's marker and there is no `was`.
+ */
+export function sessionAccountNames(): { account: string; was: string | null } | null {
+  const owner = sessionCacheOwner();
+  const key = ownedKey(OWNED.account, owner);
+  const said = key ? recall(key) : null;
+  const account = storedAccountOf(owner) ?? said;
+  return account ? { account, was: said && said !== account ? said : null } : null;
+}
+
+export const sessionAccount = (): string | null => sessionAccountNames()?.account ?? null;
+
+/** Keep what the server said of the session `owner`'s account: its `account`, where
+ *  an app shell from before keeps it too, and its `accountNow` when it gave one. */
+export function rememberSessionAccount(owner: string, account: string, accountNow?: string): void {
   const key = ownedKey(OWNED.account, owner);
   if (key && account) remember(key, account);
+  const nowKey = ownedKey(OWNED.accountNow, owner);
+  if (nowKey && accountNow) remember(nowKey, accountNow);
 }

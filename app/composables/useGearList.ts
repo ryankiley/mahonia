@@ -16,7 +16,7 @@ import { createEdits } from "~/composables/useGearListEdits";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
 import { useUndo } from "~/composables/useUndo";
 import { editorCapability, type EditorCapability } from "~/utils/editorRoute";
-import { sessionAccount, sessionCacheOwner } from "~/utils/sessionOwner";
+import { sessionAccountNames, sessionCacheOwner } from "~/utils/sessionOwner";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -356,11 +356,19 @@ function create() {
   } = useSession();
   /** The account this browser's cookies name right now, or null when that isn't known:
    *  this tab's own answer when it is about the session the cookie names, otherwise
-   *  what the tab that asked about that session left on the device. */
-  function accountHere(): string | null {
+   *  what the tab that asked about that session left on the device. With it, the
+   *  marker that account went by before (sessionAccountNames). */
+  function whoIsHere(): { account: string | null; was: string | null } {
     const user = sessionUser.value;
-    return (user && user.owner === sessionCacheOwner() ? user.account : sessionAccount()) || null;
+    if (user && user.owner === sessionCacheOwner()) return { account: user.account || null, was: user.accountWas ?? null };
+    return sessionAccountNames() ?? { account: null, was: null };
   }
+  const accountHere = () => whoIsHere().account;
+  /** Whether the account `who` is the one this list was opened through. `was` is the
+   *  marker `who` went by before: a list opened under it, before this tab had heard
+   *  the stored one, is the same account's and stays open. */
+  const openedThrough = (who: string | null, was: string | null | undefined) =>
+    who === account || (who !== null && !!was && was === account);
   /**
    * Whether the browser is still signed in to the account this list was opened through.
    * Always, for a draft or a held edit link: those are the device's.
@@ -373,10 +381,11 @@ function create() {
    */
   function accountIsHere(): boolean {
     if (access.value.kind !== "claimed") return true;
-    const here = accountHere();
-    account ??= here;
-    if (here === account) return true;
-    if (sessionUser.value?.account === account) void refreshSession(true);
+    const here = whoIsHere();
+    account ??= here.account;
+    if (openedThrough(here.account, here.was)) return true;
+    const user = sessionUser.value;
+    if (user && openedThrough(user.account, user.accountWas)) void refreshSession(true);
     return false;
   }
   /** Whether the list on screen is `who`'s to see (null: nobody is signed in). False
@@ -385,7 +394,8 @@ function create() {
   function opensFor(who: string | null): boolean {
     if (access.value.kind !== "claimed") return true;
     account ??= who;
-    return who === account;
+    const user = sessionUser.value;
+    return openedThrough(who, user?.account === who ? user.accountWas : null);
   }
   // The device's registry and the account's list, resolved once: syncRegistry and its
   // gate run on every dispatch, and building a handle each time (useClaimedLists

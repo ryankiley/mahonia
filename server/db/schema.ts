@@ -457,6 +457,11 @@ export const users = pgTable(
     // sitting at false evicts every passkey and session older than that link —
     // see accountSchema.ts for why, and authSession.ts for the eviction itself.
     emailVerified: boolean("email_verified").notNull().default(false),
+    // Which account this is, as its browsers know it: 16 random hex characters, made
+    // with the account. A browser files the edits it has yet to send under it, so it
+    // is never rewritten. Null only on an account from before the column, which is
+    // given one the first time it signs in (ensureAccountMarker).
+    accountMarker: text("account_marker"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   }

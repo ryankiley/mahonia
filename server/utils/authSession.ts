@@ -7,7 +7,8 @@
 // token (server/utils/tokens.ts). A dump of `auth_tokens` or `sessions` therefore
 // contains no usable credential.
 
-import { and, eq, gt, isNull, lt, or } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
+import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
 import { authTokens, credentials, oauthCodes, sessions, users } from "../db/schema";
@@ -76,8 +77,10 @@ interface ResolvedUser extends SessionUser {
    *  it, so a claim that lands mid-request leaves that thing worthless. */
   unproven: boolean;
   /** Which ACCOUNT this is, as an opaque marker that is the same across its
-   *  sessions (accountMarker), where `owner` is new with each one. */
+   *  sessions (users.accountMarker), where `owner` is new with each one. */
   account: string;
+  /** What that marker was before it was stored (formerAccountMarker). */
+  accountWas: string;
 }
 
 /** A user just returned by redeeming a magic link, which is the one moment the
@@ -108,7 +111,7 @@ export async function findOrCreateUser(db: Db, email: string): Promise<SessionUs
   // evict. See accountSchema.ts.
   const inserted = await db
     .insert(users)
-    .values({ email, emailVerified: true })
+    .values({ email, emailVerified: true, accountMarker: newAccountMarker() })
     .onConflictDoNothing({ target: users.email })
     .returning();
   const fresh = inserted[0];
@@ -151,7 +154,10 @@ async function userByEmail(db: Db, email: string): Promise<SessionUser | null> {
  * readable here.
  */
 export async function createAccount(db: Db, email: string): Promise<SessionUser> {
-  const inserted = await db.insert(users).values({ email, emailVerified: false }).returning();
+  const inserted = await db
+    .insert(users)
+    .values({ email, emailVerified: false, accountMarker: newAccountMarker() })
+    .returning();
   const row = inserted[0];
   if (!row) throw new Error("could not create account");
   return { id: row.id, email: row.email };
@@ -422,14 +428,59 @@ export function sessionOwnerMarker(tokenHash: string): string {
 }
 
 /**
- * The readable marker for an ACCOUNT: the same on every session it ever has, which
- * the owner marker deliberately is not. For the one thing a browser keeps that
- * must wait for its account to come back rather than start over: edits to a list
- * typed offline and not yet sent (useLocalListStore). Like the owner marker it
- * names and does not unlock, and it is a hash rather than the id for the same
- * reason. Handed over by /api/auth/me only, to the account it describes.
+ * A new marker for an ACCOUNT: the same on every session it ever has, which the
+ * owner marker deliberately is not. For the one thing a browser keeps that must wait
+ * for its account to come back rather than start over: edits to a list typed offline
+ * and not yet sent (useLocalListStore). Like the owner marker it names and does not
+ * unlock. Random, and stored with the account (users.accountMarker), so it says
+ * nothing about the account and outlives a change of address. Handed over by
+ * /api/auth/me only, to the account it describes.
  */
-export function accountMarker(user: SessionUser): string {
+const newAccountMarker = (): string => randomBytes(8).toString("hex");
+
+/**
+ * The marker of an account that was found without one: made here, for an account
+ * from before the column. One statement, which fills the column only where it is
+ * empty and answers what it holds afterwards, so two requests that both found it
+ * empty are handed the same marker. Null if the account has gone.
+ */
+export async function ensureAccountMarker(db: Db, userId: number): Promise<string | null> {
+  const rows = await db
+    .update(users)
+    .set({ accountMarker: sql`coalesce(${users.accountMarker}, ${newAccountMarker()})` })
+    .where(eq(users.id, userId))
+    .returning({ marker: users.accountMarker });
+  return rows[0]?.marker ?? null;
+}
+
+/**
+ * What the account marker was before it was stored: a hash of the id and the address,
+ * with no secret in it, so anyone holding the marker and the address could search for
+ * the id, and a change of address would have orphaned everything filed under it.
+ *
+ * Browsers hold unsent edits filed under it, so /api/auth/me goes on answering it: as
+ * `account`, which is all an app shell from before reads, so that shell sees no
+ * change, with the stored marker beside it as `accountNow`. A current shell files
+ * under `accountNow` and knows this one as the account's `was` (sessionAccountNames,
+ * app/utils/sessionOwner.ts): a copy filed under it is moved as it is read
+ * (useLocalListStore's get), and a list opened under it stays open (useGearList's
+ * openedThrough).
+ *
+ * DELETE ON OR AFTER 2027-02-25, in one change: `account` answers the stored marker,
+ * and this function, `accountWas`, `accountNow`, the client's `was` with those two
+ * readers of it, and its memo (OWNED.accountNow) go. A shell from this change reads
+ * that answer as it should. One from before it sees its account change that day.
+ *
+ * Why then. Nothing makes a copy expire: one holding unsent edits waits on its device
+ * for its account for as long as it takes. So the date is a judgement, and it is the
+ * 90 days a session lasts unused (SESSION_TTL_MS): a browser not opened for that long
+ * is asked to sign in again anyway. What a copy needs before then is its list opened
+ * once on that device with its account signed in: this shell moves it, and the one
+ * before sends what it holds. A copy still filed under this marker after the date is
+ * never read again. It stays on the device, shown to nobody and sent as nobody, as
+ * one whose account never came back does today.
+ */
+export function formerAccountMarker(user: SessionUser): string {
   return sha256Hex(`account:${user.id}:${user.email}`).slice(0, 16);
 }
 
@@ -523,6 +574,7 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
       email: users.email,
       displayName: users.displayName,
       emailVerified: users.emailVerified,
+      accountMarker: users.accountMarker,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -532,6 +584,8 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
     .limit(1);
   const row = rows[0];
   if (!row) return null;
+  const account = row.accountMarker ?? (await ensureAccountMarker(db, row.id));
+  if (!account) return null;
   const owner = sessionOwnerMarker(hash);
   if (now.getTime() - new Date(row.lastUsedAt).getTime() > SESSION_REFRESH_AFTER_MS) {
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
@@ -565,7 +619,8 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
     owner,
     sweep: row.sweepOk,
     unproven: !row.emailVerified,
-    account: accountMarker(row),
+    account,
+    accountWas: formerAccountMarker(row),
   };
 }
 
