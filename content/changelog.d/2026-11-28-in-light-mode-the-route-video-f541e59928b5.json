@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-28",
+  "fixed": [
+    "In light mode, the route video page's Upload a route button and info button no longer vanish into the black background."
+  ]
+}
