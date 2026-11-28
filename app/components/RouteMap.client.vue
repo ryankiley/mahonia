@@ -587,7 +587,10 @@ function renderPins() {
     // The popup is built per OPEN, not once here: it has to show the pin's current name and
     // distance, and both change under it — a pin dragged to a new mile, or renamed in its
     // row, would otherwise open a popup still describing where it used to be.
-    marker.bindPopup(() => pinPopup(w), { closeButton: true, autoPan: true, minWidth: 180 });
+    // No close button, as no popover in the app has one: a press on the map, Escape, or
+    // Enter in the name closes it. 220 is the head line's width at its longest, so the
+    // card doesn't change size from one pin to the next.
+    marker.bindPopup(() => pinPopup(w), { closeButton: false, autoPan: true, minWidth: 220 });
     marker.on("popupopen", () => {
       // a popup you have to click into before typing is a popup that wasted the tap
       (marker.getPopup()?.getElement()?.querySelector("input") as HTMLInputElement | null)?.focus();
@@ -925,7 +928,8 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
     .join(" · ");
 
   const input = document.createElement("input");
-  input.className = "routemap__wpname";
+  // .well is the app's typing well (atoms/controls.scss): its ground, placeholder and focus
+  input.className = "well routemap__wpname";
   input.type = "text";
   input.maxLength = MAX_LABEL_LEN;
   input.value = w.label ?? "";
@@ -934,11 +938,12 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
   // on change, like every other name field in the app — never per keystroke, so a
   // half-typed word is not an op
   input.addEventListener("change", () => emit("rename", { id: w.id, label: input.value.trim() }));
-  // Leaflet closes its popup on Escape and treats keys as map shortcuts; typing must not
-  // reach it, or a name containing "-" starts zooming out
+  // Leaflet treats keys as map shortcuts; typing must not reach it, or a name containing
+  // "-" starts zooming out. Stopping them stops its own Escape too, so both ways out are
+  // answered here: with the close button gone they are the keyboard's only ones.
   input.addEventListener("keydown", (e) => {
     e.stopPropagation();
-    if (e.key === "Enter") map?.closePopup();
+    if (e.key === "Enter" || e.key === "Escape") map?.closePopup();
   });
 
   root.append(head, input);
@@ -1287,35 +1292,88 @@ onBeforeUnmount(() => {
 
 /* The expanded map's own controls, floating over the terrain rather than pushing it down:
    the point of expanding is the map being big. */
-/* The popup's own controls, kept plain — it is a name and a delete, over terrain. */
+/* A PIN'S POPUP, drawn as the app's own popover and not as Leaflet's.
+   It was Leaflet's card with our three controls inside it, and none of its measures were
+   ours: a 12px corner beside the menus' 20, a 40%-black drop shadow, text at 1.083em of
+   the page's, 1.3em of margin above and below every <p> (which is the empty band the head
+   line sat in), a 1px-bordered box for a field under the reset's focus ring, and an ×
+   in Tahoma. Each is restated here from the tokens the other popovers read.
+   LIGHT IN BOTH THEMES, like every mark on the map (the basemap doesn't have a dark
+   one), and that is one declaration: the colour tokens are light-dark() pairs that
+   resolve where they are used, so under `color-scheme: light` the card, the well and
+   the red are simply their light values. No --map-* twin of each is needed. */
+.routemap .leaflet-popup {
+  color-scheme: light;
+}
+.routemap .leaflet-popup-content-wrapper {
+  /* the card's padding: its fields stand 12 in and its words 20, as the trail panel's
+     do (ListHead), the 8 between them being each control's own inset. PADDING here and
+     not a margin on the content, where Leaflet puts it: with nothing between the two
+     boxes a child's margin collapses through its parent and lands outside the card. */
+  padding: var(--space-3);
+  border-radius: var(--radius-4);
+  background: var(--surface-1);
+  color: var(--foreground-primary);
+  box-shadow: var(--shadow-soft);
+}
+.routemap .leaflet-popup-tip {
+  background: var(--surface-1);
+  box-shadow: var(--shadow-soft);
+}
+.routemap .leaflet-popup-content {
+  margin: 0;
+  font-size: var(--text-chrome);
+  line-height: var(--leading-normal);
+
+  p {
+    margin: 0;
+  }
+}
 .routemap__wp {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
+/* the small label over a field, as the trail panel writes its own (.head__panellabel).
+   Selectable: this line is what you have open when copying a spring's position out. */
 .routemap__wphead {
-  font-size: var(--text-chrome);
-  color: var(--map-foreground-tertiary);
+  padding-inline: var(--space-2);
+  color: var(--foreground-tertiary);
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+  user-select: text;
 }
+/* the ground, placeholder and focus are .well's (in the markup); the box is this card's:
+   twice its type tall, and a corner concentric with the card's, one padding in */
 .routemap__wpname {
   width: 100%;
+  min-height: 2em;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--map-border);
-  border-radius: var(--radius-1);
+  border-radius: calc(var(--radius-4) - var(--space-3));
   font-size: var(--text-input); // the iOS zoom floor, as .field has
-  color: var(--map-foreground-primary);
-  background: var(--map-background);
+  line-height: 1.25;
 }
+/* A menu's destructive row: the one red on the map, and under the pointer a wash of that
+   red, the menus' amount, with the word left alone (EditorMenu says why the state is the
+   wash and not a deeper red). */
 .routemap__wpdel {
-  align-self: flex-start;
-  font-size: var(--text-chrome);
-  // the one destructive control on the map, so it says so — every other mark here is
-  // foreground or a category hue, and this is neither
+  min-height: var(--control-compact);
+  padding-inline: var(--space-2);
+  border-radius: calc(var(--radius-4) - var(--space-3));
   color: var(--danger);
+  text-align: start;
+  transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 @media (hover: hover) and (pointer: fine) {
   .routemap__wpdel:hover {
-    text-decoration: underline;
+    background: color-mix(in oklab, var(--danger) var(--background-hover-opacity), transparent);
+  }
+}
+@media (pointer: coarse) {
+  .routemap__wpdel {
+    min-height: var(--touch-target);
   }
 }
 
@@ -1374,10 +1432,9 @@ onBeforeUnmount(() => {
 /* …and it does want the smaller step — the design call #289 left open when it removed
    the dead `var(--fs-xs)` (a --fs-* scale this app has never had, so the declaration was
    invalid and the caption had always rendered at the inherited --text-base).
-   --text-chrome, not --text-micro: this is a caption under a figure, which is the same
-   register as the two other pieces of small print in this file (.routemap__wpname and
-   the popup's label, both --text-chrome) — where --text-micro is for a label sitting
-   above a field. The only text it ever holds is the tile-failure line, and reporting
+   --text-chrome, not --text-micro: this is a caption under a figure, the register a
+   popover's own text is set in (the pin popup's, above) — where --text-micro is for a
+   label sitting above a field, as that popup's head line is. The only text it ever holds is the tile-failure line, and reporting
    that the basemap didn't load at the same size as an item name overstates it; the
    route is still drawn, which is the whole point of the sentence. */
 .routemap__note {
