@@ -42,12 +42,9 @@ const props = defineProps<{
 }>();
 const menu = useItemMenu();
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
-// The card is <MenuList>. MenuList and not a <ul> of this component's own, as it was:
-// that is what carries the travelling plate, and without it these three were the only
-// menus in the app whose rows lit one at a time instead of the wash sliding between
-// them (Ryan, 2026-11-25). It mounts with the open menu, so a list pays for one plate,
-// not three per row, and it places itself on that mount, a row remounted with its menu
-// still open included.
+// The card is <MenuList>, the same card every anchored menu uses. It mounts with the
+// open menu, and it places itself on that mount, a row remounted with its menu still
+// open included.
 //
 // Placed UNDER THE MIDDLE of the trigger (`fit="center"`): every one of these opens off
 // a small icon in a row, and a card flush to one of the icon's edges reads as its

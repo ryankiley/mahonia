@@ -12,7 +12,7 @@ import { SvgIcon, type IconNode } from "~/utils/icon";
 //
 // What differs between them is only the TRIGGER — a glyph, a display-size figure, a
 // caption-sized unit. So the trigger is a slot and everything else lives here: the
-// popover, the travelling plate, the check on the current row, outside-tap and Escape.
+// popover, the check on the current row, outside-tap and Escape.
 // The button itself stays in this component so aria-haspopup/expanded can't drift.
 type Option = { key: string; label: string; icon?: IconNode };
 
@@ -94,7 +94,6 @@ function pick(key: string) {
         <li v-for="o in options" :key="o.key" role="none">
           <button
             type="button"
-            data-row
             role="menuitem"
             class="menu__item"
             :aria-current="o.key === current ? 'true' : undefined"

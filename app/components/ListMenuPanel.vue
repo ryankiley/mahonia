@@ -8,9 +8,8 @@ import { foldApostrophes } from "~~/shared/tidyText";
 // menu first opens (ListMenu warms it on hover or focus): the "Your packs" trigger is
 // on every editor's first load, and the card only ever on a click. ListMenu keeps the
 // open state, the dismissal and the rows' source; this is only what an open card is.
-// A div, not a list: the card holds a search field, a scroller of lists and a footer,
-// and the wash sits in the PANEL rather than in either row area, the one box both are
-// measured into (MenuList, useMenuPlate). One root, for ListMenu's Transition.
+// A div, not a list: the card holds a search field, a scroller of lists and a footer.
+// One root, for ListMenu's Transition.
 const { rows, currentShareCode, filterable } = defineProps<{
   /** every list, merged from this browser and the account, sorted by name */
   rows: SwitcherRow[];
@@ -64,7 +63,6 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
         v-for="e in shown"
         :key="e.key"
         :to="e.to"
-        data-row
         role="menuitem"
         class="menu__item"
         :aria-current="isCurrent(e) ? 'page' : undefined"
@@ -92,7 +90,7 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
          a "Create a list" twin calling the same handler, and lost it. Which is why
          this card can't wait for a second list to appear. -->
     <div class="menu__foot">
-      <button type="button" data-row class="menu__item lm__new" role="menuitem" @click="emit('new-list')">
+      <button type="button" class="menu__item lm__new" role="menuitem" @click="emit('new-list')">
         New list
       </button>
     </div>
@@ -128,11 +126,6 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 }
 
 .lm__rows {
-  /* Positioned so this box appears in its rows' offsetParent chain, which is how
-     useMenuPlate finds the scroll to take off: the plate lives out in the panel
-     (it has to reach the footer), so a row in here is measured in a box the plate
-     isn't in, and only a positioned scroller puts the two in one space. */
-  position: relative;
   display: flex;
   flex-direction: column;
   /* A switcher shouldn't grow past the window; forty lists scroll. Measured in ROWS, so

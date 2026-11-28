@@ -28,7 +28,7 @@ import { mergeSwitcherRows } from "~~/shared/switcher";
 // by opening the menu, which is one tap.
 //
 // Built on the app's own .menu atom (trigger, .menu__list surface, .menu__item
-// rows, the travelling .menu__plate) rather than a private set of styles, so it
+// rows) rather than a private set of styles, so it
 // can't drift from the ⋯ and account menus. What's local to this one is the filter
 // row and the current-list mark. The FILTER is the idea worth taking from the
 // design system's ds-menu: it ships as the list's first row, at row height and row
@@ -91,16 +91,6 @@ const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
 // the card's chunk, fetched ahead of the click once the pointer or focus arrives
 const warm = () => void import("./ListMenuPanel.vue");
-
-// The travelling wash (MenuList, and useMenuPlate for the measurement traps it
-// carries). ONE instance for the whole card, footer included. It used to be two: the plate is
-// positioned by its row's offsetTop, .lm__rows SCROLLS, and the footer deliberately
-// sits outside it (a "New list" that scrolled away with forty lists above it would be
-// the wrong control to lose) — so a plate living in the scroller could not reach the
-// footer, and a second one covered it instead. That cost the card the only move that
-// matters here: the wash BLINKED across the hairline, crossfading between two plates,
-// where everywhere else in the app it slides. The composable measures across a
-// scroller now, so the plate sits in the panel and travels the whole way.
 
 function close() {
   open.value = false;

@@ -6,7 +6,7 @@ import VaultSharePanel from "~/components/VaultSharePanel.vue";
 
 enableAutoUnmount(afterEach);
 
-const labels = (w: ReturnType<typeof mount>) => w.findAll("[data-row]").map((r) => r.attributes("aria-label") ?? r.text());
+const labels = (w: ReturnType<typeof mount>) => w.findAll(".menu__item").map((r) => r.attributes("aria-label") ?? r.text());
 
 describe("My Gear's Sharing panel", () => {
   it("offers Stop sharing only while the link is on", () => {
@@ -18,7 +18,7 @@ describe("My Gear's Sharing panel", () => {
 
   it("closes, then hands the copy or the stop to the page", async () => {
     const w = mount(VaultSharePanel, { props: { sharing: true } });
-    const rows = w.findAll("[data-row]");
+    const rows = w.findAll(".menu__item");
     await rows[0]!.trigger("click");
     await rows[1]!.trigger("click");
     expect(Object.keys(w.emitted())).toEqual(expect.arrayContaining(["close", "copy", "stop"]));

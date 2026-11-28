@@ -2,8 +2,8 @@
 import { IconDotGrid1x3Horizontal } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 
-// The ⋯ actions menu's SHELL — the quiet kebab, the popover, the travelling plate and
-// the dismiss rules (outside tap, a scroll gesture, Escape) — the three things that
+// The ⋯ actions menu's SHELL — the quiet kebab, the popover and the dismiss rules
+// (outside tap, a scroll gesture, Escape) — the three things that
 // have to behave identically wherever a menu hangs off a toolbar. The read views' menu
 // and My Gear's each carried this by hand; now they bring only their rows, as <li>s in
 // the slot, and close the menu through the `close` the slot hands them.

@@ -6,8 +6,7 @@ import { SvgIcon, type IconNode } from "~/utils/icon";
 // either page: the label is the whole act ("Copy read-only link") and its accessible
 // name, the hint says who that hands the thing to, and is the row's description.
 //
-// A menu row (.menu__item, [data-row] for the travelling plate, the glyph in the menu's
-// one glyph column) that wraps, since the hint is prose in a panel of fixed width, and
+// A menu row (.menu__item, the glyph in the menu's one glyph column) that wraps, since the hint is prose in a panel of fixed width, and
 // hangs its glyph on the LABEL's line rather than the middle of the pair, so the mark
 // stays with the word it marks.
 defineProps<{ icon: IconNode; label: string; hint: string }>();
@@ -18,7 +17,6 @@ const hintId = useId();
 <template>
   <button
     type="button"
-    data-row
     class="menu__item share-row"
     :aria-label="label"
     :aria-describedby="hintId"

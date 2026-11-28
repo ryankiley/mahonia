@@ -552,7 +552,7 @@ input[type="search"]::-webkit-search-decoration {
   // fell to the min-width below and the icon column absorbed the whole deficit — 2.2px
   // against the 14 it reserves. Pin the glyph (`flex: none`, which every menu carrying
   // one now does) and the deficit only MOVES: it lands on the label, which runs nowrap
-  // straight through the row's trailing padding until it touches the hover plate's
+  // straight through the row's trailing padding until it touches the hover wash's
   // edge — so the wash reads as hugging the text on one side and clearing it on the
   // other. Asking for max-content takes the available width out of the answer, and
   // neither failure has anywhere left to come from.
@@ -607,8 +607,7 @@ input[type="search"]::-webkit-search-decoration {
   transform-origin: bottom center;
 }
 // Capped to the room its clipping card leaves (useMenuPlacement's `within`, which sets
-// the max-height): the rows scroll inside the card. The travelling plate is a child of
-// the list, so it scrolls with the row it sits on, and `contain` keeps a scroll that
+// the max-height): the rows scroll inside the card, and `contain` keeps a scroll that
 // reaches the end from carrying on into the sheet or the page underneath.
 .menu__list--capped {
   overflow-y: auto;
@@ -695,8 +694,8 @@ input[type="search"]::-webkit-search-decoration {
 }
 // THE LAST GROUP — one hairline where a menu holds two kinds of thing (the editor's
 // destructive pair, the switcher's "New list", the read views' Report). Inset by the
-// list's own padding like the rows are, so it aligns to the item hover box and the
-// travelling plate rather than bleeding to the card edge.
+// list's own padding like the rows are, so it aligns to the item hover box rather than
+// bleeding to the card edge.
 // Three components carried this: .editor__menufoot, .lm__foot and .menu__report — and
 // the third had drifted to --space-2, so the same divider sat at two different
 // distances depending on which menu you opened.
@@ -730,12 +729,12 @@ input[type="search"]::-webkit-search-decoration {
   }
 }
 
-// Shaped like the plate (the item radius), since it sits where a row would.
+// Shaped like a row's hover (the item radius), since it sits where a row would.
 // Its ground is AN AMOUNT OF FOREGROUND, the well's (.well, in this file, has the
 // measurements: 1.17:1 on the light popover, 1.23 on the dark), because a menu is a
 // floating surface; a page tone (--background-secondary) sat at 1.10:1 on the card in
-// either theme, a box you had to look for. Not a [data-row]: nothing here is pressed, so
-// the plate passes it by. SharePanel carried this alone as .share__nudge; lifted on the
+// either theme, a box you had to look for. Not a .menu__item: nothing here is pressed, so
+// it takes no hover. SharePanel carried this alone as .share__nudge; lifted on the
 // second consumer.
 .menu__callout {
   display: flex;
@@ -782,11 +781,6 @@ input[type="search"]::-webkit-search-decoration {
 // The header is a menu row like any other — only the trailing chevron marks it as
 // something that OPENS rather than does. `display: contents` so the <li> wrapping a
 // header + its list doesn't become a box between them.
-//
-// The header carries [data-row] like the items do, so the travelling plate lands on
-// it. Leaving it off is not neutral: once a menu has a plate, the rule below strips
-// every .menu__item's own :hover, so an unmarked header lights on neither path and
-// the one row that opens the group reads as the only dead one.
 .menu__sect {
   display: contents;
 }
@@ -862,70 +856,6 @@ input[type="search"]::-webkit-search-decoration {
   rotate: 180deg;
 }
 
-// ── the travelling plate ─────────────────────────────────────────────────────
-// ONE wash that MOVES between rows, rather than a background painted on each. A
-// menu is a short list of near-identical rows, and a tint that travels tells you
-// where you came from as well as where you are — it reads as a single thing being
-// pointed, which a per-row background can't.
-//
-// Opt-in: a menu gets it by rendering `<span class="menu__plate">` as the list's
-// first child, marking its rows `[data-row]`, and wiring useMenuPlate() (which
-// carries the two measurement traps — scaled cards and the first placement).
-// Without those the rows keep their own :hover below and nothing changes.
-.menu__plate {
-  position: absolute;
-  left: var(--space-2);
-  right: var(--space-2);
-  top: 0;
-  z-index: 0;
-  height: 0;
-  border-radius: var(--popover-item-radius);
-  // NOT var(--background-hover), though it resolves to the same thing by default.
-  // That property is declared on the root (tokens.scss), so the var() inside it is
-  // substituted THERE and the finished colour inherits down — an inline --hov-foreground
-  // on this element could never reach it. Mixing here is what lets the plate take a hue
-  // the row hands it (useMenuPlate); unset, it is plain foreground at the same amounts,
-  // one for each theme as --background-hover has.
-  background: light-dark(
-    color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity), transparent),
-    color-mix(in oklab, var(--hov-foreground, var(--foreground-primary)) var(--background-hover-opacity-dark), transparent)
-  );
-  opacity: 0;
-  pointer-events: none;
-  // The travel is on the TRACK role, the one tokens.scss names this plate under: it
-  // follows a hand, so it moves on the first frame and has nearly landed by the time
-  // the hand is on the next row. (It ran on the step spring for a while, which made it
-  // trail the pointer — the calendar pip's bug, in the menus.)
-  transition:
-    transform var(--spring-track-dur) var(--spring-track),
-    height var(--spring-track-dur) var(--spring-track),
-    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
-    // ...and the HUE eases too, so travelling onto a destructive row bleeds red
-    // into the wash instead of swapping colour mid-slide. Faster than the travel
-    // (it rides opacity's timing): the wash should have arrived at its colour by
-    // the time the plate lands, not still be catching up.
-    background calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
-}
-.menu__plate.is-on {
-  opacity: 1;
-}
-// PLACED, not travelled: the first landing after the pointer arrives, a scroll moving
-// the row under a still pointer, and every move the KEYBOARD makes — Tab and the arrows
-// are actions repeated in bursts, and those get no animation at all
-// (useMenuPlate sets this; see there).
-.menu__plate.is-placing {
-  transition: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .menu__plate {
-    transition: opacity 1ms;
-  }
-}
-// the rows sit above it
-.menu__list:has(.menu__plate) .menu__item {
-  position: relative;
-  z-index: 1;
-}
 /* Split from :hover, not merged with it: a menu row's wash is the loudest latch in
    the app (the menu can stay open after the tap, so the row you touched keeps
    reading as selected), but focus is NOT a pointer state — a keyboard driving a
@@ -940,21 +870,6 @@ input[type="search"]::-webkit-search-decoration {
   .menu__item:hover {
     background: var(--background-hover);
   }
-  // ...and in a menu with a plate the rows give up their own hover tint, or two washes
-  // argue about which row is "on". :has() scopes this to menus that actually opted
-  // in, so every other menu in the app keeps the per-row hover exactly as it was.
-  .menu__list:has(.menu__plate) .menu__item:hover {
-    background: none;
-  }
-}
-// The same for FOCUS, but only on the row the plate is standing on (useMenuPlate marks
-// it [data-plated]): the plate follows focus, so a tabbed-to row used to wear its own
-// wash with the plate's under it — a doubled tint, darker than any hovered row. Keyed
-// on the plate actually being THERE, not on the menu having one, because the two can
-// part: the pointer takes the plate to another row, or leaves the card and the plate
-// goes out — and the focused row must not be left with no mark at all.
-.menu__item[data-plated]:focus-visible {
-  background: none;
 }
 .menu__item:disabled {
   color: var(--foreground-tertiary);

@@ -17,9 +17,8 @@ import { typeScale } from "~/utils/typeScale";
 //
 // Tooltip has flipped itself to fit since it was written; menus never learned to. This
 // is the same idea, kept deliberately small: class toggles on the existing absolutely-
-// positioned element, NOT a teleport to <body>. Menus measure their own rows for the
-// travelling plate (see useMenuPlate, which reads offsetTop inside the list) and scroll
-// with the page, and both of those would have to be rebuilt to make them fixed.
+// positioned element, NOT a teleport to <body>. Menus scroll with the page, and that
+// would have to be rebuilt to make them fixed.
 //
 // A menu built on <MenuList> doesn't call this: the card places itself as it mounts, and
 // its props are these options. Call it for a popover that is its own element (sharing,
@@ -162,7 +161,7 @@ export function useMenuPlacement(
     // offsetWidth/offsetHeight, NOT a client rect: this runs on the tick the menu
     // mounts, while the enter transform (translateY + scale(0.98)) is still applied,
     // and a rect reports the TRANSFORMED box. The offset pair is the untransformed
-    // layout box. Same trap Tooltip.vue and useMenuPlate document; the ANCHOR isn't
+    // layout box. Same trap Tooltip.vue documents; the ANCHOR isn't
     // animating, so its rect is sound.
     const a = anchor.getBoundingClientRect();
     const w = list.offsetWidth;

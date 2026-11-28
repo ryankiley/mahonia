@@ -13,11 +13,8 @@ import { SvgIcon, type IconNode } from "~/utils/icon";
 // that is what this component fixes by owning it (see `open` below).
 //
 // The header is NOT a menuitem. It opens a group rather than doing anything, so it
-// carries aria-expanded and the items stay the menuitems. It does carry [data-row],
-// because once a menu has a travelling plate every .menu__item's own :hover is
-// switched off (controls.scss) — a header left unmarked lights on neither path and
-// reads as the one dead row. The plate finds it through the DOM, so a component
-// boundary between it and the <ul> costs nothing (useMenuPlate queries [data-row]).
+// carries aria-expanded and the items stay the menuitems. It is still a .menu__item, so
+// it lights on hover like every other row.
 //
 // Every class here is a global atom in atoms/controls.scss, so this file needs no
 // styles of its own and no :deep() to reach them.
@@ -81,7 +78,6 @@ function run(item: SectionItem) {
   <li role="none" class="menu__sect">
     <button
       type="button"
-      data-row
       class="menu__item menu__secthead"
       :aria-expanded="open"
       @click="toggle"
@@ -110,7 +106,6 @@ function run(item: SectionItem) {
             <li v-for="item in items ?? []" :key="item.key ?? item.label" role="none">
               <button
                 type="button"
-                data-row
                 role="menuitem"
                 class="menu__item menu__sectitem"
                 @click="run(item)"

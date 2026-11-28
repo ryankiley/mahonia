@@ -168,7 +168,7 @@ watch(offline, (off) => {
       <Transition name="menu">
         <MenuList v-if="open" :aria-label="offline ? offlineHead : 'Your account'">
           <!-- what the struck cloud means, said in full where it was pressed. Not a row:
-               nothing here is pressed, so the travelling plate passes it by. The shared
+               nothing here is pressed, so it takes no hover. The shared
                menu callout, the Export tab's card (Ryan, 2026-11-25): bare words above
                the account's rows read as a heading for them. -->
           <li v-if="offline" role="none" class="menu__callout acct__offline">
@@ -179,13 +179,13 @@ watch(offline, (off) => {
             </div>
           </li>
           <li v-if="!known && unreachable" role="none">
-            <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
+            <button type="button" role="menuitem" class="menu__item" @click="open = false; openAccount()">
               <SvgIcon :icon="IconUserKey" aria-hidden="true" />
               Sign in
             </button>
           </li>
           <li v-if="known && showGear" role="none">
-            <NuxtLink to="/gear" data-row role="menuitem" class="menu__item" @click="open = false">
+            <NuxtLink to="/gear" role="menuitem" class="menu__item" @click="open = false">
               <SvgIcon :icon="IconSafeSimple" aria-hidden="true" />
               My Gear
             </NuxtLink>
@@ -198,13 +198,13 @@ watch(offline, (off) => {
                what the cloud means. `online`, not `offline`: when it is only Mahonia that
                can't be reached, either may well work, and they stay. -->
           <li v-if="known && online" role="none">
-            <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
+            <button type="button" role="menuitem" class="menu__item" @click="open = false; openAccount()">
               <SvgIcon :icon="IconUser" aria-hidden="true" />
               Your account
             </button>
           </li>
           <li v-if="known && online" role="none">
-            <button type="button" data-row role="menuitem" class="menu__item" @click="onSignOut">
+            <button type="button" role="menuitem" class="menu__item" @click="onSignOut">
               <SvgIcon :icon="IconArrowBoxLeft" aria-hidden="true" />
               Sign out
             </button>

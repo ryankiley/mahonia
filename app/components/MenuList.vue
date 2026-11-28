@@ -1,9 +1,7 @@
 <script setup lang="ts">
-// THE MENU LIST: the card a menu's rows sit in, and the travelling wash that lights
-// them. The app's anchored menus are this (the ⋯ menus, the account menu, the option
-// menus, the lists switcher); each one spelled it out by hand, the
-// `ul`, its first `li` holding the plate, and the useMenuPlate() call wired to both.
-// The rows are the slot, so each menu keeps its own markup and its own scoped styles
+// THE MENU LIST: the card a menu's rows sit in. The app's anchored menus are this (the
+// ⋯ menus, the account menu, the option menus, the lists switcher). Each row lights its
+// own hover (.menu__item, controls.scss). The rows are the slot, so each menu keeps its own markup and its own scoped styles
 // (slot content belongs to the parent's scope).
 //
 // AND WHERE THE CARD HANGS. It places itself on the tick it mounts, which is every
@@ -24,8 +22,7 @@ const {
   side = "end",
 } = defineProps<{
   /** "div" for a card whose rows aren't one list: the switcher holds a search field,
-   *  a scroller of lists and a footer, and the plate sits bare in the card so it can
-   *  travel between them (see useMenuPlate's offsetIn). */
+   *  a scroller of lists and a footer. */
   tag?: "ul" | "div";
   /** how it keeps on screen sideways: "flip" to the other edge, or "center" under a
    *  small icon in the middle of something (a row's marks) */
@@ -38,7 +35,7 @@ const {
   side?: "end" | "start";
 }>();
 
-const { plateRef, listRef, on } = useMenuPlate();
+const listRef = useTemplateRef<HTMLElement>("listRef");
 const { atStart, centered, above, shift, maxHeight, place } = useMenuPlacement(listRef, { fit, within, side });
 onMounted(place);
 
@@ -62,13 +59,7 @@ const placedStyle = computed(() => ({
     :class="placed"
     :style="placedStyle"
     role="menu"
-    v-on="on"
   >
-    <!-- role="none" so the decorative plate can't read as a menu item -->
-    <li v-if="tag === 'ul'" role="none" aria-hidden="true">
-      <span ref="plateRef" class="menu__plate" />
-    </li>
-    <span v-else ref="plateRef" class="menu__plate" aria-hidden="true" />
     <slot />
   </component>
 </template>
