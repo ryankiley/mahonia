@@ -79,3 +79,36 @@ describe("the route on the map", () => {
     expect(paths.some((c) => c.includes("routemap__leg"))).toBe(true);
   });
 });
+
+// THE ROUTE HAS AN EDGE. The basemap draws paths in magenta, a few degrees off the hue day
+// 2 wears, and has the most detail exactly where the route matters: each line is drawn
+// over a wider casing of its own, in a different stroke from its fill. Which colour the
+// edge is, is a palette call; that there is one is the obligation.
+describe("each line on the map", () => {
+  const paths = (w: VueWrapper) => [...(w.element as HTMLElement).querySelectorAll<SVGPathElement>(".leaflet-overlay-pane path")];
+  const stroke = (p: SVGPathElement) => p.style.stroke || p.getAttribute("stroke") || "";
+
+  it("has a casing drawn under it, wider than it", async () => {
+    const t = await open([800]);
+    const all = paths(t.wrapper);
+    const leg = all.findIndex((p) => p.classList.contains("routemap__leg"));
+    const ground = all.findIndex((p) => p.classList.contains("routemap__ground"));
+    const casings = all.flatMap((p, i) => (p.classList.contains("routemap__casing") ? [i] : []));
+    expect(casings.some((i) => i < ground)).toBe(true);
+    expect(casings.some((i) => i > ground && i < leg)).toBe(true);
+    const width = (p: SVGPathElement) => Number(p.getAttribute("stroke-width"));
+    for (const i of casings) expect(width(all[i]!)).toBeGreaterThan(width(all[leg]!));
+  });
+
+  it("has a casing in a different stroke from the line over it", async () => {
+    const t = await open([800]);
+    const all = paths(t.wrapper);
+    const find = (cls: string) => all.filter((p) => p.classList.contains(cls)).map(stroke);
+    const [groundCasing, legCasing] = find("routemap__casing");
+    const [ground] = find("routemap__ground");
+    const [leg] = find("routemap__leg");
+    for (const s of [groundCasing, legCasing, ground, leg]) expect(s).toBeTruthy();
+    expect(groundCasing).not.toBe(ground);
+    expect(legCasing).not.toBe(leg);
+  });
+});
