@@ -146,6 +146,9 @@ export const ACCOUNT_DDL: string[] = [
     last_used_at timestamptz,
     unproven boolean NOT NULL DEFAULT false
   )`,
+  // A flag written and never read, still on tables made before it left the CREATE.
+  // Delete this ALTER once it has deployed.
+  `ALTER TABLE credentials DROP COLUMN IF EXISTS discoverable`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_credential_id ON credentials (credential_id)`,
   `CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials (user_id)`,
 

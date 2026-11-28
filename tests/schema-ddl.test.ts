@@ -139,3 +139,79 @@ describe("catalog_edits.status on a table made before 'superseded'", () => {
     expect(await statusChecks(db)).toEqual(made);
   });
 });
+
+describe("columns schema.ts no longer declares, on a table made while it did", () => {
+  type Db = Awaited<ReturnType<typeof createTestDb>>;
+  const cases = [
+    {
+      table: "lists",
+      ddl: LISTS_DDL,
+      old: ["base_weight_mg bigint NOT NULL DEFAULT 0", "worn_weight_mg bigint NOT NULL DEFAULT 0", "consumable_weight_mg bigint NOT NULL DEFAULT 0"],
+      oldIndexes: [],
+      insert: sql`insert into lists (public_slug, edit_token_hash, share_code, title, data, total_weight_mg, base_weight_mg, worn_weight_mg, consumable_weight_mg)
+        values ('slug', 'hash', 'code', 'Kept', '{"items":[]}', 1234, 1000, 200, 34)`,
+      kept: { public_slug: "slug", edit_token_hash: "hash", share_code: "code", title: "Kept", total_weight_mg: 1234 },
+    },
+    {
+      table: "vaults",
+      ddl: VAULT_DDL,
+      old: ["last_seen_at timestamptz NOT NULL DEFAULT now()", "deleted_at timestamptz"],
+      // the reaper's two indexes, which production still has
+      oldIndexes: [
+        `CREATE INDEX idx_vaults_stale ON vaults (last_seen_at) WHERE deleted_at IS NULL`,
+        `CREATE INDEX idx_vaults_purge ON vaults (deleted_at) WHERE deleted_at IS NOT NULL`,
+      ],
+      insert: sql`insert into vaults (user_id, share_code, deleted_at) values (7, 'gear', now())`,
+      kept: { user_id: 7, share_code: "gear" },
+    },
+    {
+      table: "credentials",
+      ddl: ACCOUNT_DDL,
+      old: ["discoverable boolean NOT NULL DEFAULT false"],
+      oldIndexes: [],
+      insert: sql`insert into credentials (user_id, credential_id, public_key, label, discoverable) values (7, 'cred', 'key', 'Phone', true)`,
+      kept: { user_id: 7, credential_id: "cred", public_key: "key", label: "Phone" },
+    },
+  ];
+
+  const columns = async (db: Db, table: string) =>
+    (
+      await db.execute<{ column_name: string }>(
+        sql`select column_name from information_schema.columns where table_schema = 'public' and table_name = ${table} order by column_name`,
+      )
+    ).rows.map((r) => r.column_name);
+  const indexes = async (db: Db, table: string) =>
+    (await db.execute<{ indexname: string }>(sql`select indexname from pg_indexes where tablename = ${table} order by indexname`)).rows.map(
+      (r) => r.indexname,
+    );
+  const rows = async (db: Db, table: string) => (await db.execute<Record<string, unknown>>(sql.raw(`select * from ${table}`))).rows;
+
+  for (const c of cases) {
+    const names = c.old.map((o) => o.split(" ")[0]!);
+    it(`${c.table}: drops ${names.join(", ")}, keeps the row, and a second run changes nothing`, async () => {
+      // the DDL as it stood: the old columns in the CREATE, no statement dropping them
+      const create = `CREATE TABLE IF NOT EXISTS ${c.table} (`;
+      const oldDdl = c.ddl
+        .filter((s) => !s.startsWith(`ALTER TABLE ${c.table} DROP COLUMN`))
+        .map((s) => (s.includes(create) ? s.replace(create, `${create}\n    ${c.old.join(",\n    ")},`) : s))
+        .concat(c.oldIndexes);
+      const db = await createTestDb(oldDdl);
+      await db.execute(c.insert);
+      expect(await columns(db, c.table)).toEqual(expect.arrayContaining(names));
+
+      await runDdl(db, c.ddl);
+      const after = await columns(db, c.table);
+      for (const n of names) expect(after).not.toContain(n);
+      const [survivor, ...more] = await rows(db, c.table);
+      expect(more).toEqual([]);
+      expect(survivor).toMatchObject(c.kept);
+      const indexesAfter = await indexes(db, c.table);
+      for (const s of c.oldIndexes) expect(indexesAfter).not.toContain(s.split(" ")[2]);
+
+      await runDdl(db, c.ddl);
+      expect(await columns(db, c.table)).toEqual(after);
+      expect(await indexes(db, c.table)).toEqual(indexesAfter);
+      expect(await rows(db, c.table)).toEqual([survivor]);
+    });
+  }
+});

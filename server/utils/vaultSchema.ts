@@ -21,6 +21,9 @@ export const VAULT_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     share_code text
   )`,
+  // The retired sweep's stamps, still on tables made before they left the CREATE; the
+  // two indexes that named them go with them. Delete this ALTER once it has deployed.
+  `ALTER TABLE vaults DROP COLUMN IF EXISTS last_seen_at, DROP COLUMN IF EXISTS deleted_at`,
   // one vault per account — also the conflict target that makes lazy minting safe
   // against two concurrent captures (see mintVault in vaultAuth.ts)
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_user ON vaults (user_id)`,

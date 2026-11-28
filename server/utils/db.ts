@@ -162,6 +162,9 @@ export const LISTS_DDL: string[] = [
     end_date text,
     author_user_id integer
   )`,
+  // Three weight rollups nothing reads any more, still on tables made before they left
+  // the CREATE. Delete this ALTER once it has deployed.
+  `ALTER TABLE lists DROP COLUMN IF EXISTS base_weight_mg, DROP COLUMN IF EXISTS worn_weight_mg, DROP COLUMN IF EXISTS consumable_weight_mg`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
