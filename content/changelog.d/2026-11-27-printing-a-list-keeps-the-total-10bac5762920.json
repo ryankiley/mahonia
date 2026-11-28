@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "Printing a list keeps the total and each row's unit, and leaves out the Gear, Packing and Trip tabs.",
+    "The map's expand button no longer shows through the top bar as you scroll.",
+    "On a phone, a day's climb and descent keep their units whole.",
+    "A new kit keeps the cursor in its add field after the first item, so the next one can be typed.",
+    "An edit address with no key now offers signing in, and opens your list once you have."
+  ]
+}

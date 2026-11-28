@@ -1262,6 +1262,13 @@ onBeforeUnmount(() => {
 // the anchor for anything drawn OVER the map — never the figure, which is taller
 .routemap__frame {
   position: relative;
+  // A STACKING CONTEXT OF ITS OWN. The expand button and Leaflet's controls carry
+  // z-indexes in the hundreds, to order themselves over the tiles, and with nothing to
+  // contain them they were ordered against the whole page: scrolled up under the sticky
+  // top bar (z-index 10), the expand button drew on top of it. Isolated, those numbers
+  // settle the map's own layers and the frame is one layer to everything outside it.
+  // (Expanded, the frame takes its own z-index below, which still stands.)
+  isolation: isolate;
   display: flex;
   // The clip is what animates. See setExpanded: the frame is full size from the first
   // frame, so Leaflet is measured once and only the window onto it moves.

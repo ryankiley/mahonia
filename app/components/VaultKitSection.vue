@@ -261,6 +261,7 @@ watch(
           ref="addEl"
           v-model="addQuery"
           class="field"
+          :data-kit-add="kit.id"
           placeholder="Add an item"
           :aria-label="`Add an item from your gear to ${name}`"
           autocomplete="off"

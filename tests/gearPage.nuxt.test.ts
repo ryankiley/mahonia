@@ -75,12 +75,21 @@ let addedNames: string[] = [];
 let addedOps: Record<string, unknown>[] = [];
 // an edit answers with the row as it now stands, the way the real route does
 let editedOps: Record<string, unknown>[] = [];
+// whether a kit's save is taken (refused unless a case says otherwise)
+let kitSaves = false;
 registerEndpoint("/api/vault/items", {
   method: "POST",
   handler: async (event) => {
-    const body = await readBody<{ op: { t: string; name: string; id: number; patch: Record<string, unknown> } }>(event);
-    // a kit's save, refused: the page has to say so and put itself right
-    if (body.op.t === "kit") return { ok: false };
+    const body = await readBody<{
+      op: { t: string; name: string; id: number; patch: Record<string, unknown>; parts: { id: number; qty: number }[] };
+    }>(event);
+    if (body.op.t === "kit") {
+      // a kit's save, refused: the page has to say so and put itself right
+      if (!kitSaves) return { ok: false };
+      // ...or taken: the piece just added, back as a kit of what it was given
+      const parts = body.op.parts.map((p) => ({ ...p, brand: "Brand", name: "Stove", weightMg: 100_000 }));
+      return { ok: true, item: { ...entry(body.op.id, addedNames.at(-1)!), kind: "kit", ownWeightMg: 0, parts } };
+    }
     if (body.op.t === "edit") {
       editedOps.push(body.op);
       if (editHeld) await editHeld;
@@ -365,6 +374,8 @@ describe("a kit on /gear", () => {
     document.body.innerHTML = "";
     storage.clear();
     removedIds = [];
+    addedNames = [];
+    kitSaves = false;
   });
   const stove = { ...entry(1, "Stove"), weightMg: 100_000 };
   const pot = { ...entry(2, "Pot"), weightMg: 250_000 };
@@ -455,6 +466,32 @@ describe("a kit on /gear", () => {
     await kitsTab(w).trigger("click");
     await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(2));
     expect(names()).toEqual(before);
+  });
+
+  // A new kit is a draft until its first item goes in, and the saved kit is a different
+  // section from the draft's: the field you were typing in is gone. Focus fell to the
+  // page there, and the second item typed went nowhere.
+  it("keeps the cursor in a new kit once its first item has made it", async () => {
+    listRows = [stove, pot, kit];
+    storage.set("gear.vault.tab.v1", "kits");
+    kitSaves = true;
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+
+    await w.get(".vault__addkit button").trigger("click");
+    const name = w.get<HTMLInputElement>(".vault__addkit input");
+    name.element.value = "Sleep kit";
+    await name.trigger("keydown", { key: "Enter" });
+    // the draft's section, with the cursor on its "Add an item"
+    const draftAdd = await vi.waitFor(() => w.get<HTMLInputElement>('[data-kit-add="-1"]'));
+    await vi.waitFor(() => expect(document.activeElement).toBe(draftAdd.element));
+
+    await draftAdd.setValue("Stove");
+    await draftAdd.trigger("keydown", { key: "Enter" });
+    // the piece and the kit are made, and the kit's own section stands where the draft's did
+    await vi.waitFor(() => expect(w.find('[data-kit-add="901"]').exists()).toBe(true));
+    expect(w.find('[data-kit-add="-1"]').exists()).toBe(false);
+    await vi.waitFor(() => expect(document.activeElement).toBe(w.get('[data-kit-add="901"]').element));
   });
 
   // Spaces alone are no search: the kits all still list, so the way to make another

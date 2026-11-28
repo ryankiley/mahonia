@@ -250,8 +250,21 @@ async function saveDraftKit(name: string, parts: { id: number; qty: number }[]) 
     return;
   }
   busy.delete(DRAFT_ID);
+  // THE CURSOR FOLLOWS THE KIT. The draft's section and the saved kit's are two
+  // sections (the list is keyed by id, and the kit has only now been given one), so the
+  // "Add an item" field you were typing in is unmounted here and focus fell to the page:
+  // the second item typed went nowhere. A kit already saved puts its cursor back itself
+  // (VaultKitSection, after each save); this is the one add it cannot see. Only when
+  // focus was in the draft's field, or has already fallen: a click somewhere else while
+  // the kit saved is left where it is.
+  const draftAdd = document.querySelector(`[data-kit-add="${DRAFT_ID}"]`);
+  const follow = document.activeElement === draftAdd || document.activeElement === document.body;
   draftKit.value = null;
   items.value = [kit.item, ...items.value];
+  if (follow) {
+    await nextTick();
+    document.querySelector<HTMLInputElement>(`[data-kit-add="${kit.item.id}"]`)?.focus();
+  }
 }
 // "New kit", at the foot of the Kits tab the way "Add folder" ends a list (AddFolder):
 // the name opens a section there, on its "Add an item" line, and nothing is saved until
