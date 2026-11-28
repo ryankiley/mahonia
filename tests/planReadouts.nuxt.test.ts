@@ -42,13 +42,13 @@ describe("the plan's read-only heights", () => {
     expect(chip.find(".t-num").text()).toBe("3,200 ft");
   });
 
-  // Beside a route's own climb, the days' sum is the plan's figure, not another total.
-  it("calls the days' climb Planned once the route has a climb of its own", () => {
+  // The days' sum counts only climbs that were typed, and on a routed list most are read
+  // off the file: beside the route's own climb it was a partial figure, so it stands down.
+  it("leaves the climb to the route's own figure once there is one", () => {
     const w = mount(TrailPlanPanel, { props: { snapshot: { ...plan(), trailAscentM: 1_200 }, personFilter: null } });
     const labels = w.findAll(".plan__chips .chip .t-label").map((l) => l.text());
     expect(labels).toContain("Route climb");
-    expect(labels).toContain("Planned climb");
-    expect(labels).not.toContain("Total climb");
+    expect(labels.filter((l) => /climb/i.test(l))).toEqual(["Route climb"]);
   });
 
   it("groups a day's drop, and leaves the editable climb beside it ungrouped", () => {
