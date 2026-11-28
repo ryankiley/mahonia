@@ -15,6 +15,8 @@ export default defineEventHandler(async (event) => {
   // than each fetching their own
   // The owner marker rides along too — the client keys this account's local caches
   // by it; the id itself never leaves the server.
-  const { owner, email, displayName, sweep, account } = user;
-  return { user: { owner, email, displayName, sweep, account } };
+  // `account` is still the marker from before it was stored, for app shells that read
+  // nothing else; the stored one rides beside it (formerAccountMarker says until when).
+  const { owner, email, displayName, sweep, account, accountWas } = user;
+  return { user: { owner, email, displayName, sweep, account: accountWas, accountNow: account } };
 });

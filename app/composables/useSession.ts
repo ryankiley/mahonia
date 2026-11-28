@@ -9,7 +9,7 @@
 // it (one fetch per page load, not one per caller) and survives SSR → hydration.
 
 import { SESSION_HINT_COOKIE, SESSION_OWNER_COOKIE } from "~~/shared/session";
-import { sessionCacheOwner } from "../utils/sessionOwner";
+import { sessionCacheOwner, storedAccountOf } from "../utils/sessionOwner";
 
 interface SessionState {
   /** The session's owner marker (shared/session.ts): which account's browser-local
@@ -23,8 +23,27 @@ interface SessionState {
    *  asking: true for a sign-in made here, false for one only confirmed here until
    *  the person says yes (allowListSweep). The server's answer, kept on the session. */
   sweep: boolean;
-  /** Which account this is, the same across its sessions (see sessionAccount). */
+  /** Which account this is, the same across its sessions (see sessionAccountNames). */
   account: string;
+  /** The marker the account went by before markers were stored, while the server
+   *  still answers it: what this browser may have filed the account's lists under. */
+  accountWas?: string;
+}
+
+/** The user as /api/auth/me answers: `account` is the former marker for as long as
+ *  the stored one rides beside it as `accountNow` (formerAccountMarker, on the server). */
+type AnsweredUser = Omit<SessionState, "accountWas"> & { accountNow?: string };
+
+/**
+ * The answered user as this tab keeps them: under the stored marker, with the former
+ * one beside it. An answer that names no stored marker for a session that has been
+ * given one (a server from before, still answering during a deploy or after a
+ * rollback) is about the same account, and is read as that.
+ */
+function userKept(answered: AnsweredUser): SessionState {
+  const { accountNow, ...user } = answered;
+  const account = accountNow ?? storedAccountOf(user.owner) ?? user.account;
+  return account === user.account ? user : { ...user, account, accountWas: user.account };
 }
 
 /** What this tab knows of the session. "unresolved" means not asked yet, or the last
@@ -174,7 +193,7 @@ export function useSession() {
     const askedAs = sessionCacheOwner();
     const previousOwner = kept !== undefined ? kept : (user.value?.owner ?? askedAs);
     try {
-      const res = await $fetch<{ user: SessionState | null }>("/api/auth/me", {
+      const res = await $fetch<{ user: AnsweredUser | null }>("/api/auth/me", {
         signal: AbortSignal.timeout(ASK_TIMEOUT_MS),
       });
       const holds = sessionCacheOwner();
@@ -194,7 +213,7 @@ export function useSession() {
         if (hasSessionHint()) return await ask(previousOwner);
         return settleSignedOut(previousOwner);
       }
-      const nextUser = res.user;
+      const nextUser = res.user && userKept(res.user);
       // A different owner than the one this tab's caches were kept for — another
       // account signed in here, or this one signed in afresh — drops those caches
       // before the new answer is on screen. Only ever the former owner's keys.
@@ -207,7 +226,7 @@ export function useSession() {
         forgetAccountMemos(previousOwner);
       }
       session.value = nextUser ? { state: "signedIn", user: nextUser } : { state: "signedOut" };
-      if (nextUser) rememberSessionAccount(nextUser.owner, nextUser.account);
+      if (res.user) rememberSessionAccount(res.user.owner, res.user.account, res.user.accountNow);
       // A hint with no session behind it (expired, or signed out in another tab)
       // would otherwise keep costing a request on every page load — drop it.
       if (!nextUser) clearSessionHint();
