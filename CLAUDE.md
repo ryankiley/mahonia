@@ -20,13 +20,11 @@ does not render it.
 npm run changelog -- --added "One plain sentence about the observable change."
 ```
 
-`--added` / `--changed` / `--fixed`, repeatable. House style: plain, user-facing, the
-observable behavior — never the implementation. See existing entries in
-`content/changelog.d/` for the voice.
-
-That command writes a **new file** under `content/changelog.d/`, one per PR, so two open
-PRs can never conflict over it. That directory is the whole changelog. See
-`scripts/changelogSources.ts`.
+`--added` / `--changed` / `--fixed`, repeatable. House style: one plain, user-facing sentence
+under 140 characters, the observable behavior — never the implementation. The command writes a
+**new file** under `content/changelog.d/`, one per PR, so two open PRs can never conflict over
+it; that directory is the whole changelog (`scripts/changelogSources.ts`), and its entries show
+the voice.
 
 Not user-facing (refactor, deps, infra, catalog data)? Prefix the PR title —
 `refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:` — or put the `skip-changelog`
@@ -39,7 +37,7 @@ missing an entry, but if one merges without it, that day's release simply omits 
 until it's backfilled by hand. Writing the entry as part of the PR is the whole job.
 Catalog weight corrections are separate and don't go in the changelog.
 
-## Checking a change: CI is the gate; locally, run what you touched
+## CI is the gate; locally, run what you touched
 
 CI (`.github/workflows/ci.yml`) runs the typecheck, the whole suite, the build and the
 bundle budget on every PR, and `main` requires that `check` to pass before anything merges.
@@ -59,8 +57,8 @@ typecheck -- app` (or `tooling`, which is scripts/ and tests/).
 
 Why this matters more here than the habit suggests: several sessions share this machine,
 each in its own worktree. Two full suites running at once starve each other into 20 s
-timeouts that look exactly like regressions (vitest.config.ts has the history), and the
-typecheck that takes 19 s alone measured 92 s beside them. A full local run is for a change
+timeouts that look exactly like regressions (vitest.config.ts has the history), and a
+typecheck measured 92 s beside them. A full local run is for a change
 to the harness itself — vitest.config.ts, tests/helpers, scripts/typecheck.mjs — where
 "which tests" has no narrower answer; run it alone, when `uptime` says the machine is quiet.
 
@@ -75,7 +73,8 @@ body. A fix that is only CSS or a class gets no vitest test: its proof is the lo
 Browser pane, before and after, and the PR says what was looked at. Fail-first applies to
 logic. The exceptions are the whole-tree lints with named exceptions (designTokens,
 designLiterals, printStyles, prose-dashes, bodyWeightPrivacy) and the canaries for things
-that can't execute (tidyText's regex syntax, localList's import graph).
+that can't execute (tidyText's regex syntax, localList's import graph, the map tiles' licence
+terms in csp, the share surfaces' noindex in crawlerText).
 
 ## Catalog conventions are enforced, not described
 
@@ -84,13 +83,17 @@ citation conventions are all build ERRORS — `npm test` runs `scripts/catalogCh
 built CSV and `scripts/researchChecks.ts` over the research rows, and CI runs `npm test` on every
 PR. Read the rules on `ResearchRow` in `scripts/research.ts`; `npm run catalog:audit` prints the
 same findings with the row named. The only warnings are to-do lists for a human (weight
-plausibility, pouch meals still at net weight, tents still at trail weight, food rows without kcal,
-rows missing an axis their gear type is sold by, rows marked `quote_unchecked`).
+plausibility, pouch meals still at net weight, tents still at trail weight, packs still at a
+minimum weight, food rows without kcal, rows missing an axis their gear type is sold by, rows
+marked `quote_unchecked`).
 
-Every research file's quote is read by one reader (`quoteWeights` in `shared/catalogQuality.ts`:
-grams, kilograms, ounces, pounds, lists and ranges), the one `verify_catalog_item` uses. A row
+Every research row's quote is read by one reader (`quoteWeights` in `shared/catalogQuality.ts`:
+grams, kilograms, ounces, pounds, lists and ranges), the same one `verify_catalog_item` uses. A row
 whose quote it can't back as written keeps the quote verbatim and says why in `quote_unchecked`
 ("table lists the unit before the figures"); a marker on a row whose quote does back it is an error.
+
+A row names its gear type in `common_name`, in the vocabulary's spelling; a row without one fails
+the build.
 
 A tent row stores the maker's packaged weight (stakes and bags included), never the trail or
 minimum figure; a row that could only be sourced at trail weight says `trail weight` in its variant.
@@ -108,7 +111,6 @@ Every research file is in one layout (a row a key a line, keys in `ResearchRow` 
 blank optional keys); `npm test` fails a file that isn't, and `npm run catalog:format`
 rewrites them all without changing a value.
 
-
 ## A schema change is folded into its CREATE once it has deployed
 
 The DDL lists (`LISTS_DDL`, `VAULT_DDL`, `ACCOUNT_DDL` and the rest) run on every cold
@@ -117,5 +119,7 @@ they hold only what production doesn't have yet. A new column ships as an `ADD C
 EXISTS` beside its `CREATE TABLE`, and once that has deployed a follow-up PR moves the column
 into the CREATE and deletes the ALTER. A column is dropped one deploy after
 `server/db/schema.ts` stops declaring it, with a `DROP COLUMN IF EXISTS`, and that statement
-is likewise deleted once it has deployed. A folded column no longer heals itself: a local
-`.data/pglite` folder or a restored database older than it has to be recreated.
+is likewise deleted once it has deployed. A folded column doesn't heal an older database: a
+local `.data/pglite` folder or a restored database from before it has to be recreated. A one-off
+statement of any other kind (a `DROP INDEX IF EXISTS`, a guarded `DO` block that upgrades a
+CHECK) says `Delete this … once it has deployed.` in its comment, and goes the same way.

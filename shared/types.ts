@@ -393,9 +393,8 @@ export interface MyListEntry {
   slug: string;
   title: string;
   lastOpened: number;
-  // the list's chosen unit, so the "Your lists" summary reads in the same system
-  // (metric/imperial) the list uses. Optional: legacy entries predate it and fall
-  // back to metric auto-formatting.
+  // the list's chosen unit: My Gear opens in the most recent list's unit (pages/gear.vue).
+  // Optional: legacy entries predate it, and /gear falls back to grams.
   displayUnit?: Unit;
 }
 

@@ -264,7 +264,7 @@ describe("the rules a kit keeps", () => {
     expect(res && "item" in res && res.item).toMatchObject({ kind: "kit", ownWeightMg: 20_000, weightMg: 218_000 });
   });
 
-  it("empties a vault's kit links with the vault, and only that vault's", async () => {
+  it("empties one vault's kit links, and only that vault's", async () => {
     await cookKit();
     const keep = await newVault();
     const pot = await piece("Pot", 100, keep);

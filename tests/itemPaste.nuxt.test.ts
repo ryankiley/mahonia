@@ -354,6 +354,17 @@ describe("pasting a list into an item's name", () => {
     expect(byId(c, "mine")).toMatchObject({ unitWeightMg: 700_000, weightOverridden: true, catalogWeightMgAtLink: 688_000 });
   });
 
+  it("leaves a gear type the person cleared cleared when the link lands", async () => {
+    catalog.set("Lanshan 1 Pro Tent", LANSHAN);
+    const c = await open([item({ id: "cleared", name: "my tent", commonNameOverridden: true, sortOrder: 0 })]);
+    const w = mountRow(c, "cleared");
+    pasteInto(w, "Lanshan 1 Pro Tent\nPot", [0, "my tent".length]);
+    await flushPromises();
+    await vi.waitFor(() => expect(byId(c, "cleared")?.catalogItemId).toBe(1));
+    expect(byId(c, "cleared")!.commonName).toBeUndefined();
+    expect(byId(c, "cleared")!.commonNameOverridden).toBe(true);
+  });
+
   // a product the catalog has no calorie figure for leaves the person's own, as a pick does
   it("keeps a calorie figure the person typed when the product has none", async () => {
     catalog.set("Rice Sides", { ...BAR, id: 3, brand: "Knorr", name: "Rice Sides", kcal: null } as CatalogSearchResult);

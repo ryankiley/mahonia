@@ -14,9 +14,10 @@
 #   • Runs `catalog:audit` first — hard errors (exit 1) abort before any DB write.
 #   • The seeder is idempotent (upsert by brand+name+variant) and self-guards
 #     against emptying the catalog (it retires nothing when the CSV has 50 rows or fewer).
-#   • Community rows (verified=false) are never touched; only seed-managed
-#     (verified=true) rows are inserted, updated, or retired when the CSV stops
-#     naming them (kept with a pointer to their successor, never deleted).
+#   • Community rows (verified=false) are never touched; only seed-managed rows
+#     (verified, and not verified in the app: seedManaged in shared/catalogQuality.ts)
+#     are inserted, updated, or retired when the CSV stops naming them (kept with a
+#     pointer to their successor, never deleted).
 #   • concurrency: one reseed at a time, never cancelled mid-write.
 #
 # One-time setup (repo → Settings → Secrets and variables → Actions):
@@ -38,6 +39,8 @@ on:
       - scripts/seedUpsert.ts
       - scripts/seedRenames.ts
       - scripts/seedRetire.ts
+      # the seeder reads which rows were verified in the app through this
+      - scripts/graduate.ts
       # and what those passes decide by: which rows the seed manages and the successor match
       - shared/catalogQuality.ts
       - shared/catalogLinks.ts

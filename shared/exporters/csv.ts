@@ -223,8 +223,7 @@ export function csvToListData(
     };
     const name = stripFormulaGuard((row[nameCol] || "").trim());
     const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined);
-    // parseDecimal, not a strip of every comma: that read a decimal comma as a
-    // thousands separator, so a "1,5" kg can came in as 15 kg
+    // read by the one rule a typed number is (shared/typedNumber)
     const weightNum = iWeight >= 0 ? parseDecimal(row[iWeight] || "") : 0;
     const unitWeightMg = isFinite(weightNum) && weightNum > 0 ? toMg(weightNum, unit) : 0;
     // A row needs a name OR a weight to be gear. Skipping on the name alone deleted a

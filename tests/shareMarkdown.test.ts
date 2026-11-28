@@ -166,7 +166,7 @@ describe("/s/{code}.md", () => {
 
   it("carries nothing of a route, even from a snapshot that somehow has one", async () => {
     // getTextByShareCode never returns these (rowToSnapshot omits them, and
-    // tests/waypointPrivacy.test.ts holds it to that). This is the other end: were a
+    // tests/sharePrivacy.test.ts holds it to that). This is the other end: were a
     // read path ever to leak them, the twin must not be where they become text.
     const geometry = encodePolyline([
       { lat: 45.33, lon: -121.71 },

@@ -9,11 +9,10 @@
 // The repo-layer scoping is the part worth the most attention: an id from another
 // vault has to match NOTHING, not "match and then get filtered", because the second
 // shape is the one that quietly stops being true when someone adds a query.
-import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
-import { mintVault, touchVaultByUser } from "../server/utils/vaultAuth";
+import { mintVault, vaultIdOfUser } from "../server/utils/vaultAuth";
 import {
   applyVaultItemOp,
   captureVaultItems,
@@ -34,10 +33,6 @@ import { cap as capture } from "./helpers/vault";
 async function mint(db: TestDb, userId: number): Promise<number> {
   const rows = await db.insert(vaults).values({ userId }).returning();
   return rows[0]!.id;
-}
-async function resolve(db: TestDb, userId: number): Promise<number | null> {
-  const rows = await db.select().from(vaults).where(sql`user_id = ${userId}`).limit(1);
-  return rows[0]?.id ?? null;
 }
 
 // unbranded, 100 g — one case reads the weight back
@@ -64,8 +59,8 @@ describe("vault ownership", () => {
 
   it("resolves an account's vault and nobody else's", async () => {
     const id = await mint(db, 1);
-    expect(await resolve(db, 1)).toBe(id);
-    expect(await resolve(db, 2)).toBeNull();
+    expect(await vaultIdOfUser(db, 1)).toBe(id);
+    expect(await vaultIdOfUser(db, 2)).toBeNull();
   });
 
   it("gives distinct accounts distinct vaults", async () => {
@@ -177,7 +172,7 @@ describe("vault isolation — one vault can never reach another's gear", () => {
   });
 });
 
-describe("touchVaultByUser — the lookup every vault request makes", () => {
+describe("vaultIdOfUser — the lookup every vault request makes", () => {
   let db: TestDb;
   beforeEach(async () => {
     db = await createTestDb(VAULT_DDL);
@@ -186,11 +181,11 @@ describe("touchVaultByUser — the lookup every vault request makes", () => {
   it("resolves the account's own vault", async () => {
     await mint(db, 2);
     const id = await mint(db, 1);
-    expect(await touchVaultByUser(db, 1)).toBe(id);
+    expect(await vaultIdOfUser(db, 1)).toBe(id);
   });
 
-  it("still resolves nothing for an account that has no vault", async () => {
+  it("resolves nothing for an account that has no vault", async () => {
     await mint(db, 1);
-    expect(await touchVaultByUser(db, 2)).toBeNull();
+    expect(await vaultIdOfUser(db, 2)).toBeNull();
   });
 });

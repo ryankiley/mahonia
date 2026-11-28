@@ -83,13 +83,14 @@ export interface CatalogPickPlace {
 }
 
 /**
- * What a list row takes from the catalog product it is linked to, as the editor's pick
- * does it (ItemRow.onNameCommit): the link and the product's weight at link time always,
- * and its name, brand, variant, gear type, weight and calories where the caller keeps no
- * value of its own. A kept weight is overridden only when it differs, so one equal to the
- * product's keeps following catalog corrections. A product without a calorie figure
- * leaves the row's alone. A consumable product is stored through storedClassification:
- * null in a folder that already defaults to consumable, so the row follows its folder.
+ * What a list row takes from the catalog product it is linked to — the one rule the
+ * editor's pick (ItemRow.onNameCommit), a paste, an import and the connector share: the
+ * link and the product's weight at link time always, and its name, brand, variant, gear
+ * type, weight and calories where the caller keeps no value of its own. A kept weight is
+ * overridden only when it differs, so one equal to the product's keeps following catalog
+ * corrections. A product without a calorie figure leaves the row's alone. A consumable
+ * product is stored through storedClassification: null in a folder that already defaults
+ * to consumable, so the row follows its folder.
  */
 export function pickFromCatalog(catalog: CatalogPickRow, own: CatalogPickOwn, place: CatalogPickPlace): ItemPatch {
   const patch: ItemPatch = {

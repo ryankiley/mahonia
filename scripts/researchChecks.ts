@@ -1,12 +1,13 @@
 // Research-level checks — the ones that need the CITED source (weight_value +
 // unit, the verbatim quote, kcal_quote), which the built CSV no longer carries.
-// Extracted from audit-catalog.ts so the same checks run in TWO places:
+// Extracted from audit-catalog.ts so the same checks run in THREE places:
+//   • `npm run catalog:build` (buildCatalog), which writes nothing while any error stands
 //   • `npm run catalog:audit` (and the prod reseed workflow, which aborts on errors)
 //   • tests/catalog-research.test.ts, so `npm test` — and therefore CI on every
 //     PR — fails on them too. A convention that only a hand-run script enforces
 //     is a convention that drifts; this is what makes them hold.
 //
-// ERRORS gate the build. WARNINGS (weight-range plausibility) are for a human.
+// ERRORS gate the build. WARNINGS (weight-range plausibility, quote_unchecked, tents at trail weight, packs at a minimum weight) are for a human.
 // Pure and fs-free: the caller reads the files (scripts/research.ts) and passes them in.
 
 import { isAttributeKey, validateAttributes } from "./catalogAttributes";
@@ -140,6 +141,7 @@ export function runResearchChecks(files: readonly ResearchFile[]): Finding[] {
       // order, the plausibility band and the food rules all read it)
       if (!(r.name ?? "").trim()) err("name", `${where}: the row has no name`);
       if (!CATALOG_CATEGORIES.includes(r.category_hint ?? "")) err("category", `${where}: category_hint="${r.category_hint ?? ""}" is not one of ${CATALOG_CATEGORIES.join(", ")}`);
+      if (!researchGearType(r)) err("common-name", `${where}: no gear type`);
 
       // hygiene: provenance enum + a real citation URL
       if (!isWeightSource(r.weight_source ?? "")) err("source", `${where}: weight_source="${r.weight_source}"`);
@@ -214,7 +216,7 @@ export function runResearchChecks(files: readonly ResearchFile[]): Finding[] {
         err("quote", `${where}: computed ${g.toFixed(0)} g, nearest quote figure ${nearest.toFixed(0)} g (Δ${Math.abs(g - nearest).toFixed(0)} g) | grams in quote: ${figures.map((n) => n.toFixed(0)).join(", ")} | "${quote.slice(0, 90)}"`);
       }
 
-      // The same identity cited twice, keyed as the build keys a CSV row (trimmed text,
+      // The same identity cited twice, keyed as the row lands in the CSV (trimmed text,
       // the variant normalized, so "M" beside "Medium" is one row): a conflicting weight is
       // a real error, and an agreeing copy is dead research that can't both ship.
       const builtKey = identityKey((r.brand ?? "").trim(), (r.name ?? "").trim(), normalizeVariant(r.variant ?? ""));

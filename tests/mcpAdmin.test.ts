@@ -690,6 +690,13 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(trail.text).toContain("1640");
   });
 
+  it("refuses a cited row with no gear type in one sentence about it", async () => {
+    const bare = await seedCatalogRow(db, { brand: "Acme", name: "Trail Widget", categoryHint: "other", weightMg: 50_000 });
+    const done = await verify({ catalog_id: bare.id, weight_g: 52, source_url: "https://acme.example/widget", quote: "Weight: 52 g" });
+    expect(done.refused).toBe(true);
+    expect(done.text.match(/no gear type|no common_name/g)).toEqual(["no gear type"]);
+  });
+
   it("writes nothing the second time the same call comes", async () => {
     const row = await seedCatalogRow(db, { brand: "Black Diamond", name: "Distance Flask", variant: "500ml", commonName: "Soft flask", categoryHint: "water", weightMg: 40_000 });
     const first = await verify({ catalog_id: row.id, weight_g: 42, weight_source: "measured" });

@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildCatalog, catalogCsvText } from "../scripts/catalogBuild";
+import { findingText } from "../scripts/catalogChecks";
 import { CATALOG_CSV, RESEARCH_DIR } from "../scripts/paths";
 import { readResearchFiles } from "../scripts/research";
 
@@ -14,9 +15,7 @@ const build = buildCatalog(readResearchFiles(RESEARCH_DIR));
 
 describe("seed/catalog.csv is the research, built", () => {
   it("builds every research row, each with a gear type", () => {
-    expect({
-      missingCommon: build.missingCommon.map((r) => [r.brand, r.name, r.variant].filter(Boolean).join(" ")),
-    }).toEqual({ missingCommon: [] });
+    expect(build.errors.map(findingText)).toEqual([]);
   });
 
   it("matches a fresh `npm run catalog:build` (run it, and keep only the rows you meant to change)", () => {

@@ -61,8 +61,8 @@ export async function savePasskey(
      *  checked: see sessions.unproven in server/db/schema.ts */
     unproven: boolean;
   },
-): Promise<number> {
-  const [row] = await db.insert(credentials).values({
+): Promise<void> {
+  await db.insert(credentials).values({
     userId: input.userId,
     credentialId: input.credentialId,
     publicKey: input.publicKey,
@@ -70,8 +70,7 @@ export async function savePasskey(
     transports: input.transports?.length ? JSON.stringify(input.transports) : null,
     label: (input.label && cleanPasskeyLabel(input.label)) || null,
     unproven: input.unproven,
-  }).returning({ id: credentials.id });
-  return row!.id;
+  });
 }
 
 /** Look a credential up by the id the authenticator presented. Not scoped by

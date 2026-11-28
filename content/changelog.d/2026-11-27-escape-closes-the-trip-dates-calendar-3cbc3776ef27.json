@@ -1,7 +1,7 @@
 {
   "date": "2026-11-27",
   "changed": [
-    "On a phone, dragging the page past the trail panel or the dates calendar puts it away, keeping what you typed."
+    "On a phone, dragging the page past the trail panel or the trip dates calendar closes it, and keeps what you typed in the panel."
   ],
   "fixed": [
     "Escape closes the trip dates calendar.",

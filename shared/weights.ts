@@ -11,7 +11,7 @@ import type {
   Unit,
 } from "./types";
 import { counted, NUM_LOCALE } from "./tidyText";
-import { parseNumberToken, TYPED_NUMBER, UNSPACED_NUMBER, type NumberRule } from "./typedNumber";
+import { parseNumberToken, TYPED_NUMBER, type NumberRule } from "./typedNumber";
 
 /** Milligrams per one display unit. */
 export const MG_PER_UNIT: Record<Unit, number> = {
@@ -64,12 +64,6 @@ export function parseDecimal(raw: string, rule?: NumberRule): number {
   const figure = LEADING_NUMBER.exec(raw);
   return figure ? parseNumberToken(figure[1]!, rule) : Number.NaN;
 }
-
-// A number as the paste reader (shared/pasteList) finds one at the end of a name: digits
-// with any mix of ',' / '.' separators, or a separator-led fraction (".9oz", ",9"), the
-// shorthand a scale-reader types. Never space-grouped there, where the words before the
-// weight can end in a number of their own; every figure it finds is one the field reads.
-export const WEIGHT_NUMBER = UNSPACED_NUMBER;
 
 // The input scanner both parsers below share: a typed number (space-grouped thousands
 // included, so "12 000 g" is one figure), optionally followed by a unit word. One

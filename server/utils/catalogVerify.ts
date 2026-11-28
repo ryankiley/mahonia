@@ -30,10 +30,10 @@
 // Every verification records what it replaced in catalog_edits.undo, so revert_catalog_edit
 // puts the row back as it was (its name too, or retires a product the verification added),
 // and the corrections path leaves a verified-in-app row's weight alone (proposeCorrection).
-// A suggested fix still waiting on the row when it is verified is closed as superseded.
 // So what the person should hear, but what one call undoes, is written and named in the
 // answer's warnings rather than refused: a scale weight that replaced the maker's published
-// one, and a scale weight of gear sold by size that names no size.
+// one, and a scale weight of gear sold by size that names no size. A suggested fix still
+// waiting on the row when it is verified is closed as superseded.
 
 import { and, desc, eq, getTableColumns, gt, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
@@ -254,8 +254,8 @@ export async function verifyCatalogItem(
   // corrected maker's weight and citation, and nothing else: its name and gear type are the
   // research's, and so is its weight's being the maker's. That holds after a first
   // correction too, when the row's verifier is set and only its edit history says where it
-  // came from: every call on such a row reads it, since the house style below reads a
-  // research row's quote as its research file does.
+  // came from, which every call on such a row reads: the refusals below and the house
+  // style's advice both turn on it.
   let revive = false;
   let research = false;
   if (current && current.status !== "active") {

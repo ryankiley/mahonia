@@ -23,7 +23,7 @@ import { rateLimit } from "../utils/rateLimit";
  * is one regex per request, on the path alone.
  *
  * Privacy is the page's. getTextByShareCode builds on rowToSnapshot, which never
- * carries the route's geometry or its waypoints (tests/waypointPrivacy.test.ts),
+ * carries the route's geometry or its waypoints (tests/sharePrivacy.test.ts),
  * and listToMarkdown renders neither; tests/shareMarkdown.test.ts pins both ends.
  */
 // The path with or without a query string. Case-insensitive on the suffix for the

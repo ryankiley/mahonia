@@ -82,13 +82,13 @@ const isNeon = () => Boolean(process.env.DATABASE_URL);
 const EDIT_STATUSES = ["applied", "proposed", "reverted", "rejected", "superseded"].map((s) => `'${s}'`).join(",");
 
 // Safe on BOTH PGlite and Neon. Single source of truth; also spread into db.ts's
-// local idempotent DDL. The pg_trgm GIN index is created separately (Neon only).
+// local idempotent DDL. The pg_trgm and unaccent extensions are created separately (Neon only).
 export const CATALOG_DDL: string[] = [
   // search_terms — derived noun + locale/synonym aliases (scripts/searchTerms.ts),
   // folded into the fuzzy match.
   //
-  // common_name — the generated default label ("tent", "trekking poles") a pick
-  // pre-fills onto a list item.
+  // common_name — the row's gear type ("tent", "trekking poles"), authored per research
+  // row, which a pick pre-fills onto a list item.
   //
   // kcal — cited per-unit food energy (food rows only; null elsewhere).
   //
@@ -139,8 +139,8 @@ export const CATALOG_DDL: string[] = [
     undo jsonb
   )`,
   // superseded — a suggested fix closed by a verification of its row. A table made before
-  // that value has a status CHECK without it: dropped and made again with it, once. Reading
-  // the constraint is all a later cold start does, so no lock is taken on the table after.
+  // that value has a status CHECK without it: dropped and made again with it, once. Delete
+  // this block, and its test in tests/schema-ddl.test.ts, once it has deployed.
   `DO $superseded$
   DECLARE stale text;
   BEGIN
@@ -212,8 +212,7 @@ export async function searchCatalog(
     // SIM_THRESHOLD (0.3), so typo'd/partial queries ("kawa 55", "palante") that
     // match locally returned nothing in prod. Filtering on the function with our own
     // threshold makes prod recall match local. The catalog is small + bounded, so
-    // the seq scan (we forgo the gin_trgm_ops index this way) is cheap. Bound params
-    // are injection-safe.
+    // the seq scan is cheap. Bound params are injection-safe.
     // Match target includes search_terms (derived noun + locale/synonym aliases)
     // so a category word ("tent") or a regional variant ("rucksack") hits a row
     // whose brand+name never contains it. Mirrors shared/catalogSearch.ts.

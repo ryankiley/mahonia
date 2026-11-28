@@ -227,8 +227,8 @@ describe("the /gear page's vault calls", () => {
       expect(weight()).toContain("oz");
     });
 
-    // The page has no unit picker of its own, so an old saved choice from when it did
-    // must not outrank the list you work in: nothing could change it.
+    // The page has no unit picker of its own, so it shows the unit of the list you work
+    // in most recently.
     it("opens in the most recent list's unit, whatever was picked on this page before", async () => {
       onTestFinished(() => void (useMyLists().entries.value = []));
       localStorage.setItem("gear.gear.unit.v1", "oz");

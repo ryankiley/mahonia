@@ -35,7 +35,7 @@ async function typed(text: string, vaultRows: unknown[]) {
     return { results: vaultRows };
   };
   catalogHits = [PLEX];
-  const w = mount(ItemInput, { props: { unit: "g", mode: "row" }, attachTo: document.body });
+  const w = mount(ItemInput, { props: { unit: "g" }, attachTo: document.body });
   const input = w.find<HTMLInputElement>("input").element;
   typeInto(input, text);
   await vi.waitFor(() => expect(lit(w)).toHaveLength(1), { timeout: 2_000 });

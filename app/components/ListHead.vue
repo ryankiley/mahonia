@@ -229,7 +229,6 @@ const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.va
 // Everything that describes the route the link pointed AT is cleared with it: one
 // object (shared/trailLink CLEARS_WITH_LINK), spread here and by the MCP edit_list
 // tool, so the next field added there is cleared on both paths.
-
 const clearLink = () => c.setMeta({ trailUrl: "", ...CLEARS_WITH_LINK });
 
 // The trail panel's fields. A change that arrives once the panel has been put away is
@@ -251,7 +250,7 @@ function holdForRefusal() {
 }
 
 // What the reducer would refuse is not sent at all: it stays in the box with a line
-// under it, where a refused link used to vanish with the panel and no word said.
+// under it saying why.
 // normalizeTrailUrl is the reducer's own test, and the href it returns is what goes in
 // the op, so "alltrails.com/…" is stored as https whichever build the server is running.
 const linkField = panelDraft(

@@ -106,7 +106,7 @@ describe("jsonToListImport shape detection", () => {
     expect(parsed?.data.items).toHaveLength(3);
   });
 
-  // a unit that is no unit is the create's to settle: tests/jsonImportCreate.test.ts
+  // a unit that is no unit is the create's to settle: tests/createList.test.ts
   it("treats a blank title or description as absent so the dialog can fall back", () => {
     const parsed = jsonToListImport('{"title":"  ","description":" \\n ","folders":[],"items":[]}')!;
     expect(parsed.title).toBeUndefined();
@@ -117,8 +117,8 @@ describe("jsonToListImport shape detection", () => {
 
 describe("jsonToListImport sanitization", () => {
   // the rows are normalized here because the catalog matcher reads them before the
-  // create does; the meta (an over-long title, say) is the create's: jsonImportCreate
-  it("clamps hostile row values through the shared reducer helpers", () => {
+  // create does; the meta (an over-long title, say) is the create's: tests/createList.test.ts
+  it("clamps a hostile row's colour, class, weight and quantity to what a list can hold", () => {
     const parsed = jsonToListImport(
       JSON.stringify({
         folders: [{ id: "f", name: "F", colorKey: "url(https://evil)", defaultClassification: "banana", sortOrder: 0 }],
@@ -214,7 +214,7 @@ describe("JSON export: trip dates", () => {
     expect(parsed?.startDate).toBe("2026-08-04");
     expect(parsed?.endDate).toBe("2026-08-06");
   });
-  // a date that doesn't exist is dropped by the create: tests/jsonImportCreate.test.ts
+  // a date that doesn't exist is dropped by the create: tests/createList.test.ts
 });
 
 describe("JSON export: the route read off a GPX", () => {
@@ -233,7 +233,7 @@ describe("JSON export: the route read off a GPX", () => {
     expect(parsed?.trailDescentM).toBe(400);
   });
 
-  // a hand-edited profile that isn't one is refused by the create: jsonImportCreate
+  // a hand-edited profile that isn't one is refused by the create: tests/createList.test.ts
 
   it("leaves a list with no GPX with no GPX", () => {
     const parsed = jsonToListImport(listToJson(snap()));

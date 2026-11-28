@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { IconTrashCan } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
-import { MAX_LABEL_LEN } from "~~/shared/ops";
+import { isLoneRouteEnd, MAX_LABEL_LEN } from "~~/shared/ops";
 import type { Waypoint, WaypointKind } from "~~/shared/types";
 import { formatDistance, formatDistancePadded, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
@@ -40,11 +40,8 @@ const meta = computed(() => waypointKindMeta(props.waypoint.kind));
  * start, so you drag the flag to where you actually left the car.
  */
 const isRouteEnd = computed(() => props.waypoint.kind === "trailhead" || props.waypoint.kind === "end");
-/** Every pin but the route's ONLY trailhead or finish. A spare one can go, which is how a
- *  list that was copied into two of each gets back to one (the map's popup, the same rule). */
-const removable = computed(
-  () => !isRouteEnd.value || (c.snapshot.value?.waypoints ?? []).filter((w) => w.kind === props.waypoint.kind).length > 1,
-);
+/** Every pin but the route's only trailhead or finish (isLoneRouteEnd). */
+const removable = computed(() => !isLoneRouteEnd(props.waypoint, c.snapshot.value?.waypoints ?? []));
 /** For the screen-reader names, where the label reads mid-sentence. */
 const spoken = computed(() => meta.value.label.toLowerCase());
 /** Padded, because these form a column down the day — see formatDistancePadded. */

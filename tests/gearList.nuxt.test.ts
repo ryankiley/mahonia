@@ -24,7 +24,7 @@ import { vaultRow } from "./helpers/vault";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import { DRAFT_KEY, localKey, type LocalListRecord } from "~~/shared/localList";
-import { tidyListText, type Op } from "~~/shared/ops";
+import { tidyStoredList, type Op } from "~~/shared/ops";
 import { computeTotals } from "~~/shared/weights";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -478,9 +478,8 @@ describe("useGearList — an edit applies here as it will on the server", () => 
 // ---------------------------------------------------------------------------
 // Same reason as the suite above: the behaviour under test is not a decision a
 // pure function makes, it's WHEN the live controller raises the question — which
-// depends on load()'s backfills, on dispatch()'s funnel, and on a capture set that
-// isn't built until a dynamic import resolves. Only the real controller has that
-// shape.
+// depends on dispatch()'s funnel and on a capture set that isn't built until a
+// dynamic import resolves. Only the real controller has that shape.
 //
 // The rule being locked in: an edit link is either your own list on a second
 // device or one a friend sent you. So the editor asks ONCE per list, remembers the
@@ -519,7 +518,7 @@ describe("useGearList — whose gear is this?", () => {
   });
 
   // Opening a list writes nothing to it. A water row stored with a count before the
-  // reducer folded one reads back folded (tidyListText, on the server's reads and on the
+  // reducer folded one reads back folded (tidyStoredList, on the server's reads and on the
   // device copy's), so there is no fix for the open to send — and nothing an open sends
   // can capture a shared list's gear before its owner's gear is in question.
   const countedWater = () =>
@@ -542,7 +541,7 @@ describe("useGearList — whose gear is this?", () => {
   it("sends no write, and captures nothing, on opening such a list", async () => {
     onDevice(countedWater());
     // the server reads its row through the same tidy
-    listResponse = tidyListText(countedWater());
+    listResponse = tidyStoredList(countedWater());
     const c = await opened();
     expect(c.snapshot.value?.items.find((i) => i.id === "i3")).toMatchObject({ qty: 1, unitWeightMg: 9_000_000 });
     await new Promise((r) => setTimeout(r, 100)); // past the flush debounce

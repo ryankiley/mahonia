@@ -6,7 +6,7 @@ import { sweepWindow, toIso } from "./time";
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql, type SQL } from "drizzle-orm";
 import { listClaims, listSnapshots, lists, type ListRow, users } from "../db/schema";
-import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizeMetaFields, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "../../shared/ops";
+import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizeMetaFields, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyStoredList, type Op, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { bySortOrder, computeTotals } from "../../shared/weights";
 import {
@@ -152,11 +152,11 @@ function rowMeta(row: ListRow) {
 // valid; the link just renders without a mark.
 export function rowToSnapshot(row: ListRow): ListSnapshot {
   const data = (row.data ?? { folders: [], items: [] }) as ListData;
-  // Backfilled on the way out (see tidyListText). Rows written before the tidy existed
+  // Backfilled on the way out (see tidyStoredList). Rows written before the tidy existed
   // still hold their straight apostrophes and stray spaces; without this every list
   // made before it renders half-tidied the moment one field is retyped. Safe to mutate
   // `data` in place — `row` is a fresh object per query, not a shared cache entry.
-  return tidyListText({
+  return tidyStoredList({
     ...rowMeta(row),
     shareCode: row.shareCode,
     slug: row.publicSlug,
@@ -172,9 +172,9 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     // give: every read starts from this function, so omitting it is the only version
     // that fails closed. withOwnerOnly puts the real items back.
     //
-    // WITHOUT the price and its currency either. They come onto a row with a piece
-    // picked from My Gear and no list surface shows them, so on a share link they were
-    // what the owner paid, readable in the payload, printed in a reader's CSV, and
+    // WITHOUT the price and its currency either: they come onto a row with a piece
+    // picked from My Gear, no list surface shows them, and on a share link they would
+    // be what the owner paid, readable in the payload, printed in a reader's CSV, and
     // carried into a stranger's own gear by a duplicate.
     items: (data.items ?? []).map(({ packed: _packed, priceCents: _priceCents, currency: _currency, ...rest }) => rest),
     days: data.days ?? [],
@@ -187,7 +187,7 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     // The ASYMMETRY with days is deliberate and load-bearing. Every other entity in
     // `data` is public; waypoints are not, so this must NOT forward them — and
     // routeGeometry is absent entirely rather than undefined. withOwnerOnly puts both
-    // back for the four paths that answer an edit token.
+    // back for every path that answers an edit token.
     //
     // A waypoint is only a distance, which discloses nothing on its own; combined with
     // the geometry it resolves to a precise point, so the two travel together or not at
@@ -320,7 +320,7 @@ function rowToState(row: ListRow): ListState {
   // between a tidied before and a tidied after is also what keeps the backfill OUT of
   // the version history — the punctuation moves on both sides at once, so nothing
   // reads as an edit the user didn't make.
-  return tidyListText({
+  return tidyStoredList({
     ...rowMeta(row),
     // Explicit here and ABSENT from rowMeta on purpose: the reducer state is the
     // owner's, so it carries the geometry; the snapshot must not (see rowToSnapshot
@@ -790,7 +790,7 @@ export async function getTextByShareCode(code: string): Promise<ListSnapshot | n
  * nothing; opt-out means forgetting publishes somebody's route.
  *
  * This wrapper existed once before, for body weight, and three owner paths forgot to call
- * it — which is why tests/waypointPrivacy.test.ts asserts BOTH halves: that a viewer never
+ * it — which is why tests/sharePrivacy.test.ts asserts BOTH halves: that a viewer never
  * gets these, and that every owner path does.
  */
 function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {

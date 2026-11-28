@@ -86,7 +86,7 @@ const row = (over: Partial<ListRow> = {}) =>
     ...over,
   }) as unknown as ListRow;
 
-describe("a route never rides a read path", () => {
+describe("a share read leaves out the route, the ticks and the prices", () => {
   it("rowToSnapshot omits the geometry and empties the waypoints", () => {
     const snap = rowToSnapshot(row());
     expect("routeGeometry" in snap).toBe(false);
@@ -118,7 +118,7 @@ describe("a route never rides a read path", () => {
 
   it("nor what the owner paid for it", () => {
     // A price comes onto a row with a piece picked from My Gear. No list surface shows
-    // it, so on a share link it was only ever something a stranger could read out of
+    // it, so on a share link it would be only something a stranger could read out of
     // the payload, export, or carry into their own gear by duplicating the list.
     const snap = rowToSnapshot(row());
     expect(snap.items.map((i) => i.name)).toEqual(["Tent", "Stove"]);

@@ -147,7 +147,7 @@ const bareGroup = computed(() => isBareGroup(props.item, isParent.value));
 // chevron), and the group's tick rolls the folded rows up deliberately: they are your
 // own rows, put away by you, which is not the case the filter guards against.
 // Adopted on MOUNT rather than at setup (usePersistedCollapse.useFor), so the first
-// paint is unchanged — this only swaps where the value comes from (see nestCollapse above).
+// paint is the same expanded one the server drew.
 const { collapsed: nestCollapsed, toggle: toggleNest } = nestCollapse.useFor(() => props.item.id);
 // the packing row's weight — same rule as the read views (ReadonlyItemRow): a
 // group shows its total (own + children), a leaf its own line

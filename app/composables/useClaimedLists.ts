@@ -332,7 +332,7 @@ export function useClaimedLists() {
   }
 
   /** Mirror an edit made THROUGH a claimed open onto its row here, so the switcher
-   *  reads the new title/unit straight away instead of one refetch later — the
+   *  reads the new title straight away instead of one refetch later — the
    *  claimed-side twin of useMyLists().touch(). IN MEMORY ONLY: the server holds the
    *  truth and the next read replaces the device cache from it. Writing the cache
    *  from here would write this TAB's idea of the account over the last real answer

@@ -1,6 +1,6 @@
 # Changelog fragments
 
-One file per PR. Don't hand-write them — run:
+One file per PR. Don't create them by hand — run:
 
 ```bash
 npm run changelog -- --added "One plain sentence about the observable change."

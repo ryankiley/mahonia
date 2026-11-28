@@ -3,7 +3,7 @@
 // Design: a list's CONTENT (folders + items) lives in a single JSONB `data`
 // column, and the same op-reducer (shared/ops.ts) applies mutations on both the
 // client (optimistic) and the server (authoritative) — so they can't drift.
-// The weight rollups and the item count are cached as columns, so a query over many
+// The total weight and the item count are cached as columns, so a query over many
 // lists need not read each one's `data` (see the columns for who reads which).
 // We never query items relationally in v1 (the catalog is a separate Phase-2
 // table), so JSONB is the right fit and keeps sync semantics in one place.
@@ -302,9 +302,8 @@ export const vaults = pgTable(
     // The owner. A vault belongs to an ACCOUNT, unlike a list, which belongs to
     // whoever holds its edit link — see requireVault for why the two differ.
     //
-    // Nullable only so the column can be added to a table that already has rows;
-    // every vault minted since is owned. A row left null is an orphan from the
-    // link-owned era and is unreachable by design.
+    // Nullable because a vault from the link-owned era has no owner; every vault
+    // minted since is owned, and a null row is unreachable by design.
     userId: integer("user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // The read-only link to this vault's gear (/g/{code}), or null when it is off:
@@ -422,8 +421,8 @@ export const vaultKitParts = pgTable(
 // Identity is an email address and nothing else — no name, no password, no
 // profile. Sign-in is a single-use emailed link, so there is no password to
 // hash, leak, or reset, and the row below is the entire footprint of an account.
-// A passkey is added later, to an account already signed in, and stores only a
-// PUBLIC key.
+// A passkey, whether made at signup or added to an account already signed in,
+// stores only a PUBLIC key.
 // ---------------------------------------------------------------------------
 export const users = pgTable(
   "users",
