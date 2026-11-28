@@ -6,11 +6,11 @@ import { type FunctionalComponent, h, mergeProps } from "vue";
 // Central's grammar for what it doesn't draw). Both are plain data, so a glyph costs
 // its path strings and nothing else, and RouteMap can serialise one for a map pin.
 //
-// SIZE is a named step (ICON_SIZES), not a number, so a step moves in one place: CSS sizes
-// each step from its token (--icon-xs … --icon-xl, tokens.scss; main.scss applies them),
-// and they grow with the type past 1920px. The width/height attributes carry the same
-// numbers for the moment before the stylesheet arrives; tests/icon.nuxt.test.ts holds the
-// two in step.
+// SIZE is a named step (ICON_STROKES' keys), not a number, so a step moves in one place:
+// CSS sizes each step from its token (--icon-xs … --icon-xl, tokens.scss; main.scss
+// applies them), and they grow with the type past 1920px. The width/height attributes are
+// only a fallback for the moment before the stylesheet arrives, so every step carries the
+// same one, the default step's 20px, and the px of each step is stated only in CSS.
 //
 // STROKE is flat: a fixed width in screen pixels for each step, at every viewport. The
 // <svg> carries it and main.scss gives the glyph's parts non-scaling-stroke, so the line
@@ -20,67 +20,38 @@ import { type FunctionalComponent, h, mergeProps } from "vue";
 // own except where a part is meant to differ (Central's filled dots keep their hairline),
 // and those keep theirs. A call site's :stroke-width is in screen pixels too.
 //
-// WHY a functional component with cached children: the editor puts ~9 icons on every gear
-// row, so a 150-item list mounts ~1,450 of these, and a mode switch (Gear↔Packing) tears
-// the rows down and builds them again. A glyph's kebab-cased attributes never change, so
-// they are computed once per glyph and every render is a plain h() over prepared objects.
+// WHY a functional component: the editor puts ~9 icons on every gear row, so a 150-item
+// list mounts ~1,450 of these, and a mode switch (Gear↔Packing) tears the rows down and
+// builds them again. The glyph data is stored under its final SVG attribute names, so a
+// render is a plain h() over the glyph's own objects, with nothing to convert.
 //
 // To regenerate app/icons/central (after changing a pick, or a package update): install the
 // style with CENTRAL_LICENSE_KEY set, outside this repo (the package's install script
 // checks the key, and keeping it out of package.json keeps the key off CI and Vercel),
-// then render each glyph with `mode: "raw"` and write it out in the same shape.
+// then render each glyph with `mode: "raw"` and write it out in the same shape, with each
+// attribute under the name SVG spells it (`"stroke-linecap"`, not the package's
+// `strokeLinecap`): SVG ignores a name it doesn't know, silently, so a glyph written in
+// camelCase would lose its caps and joins without an error. tests/icon.nuxt.test.ts
+// refuses one.
 
-/** One drawn element: an SVG tag plus its attributes, camelCased. */
+/** One drawn element: an SVG tag plus its attributes, under the names SVG spells them. */
 export type IconChild = readonly [string, { readonly [key: string]: string | number }];
 export type IconNode = readonly IconChild[];
 
-/** Prepared child: the tag, and its attributes kebab-cased for SVG. */
-type PreparedChild = { tag: string; attrs: Record<string, unknown> };
-
-// The same handful of attribute names (d, stroke, strokeLinecap, …) recur across every
-// glyph, so the case conversion is worth memoising on its own.
-const kebabCache = new Map<string, string>();
-/** an attribute's camelCase name as SVG spells it — strokeLinecap → stroke-linecap.
- *  Exported for the map's pin glyphs, which serialise the same icon data by hand. */
-export function kebab(key: string): string {
-  let out = kebabCache.get(key);
-  if (out === undefined) {
-    out = key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
-    kebabCache.set(key, out);
-  }
-  return out;
-}
-
-// Keyed by the glyph ARRAY's identity, which is safe because the glyphs are module-level
-// constants: the same import is the same array for the life of the page. Weak so a glyph
-// that falls out of use (a lazily-loaded route unmounting) can be collected.
-const prepared = new WeakMap<IconNode, PreparedChild[]>();
-
-function childrenFor(icon: IconNode): PreparedChild[] {
-  let built = prepared.get(icon);
-  if (!built) {
-    built = icon.map(([tag, attrs]): PreparedChild => {
-      const out: Record<string, unknown> = {};
-      for (const key in attrs) out[kebab(key)] = attrs[key];
-      return { tag, attrs: out };
-    });
-    prepared.set(icon, built);
-  }
-  return built;
-}
-
-/** The icon scale: each step's size in px (its --icon-* token in tokens.scss says the
- *  same) and the flat line it draws, in screen px. md is the default: the glyph beside
- *  16px text, on every pointer, and the folder chevrons and gear marks too (one size where
- *  there were 18 and 20). sm sits beside 14px text and in small indicators (a menu's
- *  chevron and tick). */
-export const ICON_SIZES = {
-  xs: { px: 12, stroke: 1 },
-  sm: { px: 14, stroke: 1.25 },
-  md: { px: 20, stroke: 1.5 },
-  xl: { px: 24, stroke: 1.5 },
+/** The icon scale: each step's flat line, in screen px (its size is its --icon-* token in
+ *  tokens.scss). md is the default: the glyph beside 16px text, on every pointer, and the
+ *  folder chevrons and gear marks too (one size where there were 18 and 20). sm sits
+ *  beside 14px text and in small indicators (a menu's chevron and tick). */
+export const ICON_STROKES = {
+  xs: 1,
+  sm: 1.25,
+  md: 1.5,
+  xl: 1.5,
 } as const;
-export type IconSize = keyof typeof ICON_SIZES;
+export type IconSize = keyof typeof ICON_STROKES;
+
+/** width/height for the instant before the stylesheet sizes the step: md's 20px. */
+const FALLBACK_PX = 20;
 
 interface SvgIconProps {
   icon: IconNode;
@@ -90,25 +61,24 @@ interface SvgIconProps {
 }
 
 export const SvgIcon: FunctionalComponent<SvgIconProps> = (props, { attrs }) => {
-  const step = props.size && props.size in ICON_SIZES ? props.size : "md";
-  const { px, stroke } = ICON_SIZES[step];
+  const step = props.size && props.size in ICON_STROKES ? props.size : "md";
 
   return h(
     "svg",
     mergeProps(
       {
         class: `svgicon svgicon--${step}`,
-        width: px,
-        height: px,
+        width: FALLBACK_PX,
+        height: FALLBACK_PX,
         viewBox: "0 0 24 24",
         xmlns: "http://www.w3.org/2000/svg",
         fill: "none",
         color: "currentColor",
-        "stroke-width": props.strokeWidth ?? stroke,
+        "stroke-width": props.strokeWidth ?? ICON_STROKES[step],
       },
       attrs,
     ),
-    childrenFor(props.icon).map((c) => h(c.tag, c.attrs)),
+    props.icon.map(([tag, a]) => h(tag, a)),
   );
 };
 

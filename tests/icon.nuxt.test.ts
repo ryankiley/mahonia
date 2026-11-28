@@ -1,14 +1,14 @@
 // <SvgIcon> (app/utils/icon.ts) draws every glyph in the app, so its contract is pinned
-// here: a named size step sets the glyph's box (attributes and a class the stylesheet sizes
-// from the step's token, which must agree with ICON_SIZES), each step draws a flat stroke in
-// screen px on the <svg> unless a call site says otherwise, a glyph part that carries its own
-// width keeps it, and fall-through attrs land on the <svg>. And every glyph it can be handed,
-// Central's and ours, is well-formed data: the tags it draws, path data on the 24-unit grid,
-// and no stroke width except a deliberate hairline, so the step's stroke reaches every line.
-import { readFileSync } from "node:fs";
+// here: a named size step sets the glyph's class (the stylesheet sizes it from the step's
+// token) over one fallback width/height, each step draws a flat stroke in screen px on the
+// <svg> unless a call site says otherwise, a glyph part that carries its own width keeps it,
+// and fall-through attrs land on the <svg>. And every glyph it can be handed, Central's and
+// ours, is well-formed data: the tags it draws, path data on the 24-unit grid, attributes
+// under the names SVG spells them, and no stroke width except a deliberate hairline, so the
+// step's stroke reaches every line.
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
-import { ICON_SIZES, SvgIcon, type IconNode } from "~/utils/icon";
+import { ICON_STROKES, SvgIcon, type IconNode } from "~/utils/icon";
 import * as central from "~/icons/central";
 import * as ours from "~/icons/mahonia";
 
@@ -25,10 +25,10 @@ describe("SvgIcon", () => {
     expect(out.slice(out.indexOf(">") + 1)).not.toContain("stroke-width");
   });
 
-  it("sizes and strokes each named step from ICON_SIZES", () => {
-    for (const [step, { px, stroke }] of Object.entries(ICON_SIZES)) {
+  it("classes and strokes each named step from ICON_STROKES, over the same fallback box", () => {
+    for (const [step, stroke] of Object.entries(ICON_STROKES)) {
       const open = svgOpen(html({ icon: central.IconTrashCan, size: step }));
-      expect(open).toContain(`width="${px}"`);
+      expect(open).toContain('width="20" height="20"');
       expect(open).toContain(`stroke-width="${stroke}"`);
       expect(open).toContain(`svgicon--${step}`);
     }
@@ -42,25 +42,12 @@ describe("SvgIcon", () => {
     expect(svgOpen(html({ icon: central.IconTrashCan, size: "sm", strokeWidth: 1 }))).toContain('stroke-width="1"');
   });
 
-  it("holds each step's px to its token in tokens.scss", () => {
-    const tokens = readFileSync("app/assets/styles/foundations/tokens.scss", "utf8");
-    const token = (name: string) => Number(tokens.match(new RegExp(`--${name}:\\s*calc\\((\\d+) \\* var\\(--px\\)\\)`))?.[1]);
-    for (const [step, { px }] of Object.entries(ICON_SIZES)) {
-      expect(token(step === "md" ? "icon" : `icon-${step}`), `--icon${step === "md" ? "" : `-${step}`}`).toBe(px);
-    }
-  });
-
   it("leaves a part's own hairline alone", () => {
-    const withHairline = ALL.find(([, icon]) => icon.some(([, a]) => a.strokeWidth !== undefined));
+    const withHairline = ALL.find(([, icon]) => icon.some(([, a]) => a["stroke-width"] !== undefined));
     expect(withHairline, "Central ships a few dots with their own thin stroke").toBeDefined();
     const [, icon] = withHairline!;
-    const own = icon.find(([, a]) => a.strokeWidth !== undefined)![1].strokeWidth;
+    const own = icon.find(([, a]) => a["stroke-width"] !== undefined)![1]["stroke-width"];
     expect(html({ icon })).toContain(`stroke-width="${own}"`);
-  });
-
-  it("kebab-cases attributes", () => {
-    const out = html({ icon: [["path", { d: "M1 1H2", strokeLinecap: "round" }]] as IconNode });
-    expect(out).toContain('stroke-linecap="round"');
   });
 
   it("passes class and aria-hidden through to the svg, beside its own", () => {
@@ -73,6 +60,8 @@ describe("SvgIcon", () => {
 describe("every glyph", () => {
   const TAGS = new Set(["path", "circle", "rect", "line", "ellipse", "polyline", "polygon"]);
   const NUM = /[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?/g;
+  // the attributes SVG itself spells in camelCase, on the tags a glyph may use
+  const SVG_CAMEL = new Set(["pathLength", "viewBox", "preserveAspectRatio"]);
 
   it("covers both sets", () => {
     expect(Object.keys(central).length).toBeGreaterThan(80);
@@ -86,7 +75,12 @@ describe("every glyph", () => {
         expect(TAGS.has(tag), `${name}: <${tag}>`).toBe(true);
         if (tag === "path") expect(typeof attrs.d, `${name}: path without d`).toBe("string");
         // a width of its own only for a deliberate hairline, never the nominal 2 or 1.5
-        if (attrs.strokeWidth !== undefined) expect(Number(attrs.strokeWidth), `${name}: own stroke width`).toBeLessThan(1);
+        if (attrs["stroke-width"] !== undefined) expect(Number(attrs["stroke-width"]), `${name}: own stroke width`).toBeLessThan(1);
+        // SVG drops an attribute name it doesn't know without a word, so a glyph regenerated
+        // in the package's camelCase (strokeLinecap) would lose its caps and still pass.
+        for (const key of Object.keys(attrs)) {
+          if (/[A-Z]/.test(key)) expect(SVG_CAMEL.has(key), `${name}: <${tag} ${key}> isn't an SVG attribute name`).toBe(true);
+        }
         for (const n of String(attrs.d ?? "").match(NUM) ?? []) {
           expect(Math.abs(Number(n)), `${name}: ${n} off the grid`).toBeLessThanOrEqual(24);
         }

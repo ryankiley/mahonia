@@ -668,8 +668,8 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* icon-button box — the dense desktop chrome. The fixed actions track below
      multiplies it, so resizing the button here resizes the track with it. */
   --icon-btn: calc(32 * var(--px));
-  /* THE ICON SCALE: one token per SvgIcon size step (utils/icon.ts's ICON_SIZES says the
-     same numbers; tests/icon.nuxt.test.ts holds them in step). --icon is md, THE GLYPH:
+  /* THE ICON SCALE: one token per SvgIcon size step, and the only place the sizes are
+     stated (the class for a step reads its token). --icon is md, THE GLYPH:
      the default, beside 16px text, named plainly so the maths written against it
      (centring, flush pulls, slots) says what it is measuring. The same on every
      pointer: touch grows the button to --touch-target, not the picture. */

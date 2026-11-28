@@ -2,7 +2,7 @@
 import { IconExpand45, IconMinimize45, IconQuestionmarkCircle } from "~/icons/central";
 import { MAX_LABEL_LEN } from "~~/shared/ops";
 import { formatLatLon, nearestAlongM, pointAlong, sliceAlong } from "~~/shared/polyline";
-import { SvgIcon, kebab, type IconNode } from "~/utils/icon";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
 import { useRouteMapGeometry } from "~/composables/useRouteMapGeometry";
@@ -253,7 +253,7 @@ function iconSvg(icon: IconNode): string {
   const body = icon
     .map(([tag, attrs]) => {
       const a = Object.entries(attrs)
-        .map(([k, v]) => `${kebab(k)}="${String(v).replace(/[<>&"]/g, "")}"`)
+        .map(([k, v]) => `${k}="${String(v).replace(/[<>&"]/g, "")}"`)
         .join(" ");
       return `<${tag} ${a}/>`;
     })
