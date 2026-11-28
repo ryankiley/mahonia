@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "Opening a list again on a device that left mid-save no longer undoes a restore, or someone else's edit, made since."
+  ]
+}

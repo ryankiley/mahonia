@@ -8,6 +8,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql, ty
 import { listClaims, listSnapshots, lists, type ListRow, users } from "../db/schema";
 import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizeMetaFields, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyStoredList, type Op, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
+import { freshOps, type StampedOp } from "../../shared/opStamp";
 import { bySortOrder, computeTotals } from "../../shared/weights";
 import {
   diffListState,
@@ -1020,7 +1021,7 @@ function describeChange(ops: readonly Op[], before: Parameters<typeof summarizeO
  */
 export async function applyOpsByEditHash(
   editHash: string,
-  ops: Op[],
+  sent: StampedOp[],
   db?: Db,
   /** who is making the edit: an assistant (see EditActor), and the signed-in account
    *  behind it when there is one (see EditorLookup) */
@@ -1032,6 +1033,15 @@ export async function applyOpsByEditHash(
     if (!row) return null;
 
     const state = rowToState(row);
+    // Ops the editor sent before and never heard back about are skipped, against what
+    // this row has applied (shared/opStamp.ts), and read again on a retry, since the
+    // row that wins a race may have applied them.
+    const { fresh: ops, applied } = freshOps(sent, row.appliedThrough);
+    if (!ops.length) {
+      // every op a copy of one already applied: nothing to write, the list as it stands
+      const catalogRows = await liveCatalogRows(d, catalogIdsOf(state.items));
+      return withOwnerOnly(applyCatalogNames(rowToSnapshot(row), catalogRows), row);
+    }
     // The list AS IT STANDS, kept before applyOps mutates it — this is what lets the
     // change summary below name things. An op is only `{ id }`, so a removal has
     // nothing to name itself with once applied; here the row is still present.
@@ -1085,6 +1095,7 @@ export async function applyOpsByEditHash(
         version: row.version + 1,
         updatedAt: new Date(),
         ...(doSnapshot ? { lastSnapshotAt: new Date() } : {}),
+        ...(applied !== row.appliedThrough ? { appliedThrough: applied } : {}),
       })
       .where(and(eq(lists.id, row.id), eq(lists.version, row.version)))
       .returning(), liveCatalogRows(d, catalogIdsOf(state.items))]);
