@@ -11,6 +11,7 @@ import type {
   Unit,
 } from "./types";
 import { counted, NUM_LOCALE } from "./tidyText";
+import { parseNumberToken, TYPED_NUMBER, UNSPACED_NUMBER, type NumberRule } from "./typedNumber";
 
 /** Milligrams per one display unit. */
 export const MG_PER_UNIT: Record<Unit, number> = {
@@ -50,54 +51,31 @@ export const UNIT_ALIASES: Record<string, Unit> = {
   pounds: "lb",
 };
 
-/**
- * Parse messy human weight input into integer milligrams.
- * Handles "1.36kg", "48 oz", "2 lb 3 oz", "820g", "1,360 g".
- * A bare number with no unit uses `defaultUnit`. Returns null if nothing parses.
- */
-// Parse one captured number group, disambiguating ',' vs '.' as decimal point so
-// "1,5 kg" (comma-decimal locales) reads as 1.5, not 15. Rules:
-//  - both separators present → the RIGHTMOST one is the decimal point
-//  - only commas, single comma + 1–2 trailing digits → decimal (else thousands)
-//  - only dots → standard decimal
-function numFromGroup(s: string): number {
-  const hasComma = s.includes(",");
-  const hasDot = s.includes(".");
-  let norm = s;
-  if (hasComma && hasDot) {
-    norm =
-      s.lastIndexOf(",") > s.lastIndexOf(".")
-        ? s.replace(/\./g, "").replace(",", ".") // 1.234,56 → 1234.56
-        : s.replace(/,/g, ""); // 1,234.56 → 1234.56
-  } else if (hasComma) {
-    // \d* not \d+: ",9" is a decimal comma with nothing before it, like ".9"
-    norm = /^-?\d*,\d{1,2}$/.test(s) ? s.replace(",", ".") : s.replace(/,/g, "");
-  }
-  return parseFloat(norm);
-}
+// A number cell from a file: the figure it opens with.
+const LEADING_NUMBER = new RegExp(String.raw`^\s*([-+]?${TYPED_NUMBER})`);
 
 /**
- * A number cell from a file, read by the rule the weight field reads a typed one:
- * "1,5" is one and a half, "1,360" is thirteen hundred and sixty. The leading figure
- * only, so a cell that trails a unit ("538 g") still gives its number; NaN when the
- * cell doesn't start with one.
+ * A number cell from a file, read by the rule a typed number is read by everywhere
+ * (shared/typedNumber): "1,5" is one and a half, "1,360" is thirteen hundred and sixty.
+ * The leading figure only, so a cell that trails a unit ("538 g") still gives its
+ * number; NaN when the cell doesn't start with one.
  */
-export function parseDecimal(raw: string): number {
-  const figure = /^\s*(-?[\d.,]*\d)/.exec(raw);
-  return figure ? numFromGroup(figure[1]!) : Number.NaN;
+export function parseDecimal(raw: string, rule?: NumberRule): number {
+  const figure = LEADING_NUMBER.exec(raw);
+  return figure ? parseNumberToken(figure[1]!, rule) : Number.NaN;
 }
 
-// A number as the weight field reads one: digits with any mix of ',' / '.' separators.
-// Digit-led, or a separator-led fraction (".9oz", ",9"): the shorthand a scale-reader
-// types. Without the second branch the scanner skipped the dot and read ".9oz" as 9 oz —
-// ten times the weight, with no complaint. Exported for the paste reader
-// (shared/pasteList), so a figure that counts there is one that counts here.
-export const WEIGHT_NUMBER = String.raw`(?:\d[\d.,]*|[.,]\d+)`;
-// The input scanner both parsers below share: that number, optionally followed by a
-// unit word. One definition so parseWeightInput and entryUnitFromInput can never
-// disagree about what counts as a token; a fresh regex per call because /g carries
-// lastIndex state.
-const weightScan = () => new RegExp(String.raw`(-?${WEIGHT_NUMBER})\s*([a-z]+)?`, "g");
+// A number as the paste reader (shared/pasteList) finds one at the end of a name: digits
+// with any mix of ',' / '.' separators, or a separator-led fraction (".9oz", ",9"), the
+// shorthand a scale-reader types. Never space-grouped there, where the words before the
+// weight can end in a number of their own; every figure it finds is one the field reads.
+export const WEIGHT_NUMBER = UNSPACED_NUMBER;
+
+// The input scanner both parsers below share: a typed number (space-grouped thousands
+// included, so "12 000 g" is one figure), optionally followed by a unit word. One
+// definition so parseWeightInput and entryUnitFromInput can never disagree about what
+// counts as a token; a fresh regex per call because /g carries lastIndex state.
+const weightScan = () => new RegExp(String.raw`(-?${TYPED_NUMBER})\s*([a-z]+)?`, "g");
 
 /** One number the scanner found, and the unit it named (null = named none). */
 interface WeightGroup {
@@ -140,8 +118,7 @@ function weightGroups(raw: unknown): WeightGroup[] {
   const all: (WeightGroup & { start: number; end: number })[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    // numFromGroup() decides which separator is the decimal point
-    const value = numFromGroup(m[1]!);
+    const value = parseNumberToken(m[1]!);
     if (!isFinite(value)) continue;
     const word = m[2];
     // a word that isn't a unit disqualifies the number it trails — "5 pretzels" is
@@ -176,6 +153,11 @@ function weightGroups(raw: unknown): WeightGroup[] {
   return run;
 }
 
+/**
+ * Parse messy human weight input into integer milligrams.
+ * Handles "1.36kg", "48 oz", "2 lb 3 oz", "820g", "1,360 g", "12 000 g".
+ * A bare number with no unit uses `defaultUnit`. Returns null if nothing parses.
+ */
 export function parseWeightInput(
   raw: string,
   defaultUnit: Unit = "g",
@@ -663,17 +645,20 @@ export function formatKcal(kcal: number): string {
   return groupedTo(0).format(Math.round(kcal));
 }
 
+// The whole of a calories field: one typed number and nothing else.
+const KCAL_FIELD = new RegExp(String.raw`^[-+]?${TYPED_NUMBER}$`);
+
 /**
  * A calorie count as typed, or null for nothing typed and for anything that isn't a
  * number. The other way round from formatKcal: the line beside the field prints
  * "2,700 kcal", so a number typed back the way the app wrote it reads as that number
- * (grouping commas and spaces are taken out first) rather than as not a number, which
- * cleared the calories. Sign, rounding and the ceiling are whoever stores it (kcalOf).
+ * rather than as not a number, which cleared the calories. Read by the rule every typed
+ * number is (shared/typedNumber) and rounded to a whole one, as a stored count is, so
+ * "1,5" is 2. Sign and the ceiling are whoever stores it (kcalOf).
  */
 export function parseKcal(raw: string): number | null {
-  const digits = raw.replace(/[,\s]/g, "");
-  if (digits === "") return null;
-  const n = Number(digits);
+  const typed = raw.trim();
+  const n = KCAL_FIELD.test(typed) ? parseNumberToken(typed, { whole: true }) : Number.NaN;
   return Number.isFinite(n) ? n : null;
 }
 
