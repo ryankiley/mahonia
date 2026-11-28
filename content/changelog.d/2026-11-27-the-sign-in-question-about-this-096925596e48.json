@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "The sign-in question about this browser's lists now says \"lists\" when there is more than one.",
+    "My Gear follows the unit of your most recent list again, where an old saved choice could hold it on another unit."
+  ]
+}

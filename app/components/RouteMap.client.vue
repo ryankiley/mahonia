@@ -1212,7 +1212,7 @@ onBeforeUnmount(() => {
            than it does for the estimates, because one of the gestures it explains is the
            press-and-hold, and touch is exactly where that one is worth knowing. -->
       <Tooltip v-else :text="gestures" preferred-placement="top">
-        <button type="button" class="btn btn--icon btn--ghost foreground-quiet routemap__help" aria-label="How to use this map">
+        <button type="button" class="btn btn--icon btn--ghost foreground-quiet" aria-label="How to use this map">
           <SvgIcon :icon="IconQuestionmarkCircle" size="sm" />
         </button>
       </Tooltip>

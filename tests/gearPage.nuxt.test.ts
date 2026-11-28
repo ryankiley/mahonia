@@ -7,7 +7,7 @@
 // stubs vaultFetch with fixtures can never see that class of bug, so here the stub
 // passes through to $fetch and the endpoints are registered at the real paths:
 // registerEndpoint 404s anything unregistered, which is exactly what production did.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
@@ -213,6 +213,22 @@ describe("the /gear page's vault calls", () => {
       await vi.waitFor(() => expect(editedOps).toEqual([{ t: "edit", id: 1, patch: { entryUnit: "oz" } }]));
       expect(weight()).toContain("8.8");
       expect(weight()).toContain("oz");
+    });
+
+    // The page has no unit picker of its own, so an old saved choice from when it did
+    // must not outrank the list you work in: nothing could change it.
+    it("opens in the most recent list's unit, whatever was picked on this page before", async () => {
+      onTestFinished(() => void (useMyLists().entries.value = []));
+      localStorage.setItem("gear.gear.unit.v1", "oz");
+      const list = { editToken: "t", shareCode: "C0DE00000001", slug: "s", title: "L", totalMg: 0, version: 1, origin: "created" as const };
+      useMyLists().entries.value = [
+        { ...list, editToken: "t1", lastOpened: 2, displayUnit: "kg" },
+        { ...list, editToken: "t2", lastOpened: 1, displayUnit: "lb" },
+      ];
+      listRows = [entry(1, "Duplex")];
+      const w = await openPage();
+      const weight = rows(w).find((r) => r.text().includes("Duplex"))!.get(".vault__weight").text();
+      expect(weight).toContain("kg");
     });
 
     it("keeps the latest pick when an earlier one answers after it", async () => {

@@ -3,7 +3,7 @@ import { reactive } from "vue";
 // App-wide dialogs that replace the browser's native confirm()/prompt(): a
 // promise-based confirm and a copy-link fallback (shown when the async Clipboard
 // write is blocked, so a copy action never dead-ends). One shared reactive state
-// drives a single <AppDialogs> mount (in app.vue), so any component can open a
+// drives a single <AppDialogs> mount (in AppOverlays), so any component can open a
 // dialog without wiring its own modal. Module-level singleton — the same pattern
 // as useMyLists; only ever mutated client-side, so SSR always renders it closed.
 //
@@ -19,9 +19,6 @@ interface ConfirmOptions {
   title?: string;
   message: string;
   confirmLabel?: string;
-  // destructive actions read the confirm as the emphasised (primary) button and
-  // say so in its label; the chrome is monochrome, so wording carries the weight.
-  danger?: boolean;
   // An optional second decision, asked INSIDE the same dialog rather than as a
   // follow-up one. Deleting an account used to ask twice — "delete your account?"
   // then "delete your lists too?" — and a second modal appearing after you have
@@ -30,9 +27,8 @@ interface ConfirmOptions {
   checkbox?: { label: string; hint?: string };
 }
 
-interface ConfirmState extends Required<Omit<ConfirmOptions, "danger" | "checkbox">> {
+interface ConfirmState extends Required<Omit<ConfirmOptions, "checkbox">> {
   open: boolean;
-  danger: boolean;
   checkboxLabel: string;
   checkboxHint: string;
   /** The checkbox's answer. Only meaningful when checkboxLabel is set. */
@@ -44,7 +40,6 @@ const confirmState = reactive<ConfirmState>({
   title: "",
   message: "",
   confirmLabel: "Confirm",
-  danger: false,
   checkboxLabel: "",
   checkboxHint: "",
   checked: false,
@@ -53,7 +48,7 @@ let confirmResolve: ((ok: boolean) => void) | null = null;
 
 const linkState = reactive({ open: false, title: "", url: "" });
 
-// `everOpened` gates the <LazyAppDialogs> mount in app.vue, the way useAccountModal's
+// `everOpened` gates the <LazyAppDialogs> mount in AppOverlays, the way useAccountModal's
 // gates <LazyAccountModal>: both dialogs open on a click and nothing else, so a visit
 // that never confirms anything and never has a copy blocked pays nothing for them.
 // Latched, never cleared — once mounted the component stays, so every close after
@@ -72,8 +67,7 @@ export function useDialogs() {
       open: true,
       title: opts.title ?? "",
       message: opts.message,
-      confirmLabel: opts.confirmLabel ?? (opts.danger ? "Delete" : "Confirm"),
-      danger: opts.danger ?? false,
+      confirmLabel: opts.confirmLabel ?? "Confirm",
       checkboxLabel: opts.checkbox?.label ?? "",
       checkboxHint: opts.checkbox?.hint ?? "",
       // reset every time — a box left ticked by a previous dialog must never carry

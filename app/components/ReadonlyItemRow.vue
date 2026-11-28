@@ -7,8 +7,8 @@ import type { Item as ItemT, ListSnapshot as ListT } from "~~/shared/types";
 // rather than threaded down as props (the editor's rows take theirs the same way, from
 // keys of their own: these pages must not import that graph). As props the four passed
 // through the folder, which read none of them, and through each group row to its
-// children; and a prop that is a fresh Map per poll re-renders every row it passes
-// through. Injected, a row subscribes to a table only where it looks something up.
+// children; and a prop that is a fresh Map whenever the viewer changes unit or filter
+// re-renders every row it passes through. Injected, a row subscribes to a table only where it looks something up.
 //  • the list as the viewer sees it: their unit, their person filter's rows
 //  • children grouped by parent id, one groupItemsByParent pass, so a row doesn't
 //    re-scan the item array for its children

@@ -3,9 +3,12 @@
 // returning (there is one form, see accountOneDoor), and Your account once there is one.
 // Signed out it is the sign-in card (the mark, a centred title, no close button to see);
 // signed in it is a title bar with its X over sections.
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { mountSuspended } from "@nuxt/test-utils/runtime";
 import AccountModal from "~/components/AccountModal.vue";
+import AppOverlays from "~/components/AppOverlays.vue";
+import ErrorPage from "~/error.vue";
 
 enableAutoUnmount(afterEach);
 
@@ -139,3 +142,26 @@ describe("a bad address in the sign-in card", () => {
   });
 });
 
+
+// The overlays app.vue and the error page both mount, in one order: a confirm raised
+// from inside the account dialog (delete-account is) has to paint over it, and every
+// overlay shares one z-index, so the later mount is the one on top.
+describe("among the app's overlays", () => {
+  const dialogs = () => [...document.querySelectorAll('[role="dialog"]')].map((d) => d.getAttribute("aria-label"));
+
+  it("puts a confirm raised over the account dialog on top of it", async () => {
+    mount(AppOverlays, { attachTo: document.body });
+    await vi.waitFor(() => expect(dialogs()).toEqual(["Sign in or sign up"]));
+    void useDialogs().confirm({ title: "Delete your account?", message: "Gone for good.", confirmLabel: "Delete" });
+    await vi.waitFor(() => expect(dialogs()).toEqual(["Sign in or sign up", "Delete your account?"]));
+    useDialogs().settleConfirm(false);
+  });
+
+  it("opens the feedback box over the error page too", async () => {
+    useAccountModal().close();
+    onTestFinished(() => useFeedback().close());
+    const page = await mountSuspended(ErrorPage, { props: { error: createError({ statusCode: 404 }) }, attachTo: document.body });
+    useFeedback().open();
+    await vi.waitFor(() => expect(page.find('[role="dialog"] textarea').exists()).toBe(true));
+  });
+});
