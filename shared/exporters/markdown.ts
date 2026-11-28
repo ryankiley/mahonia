@@ -5,19 +5,52 @@
 
 import type { Item, ListSnapshot } from "../types";
 import { carrierName, effectivePersonId } from "../people";
-import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, isBareGroup, itemDisplayName, lineMg, groupLineMg, splitWornQty } from "../weights";
-import { exportSections } from "./rows";
+import { carriedIsDistinct, computeTotals, effectiveClassification, formatKcal, formatWeight, isBareGroup, itemDisplayName, lineMg, groupLineMg, splitWornQty, unitSystem } from "../weights";
+import { exportSections, gearTypeBeside } from "./rows";
 import { isWaterName, waterVolumeLabel } from "../water";
 import { dropHidden } from "../tidyText";
+import { parseIsoDate } from "../calendar";
+import { formatDistance } from "../trailDistance";
+import { CANONICAL_ORIGIN } from "../site";
 
-// a product name with its common name trailing after an em dash, when the item has one
-const withCommon = (name: string, commonName?: string) =>
-  commonName ? `${name} — ${commonName}` : name;
+// The name, then what the read view's sub-line says under it: the gear type after an em
+// dash when it adds something (gearTypeBeside: no "Toothpaste — Toothpaste"), then the
+// owner's note in italics, after a dot as on screen ("Monday — *Meals*", "Water —
+// Hydration · *Drinking water*"). The note was dropped, and it is sometimes all that
+// tells two rows apart: a five-day list's "Monday" for meals and "Monday" for snacks.
+// markdownImport.ts reads these parts back in this order.
+//
+// Each part is escaped on its own (cell, below) and the result is the cell as written:
+// escaping the whole would double the backslash of a note's escaped "*", which is the
+// one character a note can hold that would end its italics early.
+const withSubline = (name: string, commonName?: string, note?: string) => {
+  const common = gearTypeBeside(name, commonName);
+  const said = note?.trim() ? `*${cell(note.trim()).replace(/\*/g, "\\*")}*` : "";
+  const sub = [common && cell(common), said].filter(Boolean).join(" · ");
+  return sub ? `${cell(name)} — ${sub}` : cell(name);
+};
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** The trip's dates, the year always said: a pasted list outlives the year it was
+ *  written in, and this text is the same whoever reads it, whenever (the share page's
+ *  relative "Tomorrow" is a reader's-clock nicety this can't have). */
+function tripDates(start?: string, end?: string): string {
+  // parseIsoDate gives the calendar day as a LOCAL date, so its parts are the stored
+  // ones in any timezone (shared/calendar.ts says why new Date(iso) isn't)
+  const a = parseIsoDate(start);
+  const b = parseIsoDate(end);
+  const day = (d: Date, year: boolean) => `${MONTHS[d.getMonth()]} ${d.getDate()}${year ? `, ${d.getFullYear()}` : ""}`;
+  if (!a || !b) return a || b ? day((a ?? b)!, true) : "";
+  if (a.getFullYear() !== b.getFullYear()) return `${day(a, true)} – ${day(b, true)}`;
+  if (a.getMonth() !== b.getMonth()) return `${day(a, false)} – ${day(b, true)}`;
+  return a.getDate() === b.getDate() ? day(a, true) : `${MONTHS[a.getMonth()]} ${a.getDate()}–${b.getDate()}, ${a.getFullYear()}`;
+}
 
 // the carrier in trailing italics, when there is one — a peopleless list (every
 // list before the feature) produces byte-identical output to what it always did
-const withCarrier = (name: string, carrier?: string) =>
-  carrier ? `${name} *(${carrier})*` : name;
+const withCarrier = (escaped: string, carrier?: string) =>
+  carrier ? `${escaped} *(${cell(carrier)})*` : escaped;
 
 // The Item cell, with the three characters a name can carry that a renderer would
 // not show as written escaped the way GFM reads them (a backslash). A pipe BREAKS the
@@ -51,6 +84,18 @@ export function listToMarkdown(list: ListSnapshot): string {
 
   out.push(`# ${list.title || "Mahonia list"}`);
   out.push("");
+  // What the share page says above the list and a pasted table didn't: the trail, the
+  // dates, how far. The distance in the list's own system, as its weights are.
+  const facts = [
+    list.trailLabel?.trim(),
+    tripDates(list.startDate, list.endDate),
+    list.trailDistanceM ? formatDistance(list.trailDistanceM, unitSystem(u) === "imperial" ? "mi" : "km") : "",
+  ].filter(Boolean);
+  if (facts.length) out.push(facts.join(" · "), "");
+  // and where the rest lives: the plain-text copy always carried its link, this didn't.
+  // Built from the share code, the READ-ONLY address (an edit token is never in a
+  // snapshot), so the copy and /s/{code}.md say the same thing.
+  if (list.shareCode) out.push(`${CANONICAL_ORIGIN}/s/${list.shareCode}`, "");
 
   // exportSections carries the app's visible order (folders by sortOrder, then an
   // "Unfiled" tail) so the table rows always sum to the totals block below —
@@ -65,31 +110,34 @@ export function listToMarkdown(list: ListSnapshot): string {
       // a group's weight is its total (own + children); a plain row shows its own
       // line — kids is already this row's children, so no whole-list rescan
       const rowMg = groupLineMg(it, kids);
-      const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
+      // in the unit the row reads in on screen (ReadonlyItemRow's rowUnit): a risotto
+      // typed as 7.5 oz on a pounds list is 7.5 oz here, not 0.47 lb. A group's
+      // entryUnit is the unit its owner picked for the total, the same double duty.
+      const w = rowMg > 0 ? formatWeight(rowMg, it.entryUnit ?? u) : "—";
       // the product name, with the common name trailing it after an em dash when set
       // ("Altra Lone Peak 9+ — Trail runners") so a pasted list still says what each item is
       const name = withCarrier(
-        withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName),
+        withSubline(itemDisplayName(it.brand, it.name, it.variant), it.commonName, it.description),
         carrierName(list, it),
       );
       // a bare group's Qty cell is empty, matching the three on-screen faces: the weight
       // beside it is the GROUP total, so a count there multiplies a figure it is already
       // inside — and on a row whose own line is zero, it multiplies zero
       const qty = isBareGroup(it, kids.length > 0) ? "" : quantityLabel(it, list.folders);
-      out.push(`| ${cell(name)} | ${qty} | ${w} |`);
+      out.push(`| ${name} | ${qty} | ${w} |`);
       // nested items as indented sub-rows (the row weight above is their total)
       for (const child of kids) {
-        const cw = child.unitWeightMg > 0 ? formatWeight(lineMg(child), u) : "—";
+        const cw = child.unitWeightMg > 0 ? formatWeight(lineMg(child), child.entryUnit ?? u) : "—";
         // a child names its carrier only when it DIFFERS from the parent's — every
         // sub-row repeating the name above it would be noise, not information.
         // Compared by ID: names are unique per list now, but a list written before
         // that rule can still hold two, and comparing the strings would silently
         // un-name a child carried by the OTHER one.
         const cn = withCarrier(
-          withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName),
+          withSubline(itemDisplayName(child.brand, child.name, child.variant), child.commonName, child.description),
           effectivePersonId(child, it) === effectivePersonId(it) ? undefined : carrierName(list, child, it),
         );
-        out.push(`| ↳ ${cell(cn)} | ${quantityLabel(child, list.folders)} | ${cw} |`);
+        out.push(`| ↳ ${cn} | ${quantityLabel(child, list.folders)} | ${cw} |`);
       }
     }
     out.push("");
@@ -106,6 +154,12 @@ export function listToMarkdown(list: ListSnapshot): string {
       out.push(`- **Carried:** ${formatWeight(totals.carriedMg, u)}`);
     }
     out.push(`- **Total:** ${formatWeight(totals.totalMg, u)}`);
+  }
+  // the calories the totals bar shows, under the same name; the food rows' own figures
+  // stay on the share page, where they sit beside their weights
+  if (totals.hasKcal && totals.kcalTotal > 0) {
+    if (!totals.hasWeights) out.push("---", "");
+    out.push(`- **Calories:** ${formatKcal(totals.kcalTotal)} kcal`);
   }
 
   // the read a model gets when it fetches a share link, so nothing in it may be hidden

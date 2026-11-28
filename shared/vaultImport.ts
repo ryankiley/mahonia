@@ -10,9 +10,13 @@
 // the endpoint re-derives everything it stores anyway (vaultRepo's sanitize).
 
 import { csvToListData } from "./exporters/csv";
+import { EVERYTHING_FORMAT } from "./exporters/everything";
+import { jsonToListImport } from "./exporters/json";
 import { isCatalogId } from "./ops";
 import { isRecord } from "./record";
-import type { Item } from "./types";
+import type { Item, ListData } from "./types";
+import { isWaterName } from "./water";
+import { isBareGroup } from "./weights";
 import {
   VAULT_IMPORT_MAX,
   VAULT_PIN_FIELDS,
@@ -62,13 +66,25 @@ const PINS = new Set<string>(VAULT_PIN_FIELDS);
  * rows; both are read past, since My Gear groups by kind now.
  */
 export function vaultImportFromJson(text: string): VaultImport | null {
-  let raw: unknown;
+  let parsed: unknown;
   try {
-    raw = JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch {
     return null;
   }
-  if (!isRecord(raw) || !Array.isArray(raw.items)) return null;
+  if (!isRecord(parsed)) return null;
+  // The account export holds My Gear whole, in this same shape, under `gear`
+  // (shared/exporters/everything). Without this the takeout read as no gear at all:
+  // no top-level items, so it fell through to the CSV reader and found nothing.
+  const raw = parsed.format === EVERYTHING_FORMAT && isRecord(parsed.gear) ? parsed.gear : parsed;
+  if (!Array.isArray(raw.items)) return null;
+  // A LIST's "Download JSON" has an items array too, but its rows carry their weight as
+  // unitWeightMg where gear carries weightMg, so read here it came in with every weight
+  // at zero. Read it as the list it is, then as gear, the way a list's CSV is.
+  if (raw.items.some((i) => isRecord(i) && "unitWeightMg" in i)) {
+    const list = jsonToListImport(text);
+    return list && { rows: gearFromList(list.data), from: "json" };
+  }
 
 
   const rows: VaultImportRow[] = [];
@@ -144,18 +160,33 @@ export function vaultImportFromCsv(text: string): VaultImport {
   // gear the server would have accepted. The category only groups the preview: My Gear
   // files nothing by it.
   const list = csvToListData(text, { maxFolders: VAULT_IMPORT_MAX, maxItems: Number.POSITIVE_INFINITY });
+  return { rows: gearFromList(list), from: "csv" };
+}
+
+/**
+ * A list's rows as the gear they describe: a list's CSV, any other spreadsheet, and a
+ * list's JSON backup all arrive here as ListData.
+ *
+ * Every named row is a piece, but for two that never are, by isVaultWorthy's own rules:
+ * a group that holds nothing of its own ("Monday", "Dry bag", a heading over the rows
+ * inside it) and the water row, a volume the editor makes from a figure. A CSV only
+ * says which rows are groups when it has a Group column (ours does); without one, a
+ * group row arrives as flat as its children and is read like any other.
+ */
+function gearFromList(list: ListData): VaultImportRow[] {
   const name = new Map(list.folders.map((f) => [f.id, f.name]));
-  // Every named row is a piece. A CSV has no nesting column, so a list's group row
-  // ("Cook kit") arrives as flat as its children and is read like any other row.
+  const parents = new Set<string>();
+  for (const item of list.items) if (item.parentId) parents.add(item.parentId);
   const rows: VaultImportRow[] = [];
   for (const item of list.items as Item[]) {
+    if (isBareGroup(item, parents.has(item.id)) || isWaterName(item.name)) continue;
     const gear = gearFromItem(item, item.folderId ? name.get(item.folderId) : undefined);
     // the Qty column the gear CSV writes is how many you own (vaultToCsv); a list's
-    // CSV means how many it carries, which is at least as many as you have
+    // count means how many it carries, which is at least as many as you have
     if (gear) rows.push(item.qty > 1 ? { ...gear, owned: item.qty } : gear);
     if (rows.length >= VAULT_IMPORT_MAX) break;
   }
-  return { rows, from: "csv" };
+  return rows;
 }
 
 /** JSON if it reads as ours, CSV otherwise — the sniff the list importer makes. */
@@ -164,6 +195,19 @@ export function parseVaultImport(text: string): VaultImport {
   if (raw.startsWith("{")) {
     const json = vaultImportFromJson(raw);
     if (json) return json;
+    // JSON that isn't gear is nothing to import, never a CSV: read as one, a
+    // pretty-printed file is a row per line, and an account export came in as 1,000
+    // pieces named "format": "mahonia-account-export", "lists": [ and so on
+    if (parsesAsJson(raw)) return { rows: [], from: "json" };
   }
   return vaultImportFromCsv(raw);
+}
+
+function parsesAsJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -6,6 +6,9 @@
 
 import { describe, expect, it } from "vitest";
 import { vaultRow as row } from "./helpers/vault";
+import { folder, item, snapshotFor } from "./helpers/list";
+import { listToJson } from "../shared/exporters/json";
+import { listToCsv } from "../shared/exporters/csv";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport, vaultImportFromCsv, vaultImportFromJson } from "../shared/vaultImport";
 import { MAX_CATALOG_ID, MAX_FOLDERS } from "../shared/ops";
@@ -163,7 +166,44 @@ describe("parseVaultImport — the sniff", () => {
     expect(parseVaultImport("Item Name,Weight\nDuplex,539").from).toBe("csv");
   });
 
-  it("falls through to CSV for JSON that isn't a gear backup", () => {
+  it("reads JSON that isn't a gear backup as nothing, never as CSV", () => {
     expect(parseVaultImport('{"nope":1}').rows).toEqual([]);
+    // pretty-printed, a CSV reading made a piece of every line
+    expect(parseVaultImport(JSON.stringify({ nope: 1, more: [1, 2, 3] }, null, 2))).toEqual({ rows: [], from: "json" });
+  });
+});
+
+// The two other files of ours a person might hand My Gear: the account export, which
+// holds My Gear whole, and a list's own backup.
+describe("parseVaultImport — the account export and a list's backup", () => {
+  it("reads the gear out of an account export, as the browser saves it", () => {
+    const gear = JSON.parse(vaultToJson({ items: [row({ name: "Duplex", brand: "Zpacks", weightMg: 510_000 })] }));
+    const takeout = JSON.stringify({ format: "mahonia-account-export", version: 1, exportedAt: "x", lists: [{ title: "Trip", folders: [], items: [] }], gear }, null, 2);
+    const back = parseVaultImport(takeout);
+    expect(back.from).toBe("json");
+    expect(back.rows.map((r) => [r.brand, r.name, r.weightMg])).toEqual([["Zpacks", "Duplex", 510_000]]);
+  });
+
+  it("reads a list's backup as the gear in it, weights included, its headings and water left out", () => {
+    const list = snapshotFor({
+      folders: [folder()],
+      items: [
+        item({ id: "t", name: "Duplex", brand: "Zpacks", unitWeightMg: 510_000 }),
+        item({ id: "d", name: "Monday", sortOrder: 1 }),
+        item({ id: "d1", parentId: "d", name: "Bloks", unitWeightMg: 60_000, qty: 3 }),
+        item({ id: "w", name: "Water", unitWeightMg: 2_000_000, sortOrder: 2 }),
+      ],
+    });
+    const back = parseVaultImport(listToJson(list));
+    expect(back.from).toBe("json");
+    expect(back.rows.map((r) => [r.name, r.weightMg, r.owned])).toEqual([["Duplex", 510_000, undefined], ["Bloks", 60_000, 3]]);
+  });
+
+  it("leaves a list CSV's headings out too, now that it says which rows are groups", () => {
+    const list = snapshotFor({
+      folders: [folder()],
+      items: [item({ id: "d", name: "Monday" }), item({ id: "d1", parentId: "d", name: "Bloks", unitWeightMg: 60_000 })],
+    });
+    expect(parseVaultImport(listToCsv(list)).rows.map((r) => r.name)).toEqual(["Bloks"]);
   });
 });
