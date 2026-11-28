@@ -146,6 +146,17 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
     color-mix(in oklab, var(--foreground-primary) 10%, transparent),
     color-mix(in oklab, var(--foreground-primary) 18%, transparent)
   );
+  /* ---- the hover of a control with a SELECTED sibling beside it: a mode tab, a My Gear
+     tab, a people chip, a colour swatch. It sits UNDER --background-selected, so that
+     pointing and choosing stay two steps; at --background-hover's amount the thing you
+     point at would outweigh the thing that is on (8% over 6.5% in light). A little over
+     half of --background-selected in each theme, the mode bar's measure, which had this
+     pair as a literal while the swatches hovered in the selected plate itself and the
+     pane's tabs in no plate at all: three answers to one question. ---- */
+  --background-hover-subtle: light-dark(
+    color-mix(in oklab, var(--foreground-primary) 3.5%, transparent),
+    color-mix(in oklab, var(--foreground-primary) 7.5%, transparent)
+  );
   /* ---- the switch's OFF TRACK: a control that is OFF, held as an empty well for its
      knob (the Worn/Consumable switch). --background-selected's counterpart, and the same
      kind of token for the same reason — an AMOUNT OF FOREGROUND and not a named tone,

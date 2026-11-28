@@ -861,8 +861,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
+/* the mode bar's hover (--background-hover-subtle): /gear draws these same three tabs
+   with the mode bar itself, and here they answered the pointer in foreground alone */
 @media (hover: hover) and (pointer: fine) {
   .vp__tab:hover {
+    background: var(--background-hover-subtle);
     color: var(--foreground-primary);
   }
 }
