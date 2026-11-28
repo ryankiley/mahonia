@@ -1,4 +1,5 @@
 import type { Op } from "~~/shared/ops";
+import { newSessionStamp, type StampedOp } from "~~/shared/opStamp";
 import { applyOps, tidyStoredList, rebaseOnto } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { STARTER_FOLDERS } from "~~/shared/categories";
@@ -88,10 +89,12 @@ function create() {
   const keylessCode = computed(() => (access.value.kind === "keyless" ? access.value.code : ""));
   // Every op the server has not acknowledged, oldest first, and what writeLocal puts on
   // the device. A batch out in a request stays at the head until its answer lands, so
-  // no write made meanwhile can leave it out.
-  let pending: Op[] = [];
-  // How many ops at the head of `pending` are out in flush()'s request right now.
-  let inFlightOps = 0;
+  // no write made meanwhile can leave it out. Each is stamped when queued with this
+  // session and its place in the session's queue, so a copy sent again (its answer was
+  // never heard) is one the server knows it has applied (shared/opStamp.ts).
+  let pending: StampedOp[] = [];
+  let stampFrom = newSessionStamp();
+  let stampSeq = 0;
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
   // The failure path's own timer, kept apart from flushTimer so a backoff already
   // counting down can be cancelled on teardown rather than firing into a session that
@@ -536,8 +539,11 @@ function create() {
     // this one, and a load() that fails never starts a chain of its own to replace it
     stopPoll();
     pending = [];
+    // a new session stamps its own ops from 1; any op the device kept from an earlier
+    // one still carries that one's stamp
+    stampFrom = newSessionStamp();
+    stampSeq = 0;
     inFlight = false;
-    inFlightOps = 0;
     creating = undefined;
     isEditing = false;
     // the vault question is about THIS list — an unanswered one must not ride
@@ -907,15 +913,17 @@ function create() {
     // post-create flush. A claimed open is NOT a draft — it queues and flushes
     // below exactly like a token-held list.
     if (!holdsList()) {
-      if (inFlight) pending.push(op);
+      if (inFlight) pending.push(stamped(op));
       else if (hasRealContent(snapshot.value)) createFromDraft();
       return;
     }
     // the server row is gone (deleted/rotated token) — edits stay on-device only
     if (remoteMissing()) return;
-    pending.push(op);
+    pending.push(stamped(op));
     scheduleFlush();
   }
+
+  const stamped = (op: Op): StampedOp => ({ ...op, from: stampFrom, seq: ++stampSeq });
 
   function scheduleFlush() {
     clearTimeout(flushTimer);
@@ -943,7 +951,6 @@ function create() {
     // carries it, and a failure has nothing to put back.
     const ops = pending.slice(0, FLUSH_BATCH_MAX);
     inFlight = true;
-    inFlightOps = ops.length;
     let failed = false;
     // DON'T ANNOUNCE A RETRY. Once the line reads "Not saved", flipping it to
     // "Syncing…" and back for every attempt is a strobe rather than information — the
@@ -1012,7 +1019,6 @@ function create() {
     } finally {
       if (myEpoch === epochRef.value) {
         inFlight = false;
-        inFlightOps = 0;
         // ONLY chase the queue when this attempt actually landed. This is what drains
         // a backlog past FLUSH_BATCH_MAX across sequential flushes — but on the failure
         // path `pending` is never empty, because the failed batch is still in it, so
@@ -1387,14 +1393,17 @@ function create() {
     // unconditionally (a new instance clearing whatever came before it).
     if (ownEpoch !== undefined && ownEpoch !== epochRef.value) return;
     // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
-    // queued ops aren't silently dropped on the way out. Capped at one batch
-    // (FLUSH_BATCH_MAX), and starting past the ops flush() already has out, so no
-    // batch is in two requests at once. Nothing reads the answer: every op stays in
-    // the on-device copy below and goes again on the next open. A dead token would
-    // only 404, so don't bother.
-    const unsent = pending.slice(inFlightOps, inFlightOps + FLUSH_BATCH_MAX);
-    if (unsent.length && holdsList() && !remoteMissing()) {
-      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: unsent } }).catch(() => {});
+    // queued ops aren't silently dropped on the way out. One batch (FLUSH_BATCH_MAX)
+    // from the head of the queue, and only while nothing else is out: a batch sent
+    // beside one in flight (or beside a restore) could land first, and the server,
+    // which skips an op at or below what its session already reached
+    // (shared/opStamp.ts), would then take the earlier batch for a copy. Nothing reads
+    // the answer: every op stays in the on-device copy below and goes again on the
+    // next open, where the server skips what landed. A dead token would only 404, so
+    // don't bother.
+    if (!inFlight && pending.length && holdsList() && !remoteMissing()) {
+      const ops = pending.slice(0, FLUSH_BATCH_MAX);
+      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops } }).catch(() => {});
     }
     // capture the latest state on device before teardown — the debounced persist
     // may not have fired, and SPA nav / unmount must not drop the last edits
