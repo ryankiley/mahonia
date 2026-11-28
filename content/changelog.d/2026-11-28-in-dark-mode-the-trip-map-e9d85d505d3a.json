@@ -1,6 +1,6 @@
 {
   "date": "2026-11-28",
   "fixed": [
-    "In dark mode, the trip map's pin cards and frame now stay light over the map, as they always looked in development."
+    "In dark mode, the trip map's pin cards and frame now stay light to match the map, instead of turning dark over it."
   ]
 }
