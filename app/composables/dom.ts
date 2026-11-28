@@ -179,34 +179,40 @@ export function useRetryWhile(when: Readonly<Ref<boolean>>, retry: () => void, e
 // `onDismiss` is for a menu that has more to put away than the flag — the list
 // switcher also clears the search it was filtered by, so reopening it doesn't
 // start half-scrolled through yesterday's query. Omit it and closing is just the
-// flag, which is what most of them want.
+// flag, which is what most of them want. It is handed the event, for a surface that
+// answers Escape differently from a press elsewhere (a panel of fields: ListHead).
+type MenuTarget = { readonly value: HTMLElement | null | undefined };
+// the surfaces open right now, so that one holding another can leave Escape to it
+const openMenus = new Set<MenuTarget>();
 export function useMenuDismiss(
   open: Ref<boolean>,
   // same structural ref shape the primitives take, so template refs fit
-  target: { readonly value: HTMLElement | null | undefined },
-  onDismiss?: () => void,
+  target: MenuTarget,
+  onDismiss?: (e: Event) => void,
 ): void {
   const close = onDismiss ?? (() => (open.value = false));
   // Focus that is in the menu as it closes goes back to its trigger, the first button
   // in it, rather than falling to the page when the row it was on is removed. For
   // Escape, and for a row that closes the menu itself: the dialog such a row opens
   // returns focus to whatever held it then (BaseModal).
-  const focusTrigger = () => {
+  const trigger = () => {
     const root = target.value;
-    if (root?.contains(document.activeElement)) root.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    return root?.contains(document.activeElement) ? root.querySelector<HTMLElement>("button") : null;
   };
+  const focusTrigger = () => trigger()?.focus({ preventScroll: true });
   let scope: EffectScope | null = null;
   const bind = (on: boolean) => {
     if (on && !scope) {
+      openMenus.add(target);
       scope = effectScope(true);
       scope.run(() => {
-        onClickOutside(target, () => close());
+        onClickOutside(target, close);
         useWindowEvent(
           "touchmove",
           (e) => {
             const el = target.value;
             if (el && e.composedPath().includes(el)) return;
-            close();
+            close(e);
           },
           // capture, so a drag over any nested scroller is heard too
           { passive: true, capture: true },
@@ -214,19 +220,27 @@ export function useMenuDismiss(
         // Escape closes the menu and nothing else: caught on the way DOWN (capture),
         // ahead of a dialog's own window listener, and marked handled so a menu inside
         // a dialog doesn't take the dialog with it (onKeyStroke skips a handled key).
-        // Focus that was in the menu goes back to its trigger (focusTrigger).
+        // Focus that was in the menu goes back to its trigger.
         useWindowEvent(
           "keydown",
           (e) => {
             if (e.key !== "Escape") return;
+            // The innermost only: with another one open inside this one (a unit picker
+            // in a panel of fields) the key is that one's, and this waits for the next.
+            const el = target.value;
+            for (const { value: inner } of openMenus) if (inner && inner !== el && el?.contains(inner)) return;
             e.preventDefault();
-            focusTrigger();
-            close();
+            // Closed first, focus moved second: a field fires its change as focus
+            // leaves it, and onDismiss has to have heard that this was Escape by then.
+            const back = trigger();
+            close(e);
+            back?.focus({ preventScroll: true });
           },
           { capture: true },
         );
       });
     } else if (!on && scope) {
+      openMenus.delete(target);
       scope.stop();
       scope = null;
     }

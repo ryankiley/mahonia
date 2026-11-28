@@ -11,12 +11,15 @@
 // and that set once closed on Escape without marking the key handled: with My Gear open
 // beside the list, Escape in a row's menu closed the pane too. Driven through
 // ItemRowMenu, the row's menu shell.
+//
+// And a menu INSIDE a surface that useMenuDismiss also closes (a unit picker in a panel
+// of fields) is two open at once, both hearing the key: it belongs to the innermost.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
-import { effectScope } from "vue";
+import { defineComponent, effectScope, h, ref } from "vue";
 import ItemRowMenu from "~/components/ItemRowMenu.vue";
 import OptionMenu from "~/components/OptionMenu.vue";
-import { onKeyStroke } from "~/composables/dom";
+import { onKeyStroke, useMenuDismiss } from "~/composables/dom";
 import { useItemMenu } from "~/composables/useItemMenu";
 
 let wrapper: ReturnType<typeof mount> | undefined;
@@ -117,5 +120,49 @@ describe("Escape in a row's popover", () => {
     document.body.click();
     await flushPromises();
     expect(isOpen()).toBe(false);
+  });
+});
+
+describe("Escape in a menu inside a panel that closes the same way", () => {
+  const Panel = defineComponent({
+    setup() {
+      const open = ref(false);
+      const root = ref<HTMLElement | null>(null);
+      useMenuDismiss(open, root);
+      return () =>
+        h("div", { ref: root }, [
+          h("button", { type: "button", class: "opener", onClick: () => (open.value = true) }, "Edit"),
+          open.value &&
+            h("div", { class: "panel" }, [
+              h(
+                OptionMenu,
+                { options: [{ key: "mi", label: "mi" }, { key: "km", label: "km" }], current: "mi", label: "Distance unit" },
+                { trigger: () => h("span", "mi") },
+              ),
+            ]),
+        ]);
+    },
+  });
+
+  it("closes the menu only, then the panel, then the surface around both", async () => {
+    const closeSurface = vi.fn();
+    const scope = effectScope();
+    scope.run(() => onKeyStroke("Escape", closeSurface));
+    wrapper = mount(Panel, { attachTo: document.body });
+    await wrapper.find(".opener").trigger("click");
+    await wrapper.find(".optmenu__btn").trigger("click");
+    expect(isOpen()).toBe(true);
+
+    await escape();
+    expect(isOpen()).toBe(false);
+    expect(wrapper.find(".panel").exists()).toBe(true);
+
+    await escape();
+    expect(wrapper.find(".panel").exists()).toBe(false);
+    expect(closeSurface).not.toHaveBeenCalled();
+
+    await escape();
+    expect(closeSurface).toHaveBeenCalledTimes(1);
+    scope.stop();
   });
 });
