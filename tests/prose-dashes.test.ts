@@ -31,7 +31,8 @@ const ALLOWED: RegExp[] = [
   /— (Mahonia|pack list)["`]/, // "<page> — Mahonia" title separators, the hidden h1
   /Mahonia — pack lists, weighed/, // the site title
   /\$\{m\.title\} — /, // the OG card's "<title> — <weight>" line
-  /\$\{name\} — \$\{commonName\}/, // Markdown export: name — gear type
+  /\$\{cell\(name\)\} — \$\{sub\}/, // Markdown export: name — gear type · note
+  /lastIndexOf\(" — "\)/, // a dash READ, not written: the Markdown import finding that separator
   /join\(" — "\)/, // plain-text export separator
   /[">`']—["<`']/, // a lone "—" as an empty value (cells, placeholders)
   /(\d|\}|\bA)\s*–\s*(\d|\$\{|Z\b)/, // en dash in a range: 1–2, ${a}–${b}, A–Z
