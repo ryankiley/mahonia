@@ -156,7 +156,7 @@ export function normalizeRouteGeometry(raw: unknown): string | undefined {
 
 /** Metres in one degree of latitude. The two measurements below both scale by it, and
  *  they have to agree or a perpendicular distance stops matching the length it's judged
- *  against; Trail Spin's flat-earth model takes it too (shared/routeSpin.ts). */
+ *  against; /trail-spin's flat-earth model takes it too (shared/routeSpin.ts). */
 export const M_PER_DEG = 111_320;
 
 /** Metres between two points — the flat-earth approximation, which is exact enough at the

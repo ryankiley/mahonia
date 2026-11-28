@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "The route video page's bar, buttons and info cards now read clearly on any background colour you pick."
+  ],
+  "fixed": [
+    "Saved file names keep a word with an apostrophe or ʻokina whole, so Keoneheʻeheʻe saves as keoneheehee."
+  ]
+}
