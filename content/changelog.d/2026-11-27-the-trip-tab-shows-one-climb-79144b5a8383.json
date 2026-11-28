@@ -1,0 +1,8 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "The Trip tab shows one climb figure: the route's own when there is a route, and Total climb from your days when there isn't.",
+    "On a phone, the Trip tab's summary figures stand in two columns that line up with the day rows.",
+    "A trip day's camp line says what it is warmer or cooler than: the start of the route."
+  ]
+}
