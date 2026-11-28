@@ -123,12 +123,3 @@ export function leftoverWords(typed: string, product: { brand: string | null; na
     .filter((w) => w && !name.some((n) => n.startsWith(w)))
     .join(" ");
 }
-
-/** The fit a version is cut for, read off the front of its text ("Men's Medium",
- *  "Women's"), which is where the catalog's house rules put it. Null for everything else:
- *  most gear has no fit, and a remembered fit only ever chooses between two rows that
- *  state one. */
-export function fitOf(variant: string | null | undefined): "mens" | "womens" | null {
-  const first = versionFold(variant ?? "").split(" ", 1)[0];
-  return first === "mens" || first === "womens" ? first : null;
-}

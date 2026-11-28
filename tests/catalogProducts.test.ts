@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { csvToCatalogRows } from "../scripts/catalogCsv";
 import { CATALOG_CSV } from "../scripts/paths";
-import { beginsVersion, compareVersions, fitOf, groupProducts, leftoverWords, narrowVersions, nearestVersion, productKey } from "../shared/catalogProducts";
+import { beginsVersion, compareVersions, groupProducts, leftoverWords, narrowVersions, nearestVersion, productKey } from "../shared/catalogProducts";
 import type { CatalogSearchResult } from "../shared/catalogSearch";
 
 const row = (id: number, name: string, variant: string | null, brand = "El Coyote"): CatalogSearchResult => ({
@@ -130,20 +130,5 @@ describe("leftoverWords", () => {
     expect(leftoverWords("Mountain Hardwear Ghost Whisperer Hoody", hoody)).toBe("");
     // a number in the model is the model's
     expect(leftoverWords("alphalite 900", { brand: "El Coyote", name: "AlphaLite 900 Quilt" })).toBe("");
-  });
-});
-
-describe("fitOf", () => {
-  it("reads the fit off the front of a version", () => {
-    expect(fitOf("Men's Medium")).toBe("mens");
-    expect(fitOf("Women’s")).toBe("womens");
-    expect(fitOf("Women's XS/S")).toBe("womens");
-  });
-  it("is null for a version that states none", () => {
-    expect(fitOf("Medium")).toBeNull();
-    expect(fitOf("20F, Regular")).toBeNull();
-    expect(fitOf(null)).toBeNull();
-    // only at the front: "Unisex, fits most men" is not a men's cut
-    expect(fitOf("One size, men")).toBeNull();
   });
 });
