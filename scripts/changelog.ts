@@ -1,7 +1,6 @@
 // Writes one entry for the changelog (published as a GitHub Release per day),
 // so the plain-style, grouped format stays consistent when we ship a user-facing
-// change. Content is checked-in JSON — never derived from git at build time,
-// which is unreliable on Vercel's shallow clone.
+// change. Content is checked-in JSON, hand-written, never derived from git.
 //
 // Usage:
 //   npm run changelog -- --added "Sort folders by weight."

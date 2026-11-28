@@ -10,6 +10,7 @@ import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { MAX_ITEMS, MAX_ITEM_NOTE_LEN, MAX_TITLE_LEN } from "../shared/ops";
 import type { Item, ListSnapshot } from "../shared/types";
+import { sortedKeys } from "./helpers/fields";
 import { makeEvent } from "./helpers/http";
 
 // The MCP endpoint, driven as a client would drive it: a real H3 event over bare node
@@ -28,28 +29,16 @@ vi.mock("../server/utils/listRepo", () => repo);
 const catalog = vi.hoisted(() => ({ searchCatalog: vi.fn(), productVariants: vi.fn(), catalogRowsById: vi.fn(async () => new Map()) }));
 vi.mock("../server/utils/catalog", () => catalog);
 vi.mock("../server/utils/db", () => ({ useCatalogDb: async () => ({}) }));
-const limiter = vi.hoisted(() => {
-  // the shared KV the replay window lives in, as a Map: what the limiter's own tests
-  // inject, minus the TTL (a case that needs expiry clears it by hand)
-  const kv = new Map<string, unknown>();
-  // the TTL each write asked for, so a test can see the window is bounded in the store
-  const ttls = new Map<string, number | undefined>();
+const limiter = await vi.hoisted(async () => {
+  // the shared KV the replay window lives in: it keeps the TTL each write asked for, so
+  // a test can see the window is bounded in the store, and expires nothing (a case that
+  // needs expiry ages the entry by hand)
+  const kv = (await import("./helpers/kv")).memoryKv();
   return {
     kv,
-    ttls,
     rateLimit: vi.fn<(event: unknown, action: string) => Promise<void>>(async () => {}),
     rateLimitSubject: vi.fn<(action: string, subject: string) => Promise<void>>(async () => {}),
-    useKv: () => ({
-      getItem: async <T,>(key: string) => (kv.get(key) as T | undefined) ?? null,
-      setItem: async <T,>(key: string, value: T, opts?: { ttl?: number }) => {
-        kv.set(key, value);
-        ttls.set(key, opts?.ttl);
-      },
-      removeItem: async (key: string) => {
-        kv.delete(key);
-        ttls.delete(key);
-      },
-    }),
+    useKv: () => kv,
   };
 });
 vi.mock("../server/utils/rateLimit", () => limiter);
@@ -684,11 +673,11 @@ describe("writing", () => {
     repo.applyOpsByEditHash.mockResolvedValue(snap());
     const args = { edit_link: EDIT_LINK, add: [{ name: "Spoon" }] };
     await call("edit_list", args);
-    const [key, entry] = [...limiter.kv.entries()].find(([k]) => k.startsWith("mcp:replay:"))!;
-    expect(limiter.ttls.get(key)).toBe(600);
-    limiter.kv.set(key, { ...(entry as object), at: Date.now() - 11 * 60_000 });
+    const [key, entry] = [...limiter.kv.store.entries()].find(([k]) => k.startsWith("mcp:replay:"))!;
+    expect(limiter.kv.ttls.get(key)).toBe(600);
+    limiter.kv.store.set(key, { ...(entry as object), at: Date.now() - 11 * 60_000 });
     expect(toolText(await call("edit_list", args)).structured).toMatchObject({ repeated: false });
-    limiter.kv.set(key, { title: "Timberline", added: 1, repeated: false });
+    limiter.kv.store.set(key, { title: "Timberline", added: 1, repeated: false });
     expect(toolText(await call("edit_list", args)).structured).toMatchObject({ repeated: false });
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(3);
   });
@@ -894,7 +883,6 @@ describe("writing", () => {
 // values are is the other tests' business. The account's tools are held the same way
 // in mcpGear.test.ts and the admin's in mcpAdmin.test.ts.
 describe("the fields each tool answers with", () => {
-  const keys = (value: unknown) => Object.keys(value as object).sort();
   type Fields = Record<string, unknown>;
 
   it("get_list as data: the list, its totals, dates, trail and days, a folder, a row and a nested row", async () => {
@@ -908,16 +896,16 @@ describe("the fields each tool answers with", () => {
     Object.assign(full.items[0]!, { qty: 2, wornQty: 1, description: "seam sealed", kcal: 10, needsCooking: true, personId: "p1" });
     repo.getByShareCode.mockResolvedValue(full);
     const list = toolText(await call("get_list", { share_code: "ABC123DEF456" })).structured as Fields & { days: Fields[]; folders: (Fields & { items: (Fields & { items: Fields[] })[] })[] };
-    expect(keys(list)).toEqual(["author", "dates", "days", "description", "folders", "people", "share_code", "share_link", "title", "totals", "trail", "unit"]);
-    expect(keys(list.totals)).toEqual(["base_g", "carried_g", "consumable_g", "item_count", "kcal", "total_g", "worn_g"]);
-    expect(keys(list.dates)).toEqual(["end", "start"]);
-    expect(keys(list.trail)).toEqual(["ascent_m", "descent_m", "distance_m", "label", "url"]);
-    expect(keys(list.days[0])).toEqual(["ascent_m", "day", "distance_m", "label", "note"]);
+    expect(sortedKeys(list)).toEqual(["author", "dates", "days", "description", "folders", "people", "share_code", "share_link", "title", "totals", "trail", "unit"]);
+    expect(sortedKeys(list.totals)).toEqual(["base_g", "carried_g", "consumable_g", "item_count", "kcal", "total_g", "worn_g"]);
+    expect(sortedKeys(list.dates)).toEqual(["end", "start"]);
+    expect(sortedKeys(list.trail)).toEqual(["ascent_m", "descent_m", "distance_m", "label", "url"]);
+    expect(sortedKeys(list.days[0])).toEqual(["ascent_m", "day", "distance_m", "label", "note"]);
     const shelter = list.folders[0]!;
-    expect(keys(shelter)).toEqual(["id", "items", "name"]);
+    expect(sortedKeys(shelter)).toEqual(["id", "items", "name"]);
     const tent = shelter.items[0]!;
-    expect(keys(tent)).toEqual(["brand", "carried_by", "catalog_id", "classification", "display_name", "gear_type", "id", "items", "kcal", "name", "needs_cooking", "note", "qty", "variant", "weight_g", "worn_qty"]);
-    expect(keys(tent.items[0])).toEqual(["classification", "display_name", "id", "name", "qty", "weight_g"]);
+    expect(sortedKeys(tent)).toEqual(["brand", "carried_by", "catalog_id", "classification", "display_name", "gear_type", "id", "items", "kcal", "name", "needs_cooking", "note", "qty", "variant", "weight_g", "worn_qty"]);
+    expect(sortedKeys(tent.items[0])).toEqual(["classification", "display_name", "id", "name", "qty", "weight_g"]);
   });
 
   it("search_catalog: a search, and one product's variants", async () => {
@@ -925,26 +913,26 @@ describe("the fields each tool answers with", () => {
     const rowKeys = ["brand", "category", "display_name", "gear_type", "id", "kcal", "name", "source_url", "variant", "verified", "weight_g", "weight_source"];
     catalog.searchCatalog.mockResolvedValue([row]);
     const found = toolText(await call("search_catalog", { query: "builders" })).structured as { results: Fields[] };
-    expect(keys(found)).toEqual(["query", "results"]);
-    expect(keys(found.results[0])).toEqual(rowKeys);
+    expect(sortedKeys(found)).toEqual(["query", "results"]);
+    expect(sortedKeys(found.results[0])).toEqual(rowKeys);
     catalog.productVariants.mockResolvedValue({ brand: row.brand, name: row.name, commonName: row.commonName, categoryHint: row.categoryHint, variants: [row] });
     const product = toolText(await call("search_catalog", { product_id: 9 })).structured as { product: Fields; results: Fields[] };
-    expect(keys(product)).toEqual(["product", "results"]);
-    expect(keys(product.product)).toEqual(["brand", "category", "gear_type", "name"]);
-    expect(keys(product.results[0])).toEqual(rowKeys);
+    expect(sortedKeys(product)).toEqual(["product", "results"]);
+    expect(sortedKeys(product.product)).toEqual(["brand", "category", "gear_type", "name"]);
+    expect(sortedKeys(product.results[0])).toEqual(rowKeys);
   });
 
   it("create_list", async () => {
     repo.createList.mockResolvedValue({ editToken: TOKEN, snapshot: snap() });
     const made = toolText(await call("create_list", { title: "Timberline", items: [{ name: "Tent" }] })).structured;
-    expect(keys(made)).toEqual(["edit_link", "folders", "items", "repeated", "saved_to_account", "share_code", "share_link", "title", "totals"]);
+    expect(sortedKeys(made)).toEqual(["edit_link", "folders", "items", "repeated", "saved_to_account", "share_code", "share_link", "title", "totals"]);
   });
 
   it("edit_list", async () => {
     repo.getByEditHash.mockResolvedValue(snap());
     repo.applyOpsByEditHash.mockResolvedValue(snap());
     const done = toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { title: "Timberline" } })).structured;
-    expect(keys(done)).toEqual(["added", "dates", "folders", "folders_changed", "folders_made", "removed", "repeated", "share_link", "title", "totals", "trail", "unit", "updated"]);
+    expect(sortedKeys(done)).toEqual(["added", "dates", "folders", "folders_changed", "folders_made", "removed", "repeated", "share_link", "title", "totals", "trail", "unit", "updated"]);
   });
 });
 

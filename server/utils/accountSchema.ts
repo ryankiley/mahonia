@@ -146,9 +146,6 @@ export const ACCOUNT_DDL: string[] = [
     last_used_at timestamptz,
     unproven boolean NOT NULL DEFAULT false
   )`,
-  // A flag written and never read, still on tables made before it left the CREATE.
-  // Delete this ALTER once it has deployed.
-  `ALTER TABLE credentials DROP COLUMN IF EXISTS discoverable`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_credential_id ON credentials (credential_id)`,
   `CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials (user_id)`,
 
@@ -161,8 +158,5 @@ export const ACCOUNT_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_list_claims_identity ON list_claims (user_id, list_id)`,
-  // (user_id) alone is a prefix of the unique index above, which serves it. Delete
-  // this DROP once it has deployed.
-  `DROP INDEX IF EXISTS idx_list_claims_user`,
-
-  ];
+  // no index on (user_id) alone: it is a prefix of the unique index above, which serves it
+];

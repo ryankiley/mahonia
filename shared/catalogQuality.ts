@@ -204,12 +204,14 @@ export function categoryForGearType(commonName: string | null | undefined, catal
   return GEAR_TYPE_CATEGORY[phrase] ?? GEAR_TYPE_CATEGORY[last] ?? null;
 }
 
-/** Where the verified catalog files each gear type it carries, keyed by the search fold
- *  (normKey) categoryForGearType reads a label through. A gear type filed two ways goes
- *  where most of its rows are, a tie to the first category alphabetically, so the answer
- *  never hangs on the order rows come back in. A row with no category counts as "other",
- *  as the audit counts it. Pass verified rows only: a community row's category was typed. */
-export function catalogCategories(rows: readonly { commonName: string | null; categoryHint: string | null }[]): Map<string, string> {
+type FiledRow = { commonName: string | null; categoryHint: string | null };
+
+/** How many rows of each gear type sit in each category, the gear type keyed by the
+ *  search fold (normKey) and the categories in the order rows first name them. A row
+ *  with no category counts as "other"; a row with no gear type takes no part. The one
+ *  count behind both catalogCategories and the audit's category-outlier rule
+ *  (scripts/catalogChecks.ts), so verification files a row where the audit will look. */
+export function gearTypeCategoryCounts(rows: readonly FiledRow[]): Map<string, Map<string, number>> {
   const counts = new Map<string, Map<string, number>>();
   for (const r of rows) {
     const key = normKey(r.commonName);
@@ -218,8 +220,17 @@ export function catalogCategories(rows: readonly { commonName: string | null; ca
     const category = r.categoryHint ?? "other";
     m.set(category, (m.get(category) ?? 0) + 1);
   }
+  return counts;
+}
+
+/** Where the verified catalog files each gear type it carries, keyed as
+ *  gearTypeCategoryCounts keys it, the fold categoryForGearType reads a label through. A
+ *  gear type filed two ways goes where most of its rows are, a tie to the first category
+ *  alphabetically, so the answer never hangs on the order rows come back in. Pass
+ *  verified rows only: a community row's category was typed. */
+export function catalogCategories(rows: readonly FiledRow[]): Map<string, string> {
   return new Map(
-    [...counts].map(([key, m]) => [key, [...m].sort(([a, na], [b, nb]) => nb - na || (a < b ? -1 : a > b ? 1 : 0))[0]![0]]),
+    [...gearTypeCategoryCounts(rows)].map(([key, m]) => [key, [...m].sort(([a, na], [b, nb]) => nb - na || (a < b ? -1 : a > b ? 1 : 0))[0]![0]]),
   );
 }
 

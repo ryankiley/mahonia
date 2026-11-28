@@ -13,27 +13,9 @@
 // Also pinned: the close's wait. It re-parks the map after the clip's slide, which under
 // reduced motion or from the keyboard (Escape) is no slide at all — and the map used to sit
 // over the page for the full beat anyway.
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { enableAutoUnmount, mount, type VueWrapper } from "@vue/test-utils";
-import RouteMap from "~/components/RouteMap.client.vue";
-import { encodePolyline } from "~~/shared/polyline";
-
-const geometry = encodePolyline([
-  { lat: 45.3736, lon: -121.696 },
-  { lat: 45.378, lon: -121.69 },
-  { lat: 45.382, lon: -121.684 },
-]);
-
-beforeAll(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { enableAutoUnmount } from "@vue/test-utils";
+import { mountRouteMap } from "./helpers/routeMap";
 
 enableAutoUnmount(afterEach);
 
@@ -61,8 +43,7 @@ afterEach(() => {
 });
 
 async function open() {
-  const wrapper: VueWrapper = mount(RouteMap, { props: { geometry, dayDistancesM: [] }, attachTo: document.body });
-  await vi.waitFor(() => expect(wrapper.element.querySelector(".leaflet-container")).not.toBeNull(), { interval: 25 });
+  const { wrapper } = await mountRouteMap({}, { ready: (root) => root.querySelector(".leaflet-container") !== null });
   const container = () => wrapper.element.querySelector(".leaflet-container")!;
   return {
     wrapper,

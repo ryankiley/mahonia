@@ -15,16 +15,12 @@ import { makeEvent, stubFetch } from "./helpers/http";
 // that proves the tools and the repo agree on what a list is.
 
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
-vi.mock("../server/utils/rateLimit", () => {
-  const kv = new Map<string, unknown>();
+vi.mock("../server/utils/rateLimit", async () => {
+  const kv = (await import("./helpers/kv")).memoryKv();
   return {
     rateLimit: async () => {},
     rateLimitSubject: async () => {},
-    useKv: () => ({
-      getItem: async (k: string) => kv.get(k) ?? null,
-      setItem: async (k: string, v: unknown) => void kv.set(k, v),
-      removeItem: async (k: string) => void kv.delete(k),
-    }),
+    useKv: () => kv,
   };
 });
 // searchCatalog reads DATABASE_URL at call time to pick the Neon SQL branch, which a

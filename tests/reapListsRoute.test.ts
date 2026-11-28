@@ -11,6 +11,7 @@ import { refreshStaleFavicons } from "../server/utils/trailFavicon";
 import reapListsRoute from "../server/routes/api/cron/reap-lists";
 import { createTestDb, makeList, type TestDb } from "./helpers/db";
 import { makeEvent } from "./helpers/http";
+import { memoryKv } from "./helpers/kv";
 
 // The route reaches for the connection accessors itself; each answers this file's
 // throwaway database.
@@ -33,12 +34,8 @@ vi.mock("../server/utils/trailFavicon", async (importOriginal) => ({
 }));
 
 // requireCron throttles through Nitro's `useStorage("kv")`, which plain vitest lacks.
-const kv = new Map<string, unknown>();
-vi.stubGlobal("useStorage", () => ({
-  getItem: async (key: string) => kv.get(key) ?? null,
-  setItem: async (key: string, value: unknown) => void kv.set(key, value),
-  removeItem: async (key: string) => void kv.delete(key),
-}));
+const kv = memoryKv();
+vi.stubGlobal("useStorage", () => kv);
 
 const SECRET = "cron-secret-for-tests";
 const run = () => reapListsRoute(makeEvent("/api/cron/reap-lists", { headers: { authorization: `Bearer ${SECRET}` } }));

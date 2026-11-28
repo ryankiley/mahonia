@@ -25,6 +25,7 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { applyVaultItemOp } from "../server/utils/vaultRepo";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
+import { sortedKeys } from "./helpers/fields";
 import { makeEvent } from "./helpers/http";
 
 // The account side of the connector, driven through the real endpoint against a real
@@ -36,29 +37,15 @@ import { makeEvent } from "./helpers/http";
 // revoked token is dead on the next call. The sign-in itself is tests/oauth.test.ts.
 
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
-// the shared KV the replay windows live in, as a Map, emptied after every test so a
-// call in one can't be taken for a retry of another's
-const kv = vi.hoisted(() => new Map<string, unknown>());
-const ttls = vi.hoisted(() => new Map<string, number | undefined>());
+// the shared KV the replay windows live in, emptied after every test so a call in one
+// can't be taken for a retry of another's
+const kv = await vi.hoisted(async () => (await import("./helpers/kv")).memoryKv());
 vi.mock("../server/utils/rateLimit", () => ({
   rateLimit: async () => {},
   rateLimitSubject: vi.fn(async () => {}),
-  useKv: () => ({
-    getItem: async <T,>(key: string) => (kv.get(key) as T | undefined) ?? null,
-    setItem: async <T,>(key: string, value: T, opts?: { ttl?: number }) => {
-      kv.set(key, value);
-      ttls.set(key, opts?.ttl);
-    },
-    removeItem: async (key: string) => {
-      kv.delete(key);
-      ttls.delete(key);
-    },
-  }),
+  useKv: () => kv,
 }));
-afterEach(() => {
-  kv.clear();
-  ttls.clear();
-});
+afterEach(() => kv.clear());
 // the catalog reads pick their SQL by DATABASE_URL at call time; a shell with it
 // exported must not turn this suite red for a reason that has nothing to do with the code
 vi.stubEnv("DATABASE_URL", "");
@@ -957,7 +944,7 @@ describe("create_list retried by the same account", () => {
   const LIST = { title: "Enchantments", items: [{ name: "Quilt", weight_g: 600 }] };
   const filed = async () => (await listClaimedLists(db, erin)).map((l) => l.shareCode);
 
-  const replayKeys = () => [...kv.keys()].filter((k) => k.startsWith("mcp:replay:"));
+  const replayKeys = () => [...kv.store.keys()].filter((k) => k.startsWith("mcp:replay:"));
 
   it("answers the repeat with the list already made, no second list and no edit link", async () => {
     const first = await tool("create_list", LIST, erinWrite);
@@ -966,8 +953,8 @@ describe("create_list retried by the same account", () => {
     expect(first.data.edit_link).toContain("/e/");
     // kept ten minutes in the store, and nothing in it is the edit link
     const [key] = replayKeys();
-    expect(ttls.get(key!)).toBe(600);
-    expect(JSON.stringify(kv.get(key!))).not.toContain("/e/");
+    expect(kv.ttls.get(key!)).toBe(600);
+    expect(JSON.stringify(kv.store.get(key!))).not.toContain("/e/");
     const retry = await tool("create_list", LIST, erinWrite);
     expect(retry.refused, retry.text).toBe(false);
     expect(retry.data).toMatchObject({ share_code: first.data.share_code, saved_to_account: true, repeated: true, items: 1 });
@@ -1026,18 +1013,18 @@ describe("create_list retried by the same account", () => {
     try {
       const first = await tool("create_list", LIST, erinWrite);
       const [key] = replayKeys();
-      const done = kv.get(key!);
+      const done = kv.store.get(key!);
       // as the first call's claim reads while its write is under way
-      kv.set(key!, { at: Date.now(), pending: true });
-      setTimeout(() => kv.set(key!, done), 30);
+      kv.store.set(key!, { at: Date.now(), pending: true });
+      setTimeout(() => kv.store.set(key!, done), 30);
       expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: first.data.share_code });
       Object.assign(REPLAY_WAIT, { totalMs: 20 });
-      kv.set(key!, { at: Date.now(), pending: true });
+      kv.store.set(key!, { at: Date.now(), pending: true });
       const busy = await tool("create_list", LIST, erinWrite);
       expect(busy.refused).toBe(true);
       expect(busy.text).toContain("still being made");
       // a claim whose call died lapses after a minute, and the next call makes the list
-      kv.set(key!, { at: Date.now() - 61_000, pending: true });
+      kv.store.set(key!, { at: Date.now() - 61_000, pending: true });
       expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: false });
     } finally {
       Object.assign(REPLAY_WAIT, was);
@@ -1113,7 +1100,6 @@ describe("My Gear answers that say what happened", () => {
 // list tools': a producer that grows or loses a field fails here. An account of its
 // own, so the page holds only these pieces.
 describe("the fields each account tool answers with", () => {
-  const keys = (value: unknown) => Object.keys(value as object).sort();
   type Fields = Record<string, unknown>;
   // everything a piece can carry at once, short of being in a kit or being one
   const PIECE = ["brand", "catalog_id", "classification", "currency", "display_name", "gear_type", "id", "kcal", "kind", "last_used", "name", "owned", "price", "product_url", "variant", "weight_g"];
@@ -1130,33 +1116,33 @@ describe("the fields each account tool answers with", () => {
   });
 
   it("edit_my_gear: the answer, an entry of each part, and a piece", async () => {
-    expect(keys(made.data)).toEqual(["added", "removed", "results", "updated"]);
+    expect(sortedKeys(made.data)).toEqual(["added", "removed", "results", "updated"]);
     const [added] = made.data.results as (Fields & { item: Fields })[];
-    expect(keys(added)).toEqual(["index", "item", "status"]);
-    expect(keys(added!.item)).toEqual(PIECE);
+    expect(sortedKeys(added)).toEqual(["index", "item", "status"]);
+    expect(sortedKeys(added!.item)).toEqual(PIECE);
     const changed = await tool("edit_my_gear", { update: [{ id: barId, product_url: "https://clifbar.example/bar" }], remove: [barId], restore: [barId] }, write);
     const [updated] = changed.data.updated as (Fields & { item: Fields })[];
-    expect(keys(updated)).toEqual(["id", "item", "status"]);
-    expect(keys(updated!.item)).toEqual([...PIECE, "in_kits"].sort());
-    expect((changed.data.removed as Fields[]).map(keys)).toEqual([["id", "status"], ["id", "status"]]);
+    expect(sortedKeys(updated)).toEqual(["id", "item", "status"]);
+    expect(sortedKeys(updated!.item)).toEqual([...PIECE, "in_kits"].sort());
+    expect((changed.data.removed as Fields[]).map(sortedKeys)).toEqual([["id", "status"], ["id", "status"]]);
   });
 
   it("get_my_gear: the page, a piece in a kit, and a kit with an item", async () => {
     const page = await tool("get_my_gear", {}, write);
-    expect(keys(page.data)).toEqual(["gear", "offset", "total"]);
+    expect(sortedKeys(page.data)).toEqual(["gear", "offset", "total"]);
     const gear = page.data.gear as Fields[];
-    expect(keys(gear.find((g) => g.id === barId))).toEqual([...PIECE, "in_kits"].sort());
+    expect(sortedKeys(gear.find((g) => g.id === barId))).toEqual([...PIECE, "in_kits"].sort());
     const kit = gear.find((g) => g.name === "Snack kit") as Fields & { kit: Fields & { items: Fields[] } };
-    expect(keys(kit)).toEqual(["display_name", "id", "kind", "kit", "last_used", "name", "owned", "weight_g"]);
-    expect(keys(kit.kit)).toEqual(["items", "own_weight_g"]);
-    expect(keys(kit.kit.items[0])).toEqual(["count", "display_name", "id", "put_away", "weight_g"]);
+    expect(sortedKeys(kit)).toEqual(["display_name", "id", "kind", "kit", "last_used", "name", "owned", "weight_g"]);
+    expect(sortedKeys(kit.kit)).toEqual(["items", "own_weight_g"]);
+    expect(sortedKeys(kit.kit.items[0])).toEqual(["count", "display_name", "id", "put_away", "weight_g"]);
   });
 
   it("get_list with no share_code: the account's lists", async () => {
     const filed = await tool("create_list", { title: "Filed", items: [{ name: "Tent", weight_g: 900 }] }, write);
     expect(filed.data.saved_to_account).toBe(true);
     const mine = await tool("get_list", {}, write);
-    expect(keys(mine.data)).toEqual(["lists"]);
-    expect(keys((mine.data.lists as Fields[])[0])).toEqual(["share_code", "share_link", "title", "total_g", "unit", "updated_at"]);
+    expect(sortedKeys(mine.data)).toEqual(["lists"]);
+    expect(sortedKeys((mine.data.lists as Fields[])[0])).toEqual(["share_code", "share_link", "title", "total_g", "unit", "updated_at"]);
   });
 });

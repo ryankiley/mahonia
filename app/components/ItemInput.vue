@@ -266,10 +266,11 @@ const versionLabel = (r: CatalogResult) => tidyText(r.variant || nameAfterBrand(
 // the search sent. Once words narrow the rows, the one they most nearly say, or the typed
 // size itself when nothing fits.
 //
-// Not the fit you picked last. That was kept for a day (2026-11-27) and taken out: a
-// remembered Men's or Women's is a fact about the person, it saved one arrow key, and a
-// list built for someone else flipped it anyway. Nothing about who you are is remembered
-// to choose a version. The value it left in browsers is cleared below.
+// Not the fit you picked last: a remembered Men's or Women's is a fact about the person,
+// it saved one arrow key, and a list built for someone else flipped it anyway. Nothing
+// about who you are is remembered to choose a version. The value the one build that
+// kept it (#650, live for minutes on 2026-11-27) left in a browser is cleared here, as
+// #664 promised; a missing key costs nothing to clear. Take this out after 2026-12-31.
 if (import.meta.client) {
   try {
     localStorage.removeItem("gear.fit.v1");

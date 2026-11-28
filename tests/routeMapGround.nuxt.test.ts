@@ -10,39 +10,16 @@
 // every line is a real <path> with the class renderLegs gave it. Nothing here asserts a
 // coordinate — happy-dom has no geometry, so the paths carry none — only that the marks
 // exist, in the order the layering depends on.
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { enableAutoUnmount, mount, type VueWrapper } from "@vue/test-utils";
+import { afterEach, describe, expect, it } from "vitest";
+import { enableAutoUnmount, type VueWrapper } from "@vue/test-utils";
 import { nextTick } from "vue";
-import RouteMap from "~/components/RouteMap.client.vue";
-import { encodePolyline } from "~~/shared/polyline";
-
-// a short walk north-east, ~1.5 km, so a day can cover part of it
-const geometry = encodePolyline([
-  { lat: 45.3736, lon: -121.696 },
-  { lat: 45.378, lon: -121.69 },
-  { lat: 45.382, lon: -121.684 },
-  { lat: 45.386, lon: -121.678 },
-]);
-
-beforeAll(() => {
-  // draw() watches the host's box; happy-dom has no ResizeObserver to hand it
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
+import { mountRouteMap } from "./helpers/routeMap";
 
 enableAutoUnmount(afterEach);
 
-/** Mount, then wait for the Leaflet chunk draw() imports and the tick it draws on. */
+/** Mount over the walk, with the days given, once the first line is drawn. */
 async function open(dayDistancesM: number[]) {
-  const wrapper: VueWrapper = mount(RouteMap, { props: { geometry, dayDistancesM }, attachTo: document.body });
-  // draw() is async: a nextTick, then `await import("leaflet")`, then the lines
-  await vi.waitFor(() => expect(wrapper.element.querySelector(".leaflet-overlay-pane path")).not.toBeNull(), { interval: 25 });
+  const { wrapper } = await mountRouteMap({ dayDistancesM });
   const classes = () =>
     [...wrapper.element.querySelectorAll(".leaflet-overlay-pane path")].map((p) => p.getAttribute("class") ?? "");
   return { classes, wrapper };

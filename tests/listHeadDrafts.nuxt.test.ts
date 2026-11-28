@@ -17,17 +17,13 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import { nextTick } from "vue";
 import ListHead from "~/components/ListHead.vue";
 import type { ListSnapshot } from "~~/shared/types";
-import { snapshotFor } from "./helpers/list";
+import { headSnapshot } from "./helpers/listHead";
 
 const setMeta = vi.fn();
 mockNuxtImport("useGearList", () => () => ({ setMeta }));
 
-const snap = (over: Partial<ListSnapshot> = {}): ListSnapshot => ({
-  ...snapshotFor({ shareCode: "SNAPCODE0001", slug: "test-list-aaa111", title: "Timberline" }),
-  trailUrl: "https://example.com/timberline",
-  trailLabel: "Old name",
-  ...over,
-});
+const snap = (over: Partial<ListSnapshot> = {}): ListSnapshot =>
+  headSnapshot({ trailUrl: "https://example.com/timberline", trailLabel: "Old name", ...over });
 
 const FIELDS = {
   "List name": "textarea.head__title",

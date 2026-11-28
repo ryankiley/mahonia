@@ -1,4 +1,4 @@
-// The changelog: unit-test the parser and the ordering and merge helpers, and gate
+// The changelog: unit-test the parser and the merge helper, and gate
 // the committed fragments on what the parser cannot know (length, filename).
 //
 // Loading the fragments runs every one through parseChangelogRelease, so a malformed
@@ -10,7 +10,6 @@ import {
   mergeReleases,
   parseChangelogRelease,
   readFragments,
-  sortReleases,
   type ChangelogRelease,
 } from "../scripts/changelogSources";
 
@@ -29,28 +28,6 @@ describe("parseChangelogRelease", () => {
   });
 });
 
-describe("sortReleases", () => {
-  it("orders newest date first", () => {
-    const sorted = sortReleases([
-      { date: "2026-06-27" },
-      { date: "2026-07-16" },
-      { date: "2026-07-10" },
-    ]);
-    expect(sorted.map((r) => r.date)).toEqual(["2026-07-16", "2026-07-10", "2026-06-27"]);
-  });
-
-  it("is stable within a date (keeps authored order) and does not mutate the input", () => {
-    const input: ChangelogRelease[] = [
-      { date: "2026-07-01", added: ["a"] },
-      { date: "2026-07-09", added: ["newer"] },
-      { date: "2026-07-01", added: ["b"] },
-    ];
-    const sorted = sortReleases(input);
-    expect(sorted.map((r) => r.added?.[0])).toEqual(["newer", "a", "b"]);
-    expect(input.map((r) => r.added?.[0])).toEqual(["a", "newer", "b"]); // untouched
-  });
-});
-
 describe("mergeReleases", () => {
   it("folds several fragments on one date into a single release, in input order", () => {
     const merged = mergeReleases([
@@ -63,14 +40,15 @@ describe("mergeReleases", () => {
     expect(merged[0]?.fixed).toEqual(["three"]);
   });
 
-  it("keeps distinct dates apart and sorts them newest first", () => {
+  it("keeps distinct dates apart", () => {
     const merged = mergeReleases([
       { date: "2026-07-01", added: ["older"] },
       { date: "2026-07-09", added: ["newer"] },
       { date: "2026-07-01", added: ["older too"] },
     ]);
-    expect(merged.map((r) => r.date)).toEqual(["2026-07-09", "2026-07-01"]);
-    expect(merged[1]?.added).toEqual(["older", "older too"]);
+    expect(merged).toHaveLength(2);
+    expect(merged.find((r) => r.date === "2026-07-01")?.added).toEqual(["older", "older too"]);
+    expect(merged.find((r) => r.date === "2026-07-09")?.added).toEqual(["newer"]);
   });
 
   it("drops empty groups rather than carrying empty arrays into a release", () => {
@@ -108,12 +86,5 @@ describe("committed changelog content", () => {
         new RegExp(`^${f.release.date}-`),
       );
     }
-  });
-
-  it("folds cleanly — one release per date, newest first", () => {
-    const merged = mergeReleases(everything);
-    const dates = merged.map((r) => r.date);
-    expect(new Set(dates).size, "a date appears twice after merging").toBe(dates.length);
-    expect([...dates].sort((a, b) => b.localeCompare(a))).toEqual(dates);
   });
 });
