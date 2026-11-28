@@ -280,14 +280,16 @@ describe("drawing the line on", () => {
   const recorder = () => {
     const path: { op: "move" | "line"; x: number; y: number }[] = [];
     let stroked = 0;
+    const grounds: string[] = [];
     const ctx = {
-      fillRect() {},
+      fillRect: () => grounds.push("fill"),
+      clearRect: () => grounds.push("clear"),
       beginPath() {},
       moveTo: (x: number, y: number) => path.push({ op: "move", x, y }),
       lineTo: (x: number, y: number) => path.push({ op: "line", x, y }),
       stroke: () => stroked++,
     } as unknown as CanvasRenderingContext2D;
-    return { ctx, path, strokes: () => stroked };
+    return { ctx, path, grounds, strokes: () => stroked };
   };
   // three points due east, evenly spaced, the camera's angle 0 looking north at them
   const straight = {
@@ -307,6 +309,17 @@ describe("drawing the line on", () => {
     expect(path.map((p) => p.op)).toEqual(["move", "line", "line"]);
     // from x 0 (the left end) through 100 (the middle), and stopping half way to 200
     expect(path.map((p) => Math.round(p.x))).toEqual([0, 100, 150]);
+  });
+
+  it("fills the frame with the ground when given one (the video), and clears it when not (the stage)", () => {
+    const video = recorder();
+    drawSpin(video.ctx, straight, 0, frame);
+    expect(video.grounds).toEqual(["fill"]);
+    const stage = recorder();
+    const { ground: _, ...noGround } = frame;
+    drawSpin(stage.ctx, straight, 0, noGround);
+    expect(stage.grounds).toEqual(["clear"]);
+    expect(stage.path.map((p) => Math.round(p.x))).toEqual([0, 100, 200]);
   });
 
   it("draws nothing at all before the pen sets off, and every point once it has finished", () => {
