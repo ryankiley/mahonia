@@ -280,7 +280,7 @@ const facts = computed(() =>
 /** a height in the list's own unit, with its unit word */
 const heightWord = (m: number) => heightWithUnit(m, distanceUnit.value);
 /** the lapse-rate rule of thumb, in the degrees the list's unit system speaks: how many,
- *  and which way, or null when it rounds to nothing */
+ *  and which way against the trailhead, or null when it rounds to nothing */
 function coolerBy(aboveM: number): { degrees: string; way: "cooler" | "warmer" } | null {
   const c = coolerByC(aboveM);
   const v = distanceUnit.value === "mi" ? c * 1.8 : c;
@@ -319,7 +319,11 @@ function factLines(i: number, f: DayFacts): FactLine[] {
     parts: [{ t: finish ? "Finish " : "Camp " }, fig(heightWord(f.campM))],
   };
   const cooler = Math.abs(Math.round(f.aboveTrailheadM)) >= 10 ? coolerBy(f.aboveTrailheadM) : null;
-  if (cooler) camp.parts.push({ t: ", about " }, fig(cooler.degrees), { t: ` ${cooler.way}` });
+  // "than the start", because the figure is a difference and not a temperature: the
+  // list knows no weather, only that air cools with height. The `~` is the panel's mark
+  // for a single worked-out figure (the calories wear it), and keeps the line to one
+  // line of a phone where "about" did not once the comparison was spelled out.
+  if (cooler) camp.parts.push({ t: ", " }, fig(`~${cooler.degrees}`), { t: ` ${cooler.way} than the start` });
   lines.push(camp);
   if (f.highM - f.campM >= 10)
     lines.push({ key: "high", icon: MountainGlyph, parts: [{ t: "High point " }, fig(heightWord(f.highM))] });
@@ -1169,7 +1173,22 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-5);
+  /* per axis, as the Gear view's row of figures has it (TotalsBar): across a line the
+     chips stand --space-5 apart, down the page two lines of one little table stand
+     closer, or the wrapped line drifts off as a block of its own */
+  gap: var(--space-3) var(--space-5);
+}
+/* ON A PHONE THE FIGURES STAND IN TWO COLUMNS, the two a day's figures stand in below
+   (.plan__data). Wrapped as a row, each line broke where its own chips happened to end,
+   so "Walking time" sat under "Route climb" but "Estimated burn" started a third of the
+   way under "Route descent": two lines of a table with no column in common. The same
+   two edges down the whole tab now. */
+@media (max-width: $bp-stack) {
+  .plan__chips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-3);
+  }
 }
 .plan__note {
   color: var(--foreground-tertiary);
