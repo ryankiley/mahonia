@@ -96,9 +96,10 @@ export async function mintVault(db: Db, userId: number): Promise<number> {
     .values({ userId })
     .onConflictDoNothing({ target: vaults.userId })
     .returning();
-  if (rows[0]) return rows[0].id;
-  const existing = await db.select({ id: vaults.id }).from(vaults).where(eq(vaults.userId, userId));
-  return existing[0]!.id;
+  const id = rows[0]?.id ?? (await vaultIdOfUser(db, userId));
+  // the conflicting row was there a moment ago; gone again means the account closed mid-mint
+  if (id == null) throw new Error("vault vanished while minting");
+  return id;
 }
 
 /**

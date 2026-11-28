@@ -512,7 +512,7 @@ function startSession(cap?: { token?: string; code?: string; keyless?: string })
   if (cap?.keyless) c.startKeyless(cap.keyless);
   else if (cap?.token || cap?.code) c.load(cap);
   else c.startDraft();
-  ownedEpoch = c.epoch; // load()/startKeyless()/startDraft() mint their epoch synchronously
+  ownedEpoch = c.epochRef.value; // load()/startKeyless()/startDraft() mint their epoch synchronously
   listKey.value = ownedEpoch;
 }
 // What belonged to the list you left doesn't follow you to the next one.

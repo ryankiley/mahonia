@@ -13,7 +13,7 @@
 // Pure + dependency-light on purpose (no DB import) so the gating test stays fast.
 
 import { identity, type CatalogCsvRow } from "./catalogCsv";
-import { isVariantRedundant, normalizeVariant, normKey, SPACED_UNITS } from "../shared/catalogQuality";
+import { gearTypeCategoryCounts, isVariantRedundant, normalizeVariant, normKey, SPACED_UNITS } from "../shared/catalogQuality";
 import { soldByOf, traitsOf, type AttributeKey } from "../shared/catalogAxes";
 import { extractAttributes, SHOE_REGIONS } from "./catalogAttributes";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
@@ -324,16 +324,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // electronics). A tie names every row, so someone decides. A row with no gear type
   // takes no part: rows that lack one aren't one kind of thing, and common-name-missing
   // has already named each.
-  const catsByType = new Map<string, Map<string, number>>();
-  const typed = rows.filter((r) => r.commonName?.trim());
-  for (const r of typed) {
-    const k = (r.commonName ?? "").toLowerCase();
-    const m = catsByType.getOrInsertComputed(k, () => new Map());
-    m.set(r.categoryHint ?? "other", (m.get(r.categoryHint ?? "other") ?? 0) + 1);
-  }
-  for (const r of typed) {
-    const m = catsByType.get((r.commonName ?? "").toLowerCase())!;
-    if (m.size < 2) continue;
+  // The count is the one verification files a new row by (gearTypeCategoryCounts).
+  const catsByType = gearTypeCategoryCounts(rows);
+  for (const r of rows) {
+    const m = catsByType.get(normKey(r.commonName));
+    if (!m || m.size < 2) continue;
     const total = [...m.values()].reduce((a, b) => a + b, 0);
     const [[home, n], [, runnerUp]] = [...m.entries()].sort((a, b) => b[1] - a[1]) as [[string, number], [string, number]];
     if ((r.categoryHint ?? "other") !== home || n === runnerUp) {

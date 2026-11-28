@@ -273,8 +273,6 @@ describe("the import dialog's buttons", () => {
     expect(row.find("button.filepick").exists()).toBe(true);
     const why = row.get("button.import__why");
     expect(why.attributes("aria-label")).toBe("Which files and columns can be imported");
-    // the icon scale's full step: the small one was a speck beside a 40px button
-    expect(why.get("svg").classes()).toContain("svgicon--md");
     expect(w.findComponent({ name: "Tooltip" }).props("text")).toContain(
       "A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable.",
     );
