@@ -7,7 +7,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { canonical, exportVectors, fixtures, glyphVectors } from "./iosFixtures";
+import { canonical, exportVectors, fixtures, glyphVectors, ruleVectors } from "./iosFixtures";
 
 const outDir = process.argv[2] ?? ".data/ios-fixtures";
 const vectorDir = join(outDir, "vectors");
@@ -18,4 +18,6 @@ for (const f of fixtures) {
 }
 writeFileSync(join(vectorDir, "exports.json"), canonical({ cases: exportVectors }) + "\n");
 writeFileSync(join(vectorDir, "gear-glyphs.json"), canonical(glyphVectors()) + "\n");
-console.log(`wrote ${fixtures.length} fixtures and 2 vector files to ${outDir}`);
+const rules = Object.entries(ruleVectors());
+for (const [name, cases] of rules) writeFileSync(join(vectorDir, `${name}.json`), canonical(cases) + "\n");
+console.log(`wrote ${fixtures.length} fixtures and ${2 + rules.length} vector files to ${outDir}`);
