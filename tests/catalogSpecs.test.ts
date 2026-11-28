@@ -25,6 +25,8 @@ describe("specParts", () => {
     expect(specParts("persons=2", null, "g")).toEqual(["2P"]);
     expect(specParts("capacity_mah=10000", "PowerCore 10K, A1229", "g")).toEqual(["10,000 mAh"]);
     expect(specParts("fuel=isobutane", null, "g")).toEqual(["isobutane"]);
+    expect(specParts("size=M; insulation_gsm=60", "Men's Medium", "g")).toEqual(["60 gsm"]);
+    expect(specParts("lumens=1200", null, "oz")).toEqual(["1,200 lumens"]);
   });
 
   it("reads a rating in °F for someone who weighs in ounces and pounds, °C otherwise", () => {
@@ -44,6 +46,10 @@ describe("specParts", () => {
     expect(specParts("volume_l=0.5", "500ml", "g")).toEqual([]);
     expect(specParts("fuel_g=110", "110g, net fuel", "g")).toEqual([]);
     expect(specParts("persons=2", "2P", "g")).toEqual([]);
+    expect(specParts("insulation_gsm=90", "90gsm, Medium", "g")).toEqual([]);
+    expect(specParts("insulation_gsm=167", "APEX 167, Medium Wide", "g")).toEqual([]);
+    expect(specParts("lumens=400", "400 lumen, USB-C", "g")).toEqual([]);
+    expect(specParts("lumens=425", "HeadLamp 425 ", "g")).toEqual(["425 lumens"]);
     // the name counts as said, too
     expect(specParts("volume_l=40", "Arc Haul Ultra 40L ", "g")).toEqual([]);
     expect(specParts("persons=2", "X-Mid 2 ", "g")).toEqual(["2P"]);

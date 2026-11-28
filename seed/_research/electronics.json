@@ -15,6 +15,9 @@
     {
       "brand": "Black Diamond",
       "name": "Spot 400 Headlamp",
+      "attributes": {"lumens": 400},
+      "attributes_source_url": "https://blackdiamondequipment.com/products/spot-400-headlamp",
+      "attributes_quote": "400 Lumen max output",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 86,
@@ -26,6 +29,9 @@
     {
       "brand": "Black Diamond",
       "name": "Storm 500-R Headlamp",
+      "attributes": {"lumens": 500},
+      "attributes_source_url": "https://www.nrs.com/black-diamond-storm-500-r-headlamp/p29m",
+      "attributes_quote": "500 Lumen max output.",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 120,
@@ -37,6 +43,9 @@
     {
       "brand": "Petzl",
       "name": "BINDI Headlamp",
+      "attributes": {"lumens": 200},
+      "attributes_source_url": "https://www.altitude-sports.com/p/petzl-bindi-200-lumens-headlamp-pet-e102aa00",
+      "attributes_quote": "Light output: 200 lumens",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 1.23,
@@ -48,6 +57,9 @@
     {
       "brand": "Petzl",
       "name": "ACTIK CORE Headlamp",
+      "attributes": {"lumens": 625},
+      "attributes_source_url": "https://www.petzl.com/us/en/sport/products/multisport-headlamps/actik-core/ACTIK-CORE_SPO_a2mTx000000o12YIAQ.html",
+      "attributes_quote": "625 lumens (ANSI/PLATO FL 1)",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 88,

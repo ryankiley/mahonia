@@ -30,6 +30,13 @@ describe("extractAttributes reads what a variant states outright", () => {
     ["10F, 900FP, XL", "Quilt", "sleep", { temp_f: 10, fill_power: 900, length: "XL" }],
     ["Women's, 30F, Regular", "Sleeping bag", "sleep", { fit: "Women's", temp_f: 30, length: "Regular" }],
     ["950+FP, Regular", "Quilt", "sleep", { fill_power: 950, length: "Regular" }],
+    // insulation by weight: a fabric's gsm, and Climashield's fill named by its g/m²
+    ["APEX 167, Medium Wide", "Quilt", "sleep", { insulation_gsm: 167, length: "Medium", width: "Wide" }],
+    ["90gsm, Medium", "Fleece", "clothing", { insulation_gsm: 90, size: "M" }],
+    ["Alpha/Wool 150gsm", "Beanie", "clothing", { insulation_gsm: 150 }],
+    // a light's output
+    ["400 lumen, USB-C", "Headlamp", "electronics", { lumens: 400 }],
+    ["1000 lumens", "Lantern", "electronics", { lumens: 1000 }],
     // a letter on sleep gear is the maker's length scale with or without a gender in front
     ["2XL", "Sleeping bag", "sleep", { length: "2XL" }],
     ["Women's 2XL", "Sleeping bag", "sleep", { fit: "Women's", length: "2XL" }],
@@ -63,7 +70,6 @@ describe("extractAttributes reads what a variant states outright", () => {
     ["Men's 32", "Pants", "clothing", { fit: "Men's", size: "32" }],
     ["Size D", "Insoles", "clothing", { size: "D" }],
     ["3L", "Rain jacket", "clothing", {}], // a fabric, not litres
-    ["120gsm", "Fleece", "clothing", {}],
     // volumes
     ["3L", "Water reservoir", "water", { volume_l: 3 }],
     ["500ml", "Soft flask", "water", { volume_l: 0.5 }],
@@ -135,7 +141,7 @@ describe("extractAttributes reads what a variant states outright", () => {
 
 describe("validateAttributes holds every value to one canonical form", () => {
   it("accepts the forms the extractor emits", () => {
-    expect(validateAttributes({ fit: "Men's", size: "US 9", torso: "S/M", length: "6ft 6in", width: "Wide", temp_f: -10, fill_power: 850, r_value: 4.5, persons: 1.5, volume_l: 0.525, capacity_mah: 10000, fuel_g: 110, fuel: "isobutane" })).toEqual([]);
+    expect(validateAttributes({ fit: "Men's", size: "US 9", torso: "S/M", length: "6ft 6in", width: "Wide", temp_f: -10, fill_power: 850, r_value: 4.5, persons: 1.5, volume_l: 0.525, capacity_mah: 10000, fuel_g: 110, fuel: "isobutane", insulation_gsm: 60, lumens: 400 })).toEqual([]);
     expect(validateAttributes({ temp_f: 0 })).toEqual([]);
     expect(validateAttributes(null)).toEqual([]);
     expect(validateAttributes(undefined)).toEqual([]);
@@ -145,6 +151,8 @@ describe("validateAttributes holds every value to one canonical form", () => {
     expect(validateAttributes({ temp_f: "20F" })).toEqual([expect.stringMatching(/temp_f: must be a number/)]);
     expect(validateAttributes({ temp_f: 20.5 })).toEqual([expect.stringMatching(/temp_f/)]);
     expect(validateAttributes({ fill_power: 85 })).toEqual([expect.stringMatching(/fill_power/)]);
+    expect(validateAttributes({ insulation_gsm: 6 })).toEqual([expect.stringMatching(/insulation_gsm/)]);
+    expect(validateAttributes({ lumens: 0 })).toEqual([expect.stringMatching(/lumens/)]);
     expect(validateAttributes({ persons: 2.25 })).toEqual([expect.stringMatching(/persons/)]);
     expect(validateAttributes({ r_value: 4.55 })).toEqual([expect.stringMatching(/r_value/)]);
     expect(validateAttributes({ volume_l: 0.0005 })).toEqual([expect.stringMatching(/volume_l/)]);

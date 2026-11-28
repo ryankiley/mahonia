@@ -13,7 +13,18 @@ import type { Unit } from "./types";
 import { unitSystem } from "./weights";
 
 /** The axes a spec line shows, in the order it shows them. */
-const SPEC_KEYS = ["temp_f", "fill_power", "r_value", "persons", "volume_l", "capacity_mah", "fuel_g", "fuel"] as const;
+const SPEC_KEYS = [
+  "temp_f",
+  "fill_power",
+  "insulation_gsm",
+  "r_value",
+  "persons",
+  "volume_l",
+  "capacity_mah",
+  "lumens",
+  "fuel_g",
+  "fuel",
+] as const;
 type SpecKey = (typeof SPEC_KEYS)[number];
 
 /** "length=Regular; temp_f=20" as a map. Lenient: the cell is written by the build, which
@@ -39,6 +50,8 @@ function stated(key: SpecKey, value: string, variant: string): boolean {
       return test(`(^|[^\\d])${v}\\s?°?F\\b`);
     case "fill_power":
       return test(`(^|[^\\d])${v}\\+?\\s?FP\\b`);
+    case "insulation_gsm":
+      return test(`(^|[^\\d])${v}\\s?gsm\\b`) || test(`\\bAPEX\\s?${v}\\b`);
     case "r_value":
       return test(`\\bR-?\\s?${v}\\b`);
     case "persons":
@@ -49,6 +62,8 @@ function stated(key: SpecKey, value: string, variant: string): boolean {
     }
     case "capacity_mah":
       return test(`(^|[^\\d])${v}\\s?mAh\\b`);
+    case "lumens":
+      return test(`(^|[^\\d])${v}\\s?(?:lumens?|lm)\\b`);
     case "fuel_g":
       return test(`(^|[^\\d])${v}\\s?g\\b`);
     case "fuel":
@@ -64,6 +79,8 @@ function format(key: SpecKey, value: string, unit: Unit): string | null {
       return unitSystem(unit) === "metric" ? `${Math.round(((n - 32) * 5) / 9)}°C` : `${n}°F`;
     case "fill_power":
       return Number.isFinite(n) ? `${n} fill` : null;
+    case "insulation_gsm":
+      return Number.isFinite(n) ? `${n} gsm` : null;
     case "r_value":
       return Number.isFinite(n) ? `R ${n}` : null;
     case "persons":
@@ -73,6 +90,8 @@ function format(key: SpecKey, value: string, unit: Unit): string | null {
       return n < 1 ? `${Math.round(n * 1000)} ml` : `${n} L`;
     case "capacity_mah":
       return Number.isFinite(n) ? `${n.toLocaleString("en-US")} mAh` : null;
+    case "lumens":
+      return Number.isFinite(n) ? `${n.toLocaleString("en-US")} lumens` : null;
     case "fuel_g":
       return Number.isFinite(n) ? `${n} g of fuel` : null;
     case "fuel":

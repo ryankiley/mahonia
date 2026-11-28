@@ -57,10 +57,12 @@ const FUEL_FORM = /^(?:isobutane|butane|propane|alcohol|solid fuel|wood|white ga
 const NUMERIC_RULES = {
   temp_f: { min: -60, max: 80, step: 1, why: "a whole °F between -60 and 80" },
   fill_power: { min: 500, max: 1000, step: 1, why: "a whole fill power between 500 and 1000" },
+  insulation_gsm: { min: 20, max: 400, step: 1, why: "whole grams per square metre between 20 and 400" },
   r_value: { min: 0.5, max: 15, step: 0.1, why: "an R-value between 0.5 and 15 with at most one decimal" },
   persons: { min: 1, max: 8, step: 0.5, why: "1–8 people, in halves" },
   volume_l: { min: 0.001, max: 500, step: 0.001, why: "litres, 0.001 to 500, to the millilitre" },
   capacity_mah: { min: 500, max: 200_000, step: 1, why: "whole mAh between 500 and 200000" },
+  lumens: { min: 1, max: 10_000, step: 1, why: "whole lumens between 1 and 10000" },
   fuel_g: { min: 50, max: 1000, step: 1, why: "whole grams between 50 and 1000" },
 } as const;
 type NumericKey = keyof typeof NUMERIC_RULES;
@@ -272,6 +274,17 @@ export function extractAttributes(
     // fill power: "850FP", "950+FP", "650FP down"
     if ((m = dim.match(/^(\d{3})\+?FP(?: down)?$/))) {
       set("fill_power", Number(m[1]));
+      continue;
+    }
+    // insulation weight: "90gsm", "Alpha/Wool 150gsm" (a fabric's), "APEX 167" (Climashield
+    // names its fill by its g/m²)
+    if ((m = dim.match(/^(?:[A-Za-z/]+ )?(\d{2,3})gsm$/) ?? dim.match(/^APEX (\d{2,3})$/i))) {
+      set("insulation_gsm", Number(m[1]));
+      continue;
+    }
+    // a light's output: "400 lumen", "1000 lumens"
+    if ((m = dim.match(/^(\d{1,5}) ?lumens?$/i))) {
+      set("lumens", Number(m[1]));
       continue;
     }
     // persons: "2P", "1.5P", "2 Person", "UL2" (Big Agnes' size suffix)

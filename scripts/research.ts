@@ -86,8 +86,8 @@ export interface ResearchRow {
   //     Write in `attributes` only what the variant does NOT state.
   variant?: string | null;
   // Typed axes the variant doesn't state (an R-value, the rating of a quilt sold one way):
-  // fit, size, torso, length, width, temp_f, fill_power, r_value, persons, volume_l,
-  // capacity_mah, fuel_g, fuel, each in ONE canonical form (validateAttributes: an unknown
+  // fit, size, torso, length, width, temp_f, fill_power, insulation_gsm, r_value, persons,
+  // volume_l, capacity_mah, lumens, fuel_g, fuel, each in ONE canonical form (validateAttributes: an unknown
   // key, a "20°F", a fill power as a string all fail the build). The build merges these
   // over what it reads from the variant; a value that contradicts the variant fails the
   // CSV check. Vocabulary in shared/catalogAxes.ts, forms in catalogAttributes.ts.

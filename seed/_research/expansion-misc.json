@@ -74,6 +74,9 @@
     {
       "brand": "Petzl",
       "name": "e+LITE",
+      "attributes": {"lumens": 40},
+      "attributes_source_url": "https://www.petzl.com/gb/en/sport/products/emergency-headlamps/elite/ePlusLITE_SPO_a2mw0000000Y9BtAAK.html",
+      "attributes_quote": "40 lumens (ANSI/PLATO FL 1)",
       "category_hint": "electronics",
       "common_name": "headlamp",
       "weight_value": 26,
