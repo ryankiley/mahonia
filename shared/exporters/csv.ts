@@ -260,8 +260,8 @@ export function csvToListData(
     const namedUnit = iUnit >= 0 && (row[iUnit] ?? "").trim() ? unit : undefined;
     // kcal only rides along on rows this import classes as consumable, matching
     // where the app lets it be edited and counted
-    // (a whole number, so a comma here can only be a thousands separator)
-    const kcalNum = iKcal >= 0 ? Math.round(parseFloat((row[iKcal] || "").replace(/,/g, "")) || 0) : 0;
+    // (read as the calories field reads a typed one: the same rule, rounded whole)
+    const kcalNum = iKcal >= 0 ? parseDecimal(row[iKcal] || "", { whole: true }) || 0 : 0;
 
     items.push({
       id: uid(),

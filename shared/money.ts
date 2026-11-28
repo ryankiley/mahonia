@@ -9,6 +9,8 @@
 // parses with it, /gear and the exporters format with it, and the rules below are
 // pinned by tests/money.test.ts rather than by clicking a form.
 
+import { parseNumberToken } from "./typedNumber";
+
 /** Ceiling on a stored price. `price_cents` is a plain integer column, so an
  *  unbounded value is an overflow rather than a big number; a million of any
  *  currency is well past the point where a typo is likelier than a purchase. */
@@ -50,35 +52,25 @@ function currencyOf(s: string): string | undefined {
  * caller can tell a typo from a cleared field — which it checks for itself, the
  * same split parseWeightInput's callers make.
  *
- * The separator rule is the standard heuristic, because "1,299" is a thousand-odd
- * dollars in one locale and one dollar twenty-nine in another: with both kinds
- * present the LAST is the decimal point, and a lone separator with exactly three
- * digits behind it is a thousands group. That reads "1,299.00", "1.299,00", "1299",
- * "12,50" and "1,299" the way they were meant; a four-figure price written with a
- * decimal comma and no cents is not a thing anyone types.
+ * The number is read by the rule every typed number is (shared/typedNumber), with the
+ * one thing a price adds: a lone DOT with exactly three digits behind it groups
+ * thousands too, because "1.299" is thirteen hundred euros and nobody prices gear to a
+ * tenth of a cent. That reads "1,299.00", "1.299,00", "1299", "12,50", "1,299" and
+ * "1.299" the way they were meant.
  */
 export function parsePriceInput(raw: string): Price | null {
   const s = (raw ?? "").trim();
   if (!s) return null;
   const currency = currencyOf(s);
 
-  // everything that isn't a digit or a separator goes — symbols, codes, spaces
-  const digits = s.replace(/[^\d.,]/g, "");
-  if (!/\d/.test(digits)) return null;
-
-  const lastDot = digits.lastIndexOf(".");
-  const lastComma = digits.lastIndexOf(",");
-  const both = lastDot >= 0 && lastComma >= 0;
-  const at = Math.max(lastDot, lastComma);
-  const grouped = at >= 0 && !both && digits.length - at - 1 === 3;
-  const decimal = at >= 0 && !grouped;
-
-  const whole = (decimal ? digits.slice(0, at) : digits).replace(/[.,]/g, "");
-  const frac = decimal ? digits.slice(at + 1).replace(/\D/g, "") : "";
-
-  const cents = Number(whole || "0") * 100 + Number(`${frac}00`.slice(0, 2));
-  if (!Number.isFinite(cents) || cents < 0) return null;
-  return { cents: Math.min(PRICE_MAX_CENTS, Math.round(cents)), currency };
+  // From the first digit on (with the point in front of it, for ".99"), everything
+  // that isn't a digit or a separator goes: symbols, codes, the spaces that group
+  // thousands. An earlier full stop is the sentence's, not the number's ("approx. $399").
+  const from = s.search(/[.,]?\d/);
+  if (from < 0) return null;
+  const amount = parseNumberToken(s.slice(from).replace(/[^\d.,]/g, ""), { dotThousands: true });
+  if (!Number.isFinite(amount)) return null;
+  return { cents: Math.min(PRICE_MAX_CENTS, Math.round(amount * 100)), currency };
 }
 
 /** What a set of gear cost, when that question has one honest answer. */
