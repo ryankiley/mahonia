@@ -16,6 +16,6 @@ export async function signInCookie(db: TestDb, userId: number): Promise<{ token:
   return { token, cookie: `${SESSION_COOKIE}=${token}` };
 }
 
-/** The credential half of a stored passkey — a base64 public key, a fresh counter,
- *  discoverable. A suite adds the user and the credential id it is about. */
-export const PASSKEY = { publicKey: "cHVibGlj", counter: 0, discoverable: true } as const;
+/** The credential half of a stored passkey — a base64 public key, a fresh counter.
+ *  A suite adds the user and the credential id it is about. */
+export const PASSKEY = { publicKey: "cHVibGlj", counter: 0 } as const;

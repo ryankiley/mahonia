@@ -3,12 +3,12 @@
 // Kept out of the hot lists path in db.ts on purpose. The catalog table DDL is
 // single-sourced here (CATALOG_DDL) and spread into db.ts's idempotent local
 // DDL, so the dev server auto-creates it; the seed script and search endpoint
-// also call ensureCatalogSchema() so they work on Neon (where db.ts applies
-// schema via migrations, not on the request path) regardless of migration state.
+// also call ensureCatalogSchema() so they work on Neon, where db.ts ensures only
+// the lists DDL on first use and the catalog's is ensured here.
 //
 // FUZZY SEARCH — pg_trgm vs ILIKE/JS, decided empirically:
-//   • Neon (prod): pg_trgm is available → a GIN trigram index + word_similarity
-//     give typo-tolerant matching ("zpacks duplx" → Zpacks Duplex) in SQL.
+//   • Neon (prod): pg_trgm is available → word_similarity gives typo-tolerant
+//     matching ("zpacks duplx" → Zpacks Duplex) in SQL.
 //   • PGlite (local dev): `CREATE EXTENSION pg_trgm` FAILS ("extension not
 //     available") because PGlite only exposes contrib extensions loaded into its
 //     constructor, which we don't touch (it's the shared lists DB path). So we
@@ -156,7 +156,7 @@ export const CATALOG_DDL: string[] = [
 ];
 
 // Neon ships pg_trgm and unaccent; PGlite doesn't (see the file header), so the
-// extensions and the GIN trigram index that power fuzzy autocomplete are Neon-only.
+// extensions that power fuzzy autocomplete are Neon-only.
 // unaccent folds diacritics (ä→a) at query time so an accented brand ("Fjällräven")
 // matches its plain spelling — mirrors the fold in shared/catalogSearch.ts's
 // trigrams(). It is used in WHERE/ORDER expressions, not an index, so its STABLE
@@ -164,7 +164,10 @@ export const CATALOG_DDL: string[] = [
 const CATALOG_NEON_DDL: string[] = [
   `CREATE EXTENSION IF NOT EXISTS pg_trgm`,
   `CREATE EXTENSION IF NOT EXISTS unaccent`,
-  `CREATE INDEX IF NOT EXISTS idx_catalog_trgm ON catalog_items USING gin ((coalesce(brand,'') || ' ' || name) gin_trgm_ops)`,
+  // No trigram index: the search's word_similarity() call is a function over a
+  // different expression, which a GIN trigram index cannot serve. Delete this DROP
+  // once it has deployed.
+  `DROP INDEX IF EXISTS idx_catalog_trgm`,
 ];
 
 /** Idempotently create the catalog table + indexes (memoized per process). */

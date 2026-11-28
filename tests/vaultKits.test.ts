@@ -17,7 +17,7 @@ import {
   vaultItemById,
   importVaultItems,
   listVaultItems,
-  purgeDeletedVaults,
+  deleteVaultContents,
   removeVaultItem,
   restoreVaultItem,
   searchVaultItems,
@@ -264,14 +264,13 @@ describe("the rules a kit keeps", () => {
     expect(res && "item" in res && res.item).toMatchObject({ kind: "kit", ownWeightMg: 20_000, weightMg: 218_000 });
   });
 
-  it("purges a vault's kit links with the vault, and only that vault's", async () => {
+  it("empties a vault's kit links with the vault, and only that vault's", async () => {
     await cookKit();
-    await db.update(vaults).set({ deletedAt: new Date(Date.now() - 400 * 86_400_000) }).where(eq(vaults.id, vault));
     const keep = await newVault();
     const pot = await piece("Pot", 100, keep);
     const cook = await piece("Cook kit", 0, keep);
     await setKitParts(db, keep, cook, [{ id: pot }], { ownWeightMg: 0 });
-    await purgeDeletedVaults(db, { graceDays: 30 });
+    await deleteVaultContents(db, [vault]);
     expect(await db.select().from(vaultKitParts)).toEqual([expect.objectContaining({ kitId: cook, partId: pot })]);
   });
 });

@@ -19,7 +19,6 @@ import {
   captureVaultItems,
   captureVaultItemsReporting,
   listVaultItems,
-  reapAbandonedVaults,
   removeVaultItem,
 } from "../server/utils/vaultRepo";
 import { createTestDb, type TestDb } from "./helpers/db";
@@ -178,31 +177,16 @@ describe("vault isolation — one vault can never reach another's gear", () => {
   });
 });
 
-// The safety net under the nightly reaper. Vaults are reaped by AGE, and there's no
-// account and no email behind one — so the reap is a soft-delete, and coming back
-// has to be enough to undo it. If this stops holding, the reaper quietly becomes a
-// way to lose a vault you still had the link to.
-describe("vault revive — a reaped vault comes back by being used", () => {
+describe("touchVaultByUser — the lookup every vault request makes", () => {
   let db: TestDb;
   beforeEach(async () => {
     db = await createTestDb(VAULT_DDL);
   });
 
-  it("clears the soft-delete on the next request that resolves the vault", async () => {
+  it("resolves the account's own vault", async () => {
+    await mint(db, 2);
     const id = await mint(db, 1);
-    await db.update(vaults).set({ deletedAt: new Date() }).where(sql`id = ${id}`);
-
     expect(await touchVaultByUser(db, 1)).toBe(id);
-    const [row] = await db.select().from(vaults).where(sql`id = ${id}`);
-    expect(row!.deletedAt).toBeNull();
-  });
-
-  it("bumps last_seen_at, which is what keeps a live vault out of the reaper", async () => {
-    const id = await mint(db, 1);
-    await db.update(vaults).set({ lastSeenAt: new Date(Date.now() - 300 * 86_400_000) }).where(sql`id = ${id}`);
-
-    await touchVaultByUser(db, 1);
-    expect(await reapAbandonedVaults(db)).toEqual({ vaultsReaped: 0 });
   });
 
   it("still resolves nothing for an account that has no vault", async () => {

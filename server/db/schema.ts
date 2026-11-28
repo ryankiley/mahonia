@@ -63,12 +63,7 @@ export const lists = pgTable(
     data: jsonb("data").$type<ListData>().notNull(),
     // cached rollups, recomputed on every write. total_weight_mg is the total an
     // account's lists show (claimRepo) and item_count is the reap's first filter
-    // (reapAbandonedLists). The other three are written and not read: they stay because
-    // they're the cheap shape a list-of-lists query wants, and computing them is
-    // already on the write path.
-    baseWeightMg: bigint("base_weight_mg", { mode: "number" }).notNull().default(0),
-    wornWeightMg: bigint("worn_weight_mg", { mode: "number" }).notNull().default(0),
-    consumableWeightMg: bigint("consumable_weight_mg", { mode: "number" }).notNull().default(0),
+    // (reapAbandonedLists).
     totalWeightMg: bigint("total_weight_mg", { mode: "number" }).notNull().default(0),
     itemCount: integer("item_count").notNull().default(0),
     // The byline on the read views — who MADE the list.
@@ -102,8 +97,8 @@ export type ListRow = typeof lists.$inferSelect;
 //
 // Fuzzy search uses pg_trgm's word_similarity(). pg_trgm is available on Neon
 // but NOT on local PGlite (its WASM build doesn't ship the extension unless
-// loaded into the constructor, which we don't touch), so the extension + GIN
-// trigram index are created at runtime ONLY on Neon by `ensureCatalogSchema()`
+// loaded into the constructor, which we don't touch), so the extension is
+// created at runtime ONLY on Neon by `ensureCatalogSchema()`
 // in server/utils/catalog.ts; on PGlite the search endpoint falls back to the
 // shared JS trigram ranker `rankCandidates` (shared/catalogSearch.ts) — the
 // same ranking the offline client uses, so recall can't drift. The Neon query
@@ -296,8 +291,7 @@ export const trailFavicons = pgTable(
 // no transfer token and no second link to keep.
 //
 // It was link-owned first, and the cost of that ("lose the link and you lose the
-// gear") is what an account buys out. The migration is in server/utils/vaultSchema
-// — a gear from that era has a null user_id and is unreachable by design, because
+// gear") is what an account buys out. A vault from that era has a null user_id and is unreachable by design, because
 // inventing an owner would hand someone else's gear to whoever signed in first.
 // ---------------------------------------------------------------------------
 export const vaults = pgTable(
@@ -313,13 +307,6 @@ export const vaults = pgTable(
     // link-owned era and is unreachable by design.
     userId: integer("user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    // stamped on use (touchVaultByUser). The nightly sweep reads it only for a vault
-    // no account owns: an account's vault is never reaped (vaultRepo)
-    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
-    // Soft-delete, set by the nightly sweep on a vault no account owns and purged
-    // after a grace window. Cleared whenever a vault is used (touchVaultByUser), so a
-    // mark on an account's vault never outlives its next request.
-    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   }
 );
 
@@ -622,9 +609,6 @@ export const credentials = pgTable(
     // passkeys report a constant 0, which is normal and not a red flag.
     counter: bigint("counter", { mode: "number" }).notNull().default(0),
     transports: text("transports"), // JSON array: how to reach this key (usb, internal, hybrid…)
-    // whether the key can be found without naming the account first — what makes
-    // "sign in with a passkey" work with no email typed at all
-    discoverable: boolean("discoverable").notNull().default(false),
     label: text("label"), // human-set name, so a list of keys is meaningful
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),

@@ -63,11 +63,9 @@ export default defineEventHandler(async (event) => {
     return { ok: false as const, reason: "taken" as const };
   }
   try {
-    const { syncable: _syncable, ...credential } = verified;
     await savePasskey(db, {
       userId: user.id,
-      ...credential,
-      discoverable: true, // residentKey: "required" — see signup-options
+      ...verified,
       label: null,
       // the address is only a claim until its link comes back (claimUnverifiedAccount)
       unproven: true,

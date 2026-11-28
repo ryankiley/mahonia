@@ -20,6 +20,7 @@ import { CLAIMED_LIST_CAP, LIST_META_KEYS, stateData } from "../../shared/types"
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
 import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals } from "../../shared/types";
 import { normalizeShareCode } from "../../shared/links";
+import { LIST_PURGE_GRACE_DAYS, LIST_REAP_STALE_DAYS } from "../../shared/retention";
 import { isRecord } from "../../shared/record";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit } from "../../shared/trailDistance";
@@ -38,9 +39,6 @@ import { stageCandidates, type CandidateObservation } from "./candidates";
 // — adding a rollup touches one place, not three (where they could drift).
 function weightColumns(totals: Totals) {
   return {
-    baseWeightMg: totals.baseMg,
-    wornWeightMg: totals.wornMg,
-    consumableWeightMg: totals.consumableMg,
     totalWeightMg: totals.totalMg,
     itemCount: totals.itemCount,
   };
@@ -1153,8 +1151,7 @@ export async function applyOpsByEditHash(
 // debounce so we don't reap a near-empty list that's being actively built right
 // now. Soft-delete (deleted_at, mirroring the rest of the schema) drops the row from
 // every live query, frees the slug/share_code/edit_token (the unique indexes are WHERE
-// deleted_at IS NULL), and stays reversible.
-const LIST_REAP_STALE_DAYS = Number(process.env.LIST_REAP_STALE_DAYS) || 30;
+// deleted_at IS NULL), and stays reversible. The window is LIST_REAP_STALE_DAYS.
 
 /**
  * Soft-delete near-empty abandoned lists (<= 1 item, untouched for `staleDays`).
@@ -1195,13 +1192,12 @@ export async function reapAbandonedLists(
 
 // Second stage: HARD-delete rows that have sat soft-deleted past the grace window,
 // so the storage is actually reclaimed (soft-delete alone only hides the row). The
-// grace period (default 90 days) is the reversible window — long enough that a
+// grace period (LIST_PURGE_GRACE_DAYS) is the reversible window — long enough that a
 // mistaken reap can be spotted and restored before it's gone for good. Applies to
 // ANY soft-deleted list, not just reaped ones (a general purge keyed on deleted_at
 // age). Cascades to each list's snapshots, which hold full-copy payloads and are
 // the real storage weight; an empty reaped list rarely has any, but other
 // soft-deleted lists can.
-const LIST_PURGE_GRACE_DAYS = Number(process.env.LIST_PURGE_GRACE_DAYS) || 90;
 
 /**
  * Permanently delete lists soft-deleted more than `graceDays` ago (+ their
