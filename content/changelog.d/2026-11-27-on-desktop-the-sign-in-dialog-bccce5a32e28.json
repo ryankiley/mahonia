@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "On desktop, the sign-in dialog opens with the cursor in the email field.",
+    "The date picker closes by itself a moment after you pick the second date."
+  ]
+}

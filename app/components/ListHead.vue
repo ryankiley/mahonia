@@ -369,6 +369,7 @@ function closeTrail() {
   if (surface.value !== "dates") surface.value = null;
 }
 function closeDates() {
+  cancelDatesClose();
   if (surface.value === "dates") surface.value = null;
 }
 
@@ -387,7 +388,35 @@ function openDates() {
 // two separate setMeta calls would leave a moment where the end predates the start.
 function commitDates(next: { start?: string; end?: string }) {
   c.setMeta({ startDate: next.start ?? "", endDate: next.end ?? "" });
+  // any pick restarts the wait: a new start within the beat is a change of mind, and
+  // the calendar stays for the end that goes with it
+  cancelDatesClose();
+  if (next.start && next.end) datesCloseTimer = setTimeout(finishDates, DATES_CLOSE_BEAT);
 }
+// THE CALENDAR PUTS ITSELF AWAY ONCE THE RANGE IS WHOLE. It stayed up after the second
+// date until a click somewhere else, which is one press more than the job has, every
+// time. A BEAT LATER, not on the press: the end's cell fills and the band between the
+// two tints, and that is the confirmation that the right days were taken. With only a
+// start it stays, since the second press may be coming (a one-day trip is the same day
+// pressed twice, and closes like any other range). A wrong end is one press on the row
+// to reopen, where the grid shows the range and Clear.
+// Focus that was in the grid goes back to the dates button, which now reads the range;
+// left alone it would fall to the page as the grid unmounts.
+const DATES_CLOSE_BEAT = 350;
+let datesCloseTimer: ReturnType<typeof setTimeout> | null = null;
+function cancelDatesClose() {
+  if (datesCloseTimer) clearTimeout(datesCloseTimer);
+  datesCloseTimer = null;
+}
+function finishDates() {
+  datesCloseTimer = null;
+  if (surface.value !== "dates") return;
+  const root = datesEl.value;
+  const heldFocus = !!root?.contains(document.activeElement);
+  closeDates();
+  if (heldFocus) root?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+}
+onBeforeUnmount(cancelDatesClose);
 function clearDates() {
   c.setMeta({ startDate: "", endDate: "" });
   closeDates();
