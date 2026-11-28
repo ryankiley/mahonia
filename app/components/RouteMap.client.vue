@@ -1159,8 +1159,9 @@ onBeforeUnmount(() => {
 
     Which looked exactly like the map disappearing the instant you armed a waypoint.
   -->
+  <!-- scheme-light: the map and everything on it stay light in both themes (see .routemap) -->
   <figure
-    class="routemap"
+    class="routemap scheme-light"
     :class="{ 'is-bare': failed, 'is-armed': !!armedRange, 'is-expanded': expanded }"
   >
     <!-- The frame is what anything floating over the map is positioned against. It has to
@@ -1221,22 +1222,22 @@ onBeforeUnmount(() => {
 // NOT scoped: Leaflet builds its own DOM (panes, controls, the SVG the route is drawn
 // into), and scoped styles can't reach elements Vue didn't render.
 
-.routemap {
-  // The one place on the site where the theme does NOT flip.
-  //
-  // No free provider ships a dark topographic style, because hillshading and natural
-  // terrain colour depend on a light surface — so the basemap is light in both themes and
-  // the honest thing is to treat it as a PICTURE of ground, the way a photograph isn't
-  // dark-moded either. (Never `filter: invert()`; terrain goes radioactive.)
-  //
-  // Which inverts the token rule for everything drawn on top: `--foreground-primary` is
-  // near-white in dark mode and would vanish here, and the category hues lighten enough
-  // to wash out. `color-scheme: light` makes every `light-dark()` below this node resolve
-  // to its light branch — so the route keeps the exact colours the elevation chart uses, one
-  // declaration, no parallel `--map-*` token set to keep in sync. This is the single
-  // thing most likely to look right in development and break for every dark-mode user.
-  color-scheme: light;
-}
+// THE MAP: the one place on the site where the theme does NOT flip.
+//
+// No free provider ships a dark topographic style, because hillshading and natural
+// terrain colour depend on a light surface — so the basemap is light in both themes and
+// the honest thing is to treat it as a PICTURE of ground, the way a photograph isn't
+// dark-moded either. (Never `filter: invert()`; terrain goes radioactive.)
+//
+// Which inverts the token rule for everything drawn on top: `--foreground-primary` is
+// near-white in dark mode and would vanish here, and the category hues lighten enough
+// to wash out. So the figure carries `scheme-light` (foundations/tokens.scss), which puts
+// everything below it in the light scheme and declares the colour tokens again there, so
+// they take their light values in the production build too. A bare `color-scheme: light`
+// here did that in development only: in production every token kept the page's scheme,
+// and for a dark-mode visitor the pin card, its text and the frame went dark over the
+// light map (2026-11-28). This is the single thing most likely to look right in
+// development and break for every dark-mode user.
 
 .routemap__canvas {
   height: calc(320 * var(--px));
@@ -1303,12 +1304,9 @@ onBeforeUnmount(() => {
    recipe's (.popover in atoms/controls.scss lists this card beside .dlg); the rest is
    restated here from the tokens the other popovers read.
    LIGHT IN BOTH THEMES, like every mark on the map (the basemap doesn't have a dark
-   one), and that is one declaration: the colour tokens are light-dark() pairs that
-   resolve where they are used, so under `color-scheme: light` the card, the well and
-   the red are simply their light values. No --map-* twin of each is needed. */
-.routemap .leaflet-popup {
-  color-scheme: light;
-}
+   one), and that takes nothing here: the popup is inside the figure, which is
+   `scheme-light`, so the card, the well and the red are simply their light values. No
+   --map-* twin of each is needed. */
 .routemap .leaflet-popup-content-wrapper {
   /* the card's padding: its fields stand 12 in and its words 20, as the trail panel's
      do (ListHead), the 8 between them being each control's own inset. PADDING here and
