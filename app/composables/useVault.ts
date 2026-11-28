@@ -4,6 +4,7 @@
 import type { Folder, Item } from "~~/shared/types";
 import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
 import { forget, recall, recallJson, remember } from "../utils/remember";
+import { sessionCacheOwner } from "../utils/sessionOwner";
 
 // shared/vault loads DYNAMICALLY — it is the capture machinery, which a list that never
 // touches the vault never needs in its first-load chunk — and it loads ONCE: three
@@ -156,7 +157,18 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // Capture rows built and waiting: either for the debounce to elapse, or for a
 // retry after a failed send. Held as built rows (not raw items) so the page-hide
 // flush can beacon them synchronously — it has no chance to await anything.
-let pending: { items: VaultCapture[]; fingerprint: string } | null = null;
+// `owner` is the session they were built under (its owner marker): they are sent to
+// that session's My Gear or not at all (stillTheirs).
+let pending: { items: VaultCapture[]; fingerprint: string; owner: string | null } | null = null;
+/** Whether the rows waiting are still for the session the cookie names. A sign-in in
+ *  another tab changes the cookie under this one, and rows sent after it would add one
+ *  account's gear to the next account's My Gear, for good. Dropped when they aren't:
+ *  the next edit under whoever is here builds its own. */
+function stillTheirs(waiting: NonNullable<typeof pending>): boolean {
+  if (waiting.owner === sessionCacheOwner()) return true;
+  if (pending === waiting) pending = null;
+  return false;
+}
 /** Whether capture rows are built and waiting on the debounce — a test seam, so a
  *  suite can act "inside the debounce" the moment there is something queued rather
  *  than sleeping a guessed interval and hoping the dynamic import has resolved. */
@@ -286,14 +298,14 @@ export function useVaultCapture() {
     const fingerprint = captureFingerprint(caps);
     // already stored, or already queued for exactly this state
     if (fingerprint === lastFingerprint || fingerprint === pending?.fingerprint) return;
-    pending = { items: caps, fingerprint };
+    pending = { items: caps, fingerprint, owner: sessionCacheOwner() };
     clearTimeout(timer);
     timer = setTimeout(send, captureDebounceMs);
   }
 
   async function send(): Promise<void> {
     const sending = pending;
-    if (!sending) return;
+    if (!sending || !stillTheirs(sending)) return;
     try {
       await vaultFetch("/api/vault/capture", {
         method: "POST",
@@ -330,7 +342,7 @@ export function useVaultCapture() {
    * just the items.
    */
   function flush(): void {
-    if (!import.meta.client || !pending || !navigator.sendBeacon) return;
+    if (!import.meta.client || !pending || !navigator.sendBeacon || !stillTheirs(pending)) return;
     const blob = new Blob([JSON.stringify({ items: pending.items })], {
       type: "application/json",
     });

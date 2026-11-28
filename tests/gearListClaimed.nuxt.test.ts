@@ -303,6 +303,25 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     }
   });
 
+  it("a load tried again is still its opener's to close", async () => {
+    failOpens = true;
+    try {
+      const c = useGearList();
+      void c.load({ code: CODE });
+      const opened = c.epochRef.value; // what the editor notes as it starts the session
+      await vi.waitFor(() => expect(c.status.value).toBe("error"));
+
+      failOpens = false;
+      c.retryLoad();
+      await vi.waitFor(() => expect(c.status.value).toBe("synced"));
+      c.dispose(opened);
+      expect(c.snapshot.value).toBeNull();
+      expect(c.status.value).toBe("idle");
+    } finally {
+      failOpens = false;
+    }
+  });
+
   it("a claim the server refuses loses its stamp — once the session is known good", async () => {
     // The hydrate path stamps before the server answers; a 401 with the session
     // resolved signed-in can only mean the CLAIM is dead (unclaimed or deleted on
@@ -599,8 +618,11 @@ describe("useGearList — a claimed open (share code + session, no token held)",
       failMutates = true;
       c.setMeta(RENAME);
       await vi.waitFor(async () => expect((await onDevice())?.pending).toHaveLength(1));
-      await signOut(c); // the page's parting send finds no network either
-      await vi.waitFor(() => expect(mutateAuth).toHaveLength(1));
+      // the page sends nothing on its way out: the account that typed it has left,
+      // and the rename waits on the device for it
+      await signOut(c);
+      await new Promise((r) => setTimeout(r, 60));
+      expect(mutateAuth).toHaveLength(0);
 
       // B, who holds the list too, signs in here and opens it with the network back
       window.dispatchEvent(new Event("online"));

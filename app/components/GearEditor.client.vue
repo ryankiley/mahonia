@@ -536,36 +536,52 @@ watch(listKey, () => {
 // figure counts from one to the other instead of blanking. A newer route change
 // during that wait wins (routeRun).
 let routeRun = 0;
+/** Open what the address names. `readFirst` waits for its on-device copy before letting
+ *  go of the list on screen. */
+async function openAddress(readFirst: boolean) {
+  // Read HERE, not inside startSession: a malformed hash ("#%") throws, and that throw
+  // must land before the dispose, exactly as it always has. What each kind means, and
+  // why, is editorCapability's (app/utils/editorRoute.ts), shared with readAhead.
+  const cap = editorCapability(route, {
+    hasSessionHint: () => session.hasSessionHint(),
+    heldToken: my.tokenFor,
+  });
+  // every run supersedes one still waiting on its read, the key's restore included:
+  // a list picked during that wait must not be overtaken by the one picked before it
+  const run = ++routeRun;
+  // the restore reads nothing ahead itself: the run it triggers does
+  if (cap.kind === "held") return navigateTo({ path: route.path, hash: `#${cap.token}` }, { replace: true });
+  if (readFirst) {
+    await readAhead(route);
+    if (run !== routeRun) return;
+  }
+  // a fresh, unsaved draft when there's nothing to open (persists on first real content)
+  startSession(
+    cap.kind === "token" ? { token: cap.token }
+      : cap.kind === "claimed" ? { code: cap.code }
+        : cap.kind === "keyless" ? { keyless: cap.code }
+          : undefined,
+  );
+}
+// first run: ownedEpoch is undefined → dispose is unconditional, clearing (and
+// flushing) whatever session a previous page instance left behind
 watch(
   () => [route.hash, route.params.code] as const,
-  async ([h, codeParam], prev) => {
-    // Read HERE, not inside startSession: a malformed hash ("#%") throws, and that throw
-    // must land before the dispose, exactly as it always has. What each kind means, and
-    // why, is editorCapability's (app/utils/editorRoute.ts), shared with readAhead.
-    // first run: ownedEpoch is undefined → dispose is unconditional, clearing (and
-    // flushing) whatever session a previous page instance left behind
-    const cap = editorCapability(
-      { hash: h, params: { code: codeParam } },
-      { hasSessionHint: () => session.hasSessionHint(), heldToken: my.tokenFor },
-    );
-    // every run supersedes one still waiting on its read, the key's restore included:
-    // a list picked during that wait must not be overtaken by the one picked before it
-    const run = ++routeRun;
-    // the restore reads nothing ahead itself: the run it triggers does
-    if (cap.kind === "held") return navigateTo({ path: route.path, hash: `#${cap.token}` }, { replace: true });
-    if (prev) {
-      await readAhead(route);
-      if (run !== routeRun) return;
-    }
-    // a fresh, unsaved draft when there's nothing to open (persists on first real content)
-    startSession(
-      cap.kind === "token" ? { token: cap.token }
-        : cap.kind === "claimed" ? { code: cap.code }
-          : cap.kind === "keyless" ? { keyless: cap.code }
-            : undefined,
-    );
-  },
+  (_, prev) => openAddress(!!prev),
   { immediate: true },
+);
+// THE ACCOUNT CHANGED UNDER A LIST OPENED THROUGH IT. Signing in or out changes no
+// address (a passkey finishes in the account dialog; another tab changes the cookie
+// under this one), so nothing above runs, and the list on screen is the last account's
+// view of it. It is closed, which keeps what that account had yet to send on the
+// device for it, and the address is opened again for whoever is here now: their own
+// copy of the list if they hold it, the dead end that offers a sign-in if nobody is.
+// The same person signing back in lands on that dead end's watcher below, which
+// reopens the list with those edits in it. Not while the session is unanswered
+// (offline): that says nothing about who is here.
+watch(
+  () => (session.presence.value === "presumed" ? undefined : (session.user.value?.account ?? null)),
+  (who) => (who !== undefined && !c.opensFor(who) ? openAddress(false) : undefined),
 );
 // the toast clears its own timer (useToast)
 onBeforeUnmount(() => c.dispose(ownedEpoch));

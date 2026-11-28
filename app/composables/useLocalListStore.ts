@@ -67,14 +67,15 @@ export function useLocalListStore() {
 
   const read = (slot: string) => tx<LocalListRecord | undefined>("readonly", (s) => s.get(slot));
 
-  /** Where `key`'s record is kept for whoever is signed in: under the key itself,
-   *  or for a claimed open in the account's slot. Null for a claimed open with no
-   *  account to file it under (signed out with the list still on screen, or the
-   *  session not yet answered): nothing is read and nothing written, rather than
-   *  a copy anyone could read or one nobody could. */
-  function slotFor(key: string): { slot: string; account?: string } | null {
+  /** Where `key`'s record is kept: under the key itself, or for a claimed open in
+   *  its account's slot. That is whoever is signed in, unless the caller names the
+   *  account: an open list writes to the account it was opened through, which a
+   *  sign-in or sign-out in another tab can have replaced under it. Null for a
+   *  claimed open with no account to file it under (the session not yet answered):
+   *  nothing is read and nothing written, rather than a copy anyone could read or
+   *  one nobody could. */
+  function slotFor(key: string, account = sessionAccount()): { slot: string; account?: string } | null {
     if (!isClaimedKey(key)) return { slot: key };
-    const account = sessionAccount();
     return account ? { slot: accountSlot(key, account), account } : null;
   }
 
@@ -101,11 +102,11 @@ export function useLocalListStore() {
     }
   }
 
-  async function set(key: string, record: LocalListRecord): Promise<void> {
+  async function set(key: string, record: LocalListRecord, account?: string): Promise<void> {
     if (held?.key === key) held = undefined;
     if (!enabled) return;
     try {
-      const at = slotFor(key);
+      const at = slotFor(key, account);
       if (!at) return;
       const stamped = at.account ? { ...record, account: at.account } : record;
       // The snapshot is a Vue reactive proxy, which IndexedDB's structured clone
@@ -118,13 +119,14 @@ export function useLocalListStore() {
     }
   }
 
-  /** Drop `key`'s record. For a claimed open that is the signed-in account's copy
-   *  and no other: another account's may hold edits it has yet to send. */
-  async function del(key: string): Promise<void> {
+  /** Drop `key`'s record. For a claimed open that is one account's copy (the
+   *  signed-in one's, or `account`'s) and no other: another account's may hold
+   *  edits it has yet to send. */
+  async function del(key: string, account?: string): Promise<void> {
     if (held?.key === key) held = undefined;
     if (!enabled) return;
     try {
-      const at = slotFor(key);
+      const at = slotFor(key, account);
       if (at) await tx("readwrite", (s) => s.delete(at.slot));
     } catch {
       /* best-effort */
