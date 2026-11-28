@@ -7,7 +7,7 @@ import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey } from "~~/shared/
 import { reconcileSnapshot } from "~~/shared/reconcile";
 import type { Folder, ListSnapshot } from "~~/shared/types";
 import { pickListMeta, stateData } from "~~/shared/types";
-import type { CaptureOneResult } from "./useVault";
+import type { CaptureOneResult, VaultList } from "./useVault";
 import type { VaultCapture, VaultGearKey } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { computeTotals } from "~~/shared/weights";
@@ -134,15 +134,22 @@ function create() {
   // Whether the AUTOMATIC capture path is on for this list (the stored answer is
   // "yes"), and which rows the chooser declined. The stored truth lives in
   // localStorage, which nothing can react to — so it's mirrored into refs here,
-  // re-read by refreshVaultCover() at every point the answer (or the token it's
-  // keyed by) changes. ItemRow renders against these: a row the automatic path
+  // re-read by refreshVaultCover() at every point the answer, or the list it's
+  // about, changes. ItemRow renders against these: a row the automatic path
   // already banks shows its save button as already banked rather than offering
   // to do what's done.
   const vaultAuto = ref(false);
   const vaultDeclined = shallowRef<ReadonlySet<string>>(new Set());
-  function refreshVaultCover() {
-    vaultAuto.value = vaultDecisionFor(editToken()) === "yes";
-    vaultDeclined.value = vaultExclusionsFor(editToken());
+  /** The open list as the vault's answer knows it (see VaultList). */
+  const vaultList = (shareCode = snapshot.value?.shareCode ?? ""): VaultList => ({
+    editToken: editToken(),
+    shareCode,
+  });
+  function refreshVaultCover(shareCode?: string) {
+    const list = vaultList(shareCode);
+    adoptTokenKeyedAnswer(list);
+    vaultAuto.value = vaultDecisionFor(list) === "yes";
+    vaultDeclined.value = vaultExclusionsFor(list);
   }
 
   // ---- what My Gear already holds, OF THIS LIST'S GEAR --------------------
@@ -532,11 +539,13 @@ function create() {
     // along to the next list opened (where it would ask about the wrong gear,
     // and spend that list's one chance to ask), and the chooser it opens, left
     // standing, would show the last list's gear over this one and record the answer
-    // against this list's token. A draft is yours, and never asks.
+    // against this list. A draft is yours, and never asks.
     vaultAsk.value = null;
     // ...and the rows must render against THIS list's answer (a draft's answer IS
-    // yes: no token → yours by definition)
-    refreshVaultCover();
+    // yes: no token → yours by definition). Not by the snapshot's share code: on a
+    // load that is still the LAST list's, and the answer is read again once this
+    // list's snapshot is in.
+    refreshVaultCover("");
     // The vault's answer was about the LAST list's gear. It dies here, which is
     // the entire lifetime story now: no epoch, no reset hook, no cross-account
     // question — a new list asks its own.
@@ -583,6 +592,7 @@ function create() {
       pending = local.pending ?? [];
       setStatus(pending.length ? "saving" : "synced");
       syncRegistry();
+      refreshVaultCover();
       // The rows are on screen now, so the question they render against is live
       // now. Silent and best-effort: it decides whether a save button shows, and
       // a list must never wait on it (see askVaultGear).
@@ -599,6 +609,7 @@ function create() {
       snapshot.value = merged;
       setStatus(pending.length ? "saving" : "synced");
       registerOpened(); // server confirmed the token → remember this list in "Your lists"
+      refreshVaultCover(); // a list with no device copy learns its share code here
       // A second ask, which costs a request only if the server's copy brought
       // gear the on-device one didn't have — every key already answered for is
       // skipped inside.
@@ -810,7 +821,7 @@ function create() {
         // restore it and make the list twice. Not while a draft is open by now: that
         // record is its own.
         const token = myLists.registerCreated(res);
-        setVaultDecisionFor(token, "yes");
+        setVaultDecisionFor({ editToken: token, shareCode: res.snapshot.shareCode }, "yes");
         if (!snapshot.value || holdsList()) store.del(DRAFT_KEY);
         return;
       }
@@ -827,8 +838,8 @@ function create() {
       // register the write capability + put the token in the URL WITHOUT routing
       // (replaceState, so the editor's hash watcher doesn't dispose/reload us)
       const token = myLists.registerCreated(res);
-      setVaultDecisionFor(token, "yes"); // you built it; it's yours without asking
-      refreshVaultCover(); // the answer moved onto the new token; keep the mirror true
+      setVaultDecisionFor(vaultList(), "yes"); // you built it; it's yours without asking
+      refreshVaultCover(); // the draft's answer was yes by definition; now it's stored
       // pretty path (/e/{shareCode}#{token}) so the URL is share-ready immediately;
       // replaceState (not routing) so the hash watcher doesn't dispose/reload us
       if (typeof history !== "undefined")
@@ -1169,7 +1180,7 @@ function create() {
     // The decision lives in sync(), which asks only once it knows there is gear
     // worth asking about — see useVault.
     vault.sync(snapshot.value.items, snapshot.value.folders, {
-      editToken: editToken(),
+      list: vaultList(),
       // ...and what the vault already holds of it, so a list whose every row is
       // banked never raises a modal asking permission for a no-op. Passed in
       // rather than read from a singleton: this is the open list's answer, and
@@ -1193,7 +1204,7 @@ function create() {
   async function answerVaultPrompt(yes: boolean) {
     vaultAsk.value = null;
     if (!yes) {
-      setVaultDecisionFor(editToken(), "no");
+      setVaultDecisionFor(vaultList(), "no");
       return refreshVaultCover();
     }
     const s = snapshot.value;
@@ -1203,7 +1214,7 @@ function create() {
     // nothing to choose between — record the answer and take the (empty) set, so
     // an empty chooser never appears and the question doesn't come back
     if (caps.length < 2) {
-      setVaultDecisionFor(editToken(), "yes");
+      setVaultDecisionFor(vaultList(), "yes");
       refreshVaultCover();
       return captureIfMine();
     }
@@ -1217,10 +1228,10 @@ function create() {
     vaultAsk.value = null;
     const kept = new Set(keep);
     setVaultExclusionsFor(
-      editToken(),
+      vaultList(),
       offered.filter((c) => !kept.has(c.normKey)).map((c) => c.normKey),
     );
-    setVaultDecisionFor(editToken(), "yes");
+    setVaultDecisionFor(vaultList(), "yes");
     refreshVaultCover();
     captureIfMine();
   }
@@ -1243,6 +1254,7 @@ function create() {
     const old = editToken();
     const oldCode = claimCode();
     const oldKey = storeKey();
+    const shareCode = snapshot.value?.shareCode || oldCode;
     const fromSnapshot = snapshot.value
       ? myLists.entryFromSnapshot({ editToken: old, snapshot: snapshot.value })
       : null;
@@ -1264,23 +1276,12 @@ function create() {
     // list — so a claimed open graduates to the token path here, and the editor
     // behaves from now on exactly as if the link had been opened directly.
     if (ours) access.value = { kind: "token", token: fresh };
-    // The vault answer rides along. It's keyed by the token, but it answers a
-    // question about the GEAR ("is this list's gear mine?"), and a rotate is the
-    // owner cycling a leaked link on a list they've already answered for. Losing
-    // the answer here meant the prompt re-asked and capture paused until it was
-    // re-answered — for no new reason. The exclusions are half of that answer
-    // ("only the tent is mine"), so they carry too. The old token's keys then
-    // go: the token is dead server-side, and nothing else ever cleared these
-    // (only deleteList does), so every rotate used to strand a pair for good.
-    // A claimed open rotates with old = "" — vaultDecisionFor("") answers "yes"
-    // (a claimed list is yours, the same rule capture follows), so the fresh
-    // token inherits that and the ""-keyed clears below are no-ops.
-    const decision = vaultDecisionFor(old);
-    if (decision !== "ask") setVaultDecisionFor(fresh, decision);
-    const declined = vaultExclusionsFor(old);
-    if (declined.size) setVaultExclusionsFor(fresh, [...declined]);
-    clearVaultDecisionFor(old);
-    if (ours) refreshVaultCover(); // mirror the carried answer onto the rows
+    // The vault's answer is filed under the share code, which a rotate keeps, so a
+    // held link's answer needs nothing here. A claimed open had no question to ask
+    // (it is yours, through the account); now that it holds a link, the answer it
+    // had is written down, or graduating would make it ask.
+    if (!old && shareCode) setVaultDecisionFor({ editToken: fresh, shareCode }, "yes");
+    if (ours) refreshVaultCover();
     // always persist the NEW token, even if the old registry entry was missing,
     // so a rotate can never strand the only copy of the write capability — built
     // from the snapshot as it stood when the rotate was asked for, by the same
