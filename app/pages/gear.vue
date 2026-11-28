@@ -637,7 +637,7 @@ async function exportGear(kind: string) {
              how a product starts sounding like two products. Change one, change
              both. -->
         <div v-if="!hasGear" class="vault__auth vault__mid">
-          <SvgIcon :icon="IconSafeSimple" size="xl" class="vault__midmark" aria-hidden="true" />
+          <SvgIcon :icon="IconSafeSimple" size="xl" class="page__mark" aria-hidden="true" />
           <p class="vault__sentline">{{ VAULT_ASK }}</p>
           <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
         </div>
@@ -803,7 +803,7 @@ async function exportGear(kind: string) {
                your gear" told a signed-in visitor who'd lost signal that their gear was
                gone. The line above says what is true then. -->
           <div v-if="emptyShown" class="vault__mid">
-            <SvgIcon :icon="emptyTab.icon" size="xl" class="vault__midmark" aria-hidden="true" />
+            <SvgIcon :icon="emptyTab.icon" size="xl" class="page__mark" aria-hidden="true" />
             <p class="vault__sentline">{{ emptyTab.text }}</p>
             <div v-if="emptyTab.kit || emptyTab.add || emptyTab.list" class="vault__emptyacts">
               <!-- New kit is the page's one action here, so it is drawn as one; pressed,
@@ -1006,19 +1006,6 @@ async function exportGear(kind: string) {
    window, where a lone block reads as centred. */
 .vault__body > .vault__mid {
   padding-bottom: calc(var(--control-compact) + var(--space-1));
-}
-/* The tab's mark over its message, at the lesser foreground: it says which tab is speaking,
-   and gives a centred block of text something to hang from. 40px, the height of the
-   button under it and off the icon scale on purpose: the scale's largest step (24) is
-   for a glyph beside text, and alone over a paragraph it read as a stray bullet (Ryan:
-   "icon could be bigger"). The stroke scales with it, untouched: thinned back to the
-   small icons' 1.5px it was a hairline drawing beside them, where the same glyph in the
-   tab above is a solid line (Ryan: "match the weight of the other icons"). Scaled, it
-   is the tab's icon, larger. */
-.vault__midmark {
-  width: var(--control-h);
-  height: var(--control-h);
-  color: var(--foreground-tertiary);
 }
 /* the kit's name is typed where its button was, so it is centred as the button was */
 .vault__mid :deep(.addfolder__input) {

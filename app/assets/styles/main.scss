@@ -123,11 +123,16 @@
 .page--alone > .prose {
   align-items: center;
 }
-/* ...and the mark over its message, the one an empty state wears (My Gear's
-   .vault__midmark): 40px, the height of the button under it, in the lesser foreground,
-   with the stroke left to scale. It says what kind of page this is before the words do,
-   and gives a centred block something to hang from (Ryan, 2026-11-27: "all pages like
-   this COULD use an icon like we do for empty states"). */
+/* THE MARK OVER A CENTRED MESSAGE: a one-message page's (MessagePage.vue) and a My Gear
+   empty tab's. It says what kind of page or tab is speaking before the words do, and
+   gives a centred block of text something to hang from. In the lesser foreground. 40px,
+   the height of the button under it and off the icon scale on purpose: the scale's
+   largest step (24) is for a glyph beside text, and alone over a paragraph it read as a
+   stray bullet (Ryan: "icon could be bigger"). The stroke scales with it, untouched:
+   thinned back to the small icons' 1.5px it was a hairline beside them, where the same
+   glyph in a tab is a solid line (Ryan: "match the weight of the other icons"). One class
+   for both, since Ryan asked that the message pages wear the empty states' icon
+   (2026-11-27). */
 .page__mark {
   display: block;
   margin-inline: auto;
