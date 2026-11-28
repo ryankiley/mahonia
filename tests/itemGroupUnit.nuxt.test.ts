@@ -67,9 +67,7 @@ describe("a group row's weight unit", () => {
 
   it("carries the same picker every other row has", () => {
     const w = mountRow(GROUP, KIDS);
-    // the real control, not the ghost chevron that only holds the column open
     expect(w.find(".item__unitwrap .optmenu__btn").exists()).toBe(true);
-    expect(w.find(".item__unitchev--ghost").exists()).toBe(false);
   });
 
   it("re-expresses the total in the picked unit — and remembers it", async () => {

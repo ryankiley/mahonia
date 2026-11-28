@@ -486,14 +486,14 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     // and resumeTarget skips a claimed entry the registry already covers anyway
     expect(claimedOpens()).toEqual([]);
 
-    // and the next edit no longer names the claim. (The Bearer half of the
-    // hand-off can't be asserted here: test-utils' fetch mock delivers custom
-    // headers but not Authorization — a probe confirmed even the plain token
-    // path arrives bearer-less. authHeaders() is a two-line branch on editToken,
-    // which the getter above already pins; the wire truth is covered live.)
+    // and the next edit carries the new token instead of naming the claim
     mutateAuth = [];
     c.setMeta({ title: "After rotate" });
     await vi.waitFor(() => expect(mutateAuth).toHaveLength(1));
-    expect(mutateAuth[0]).toMatchObject({ listCode: undefined, ops: [{ t: "setMeta", patch: { title: "After rotate" } }] });
+    expect(mutateAuth[0]).toMatchObject({
+      bearer: `Bearer ${ROTATED_TOKEN}`,
+      listCode: undefined,
+      ops: [{ t: "setMeta", patch: { title: "After rotate" } }],
+    });
   });
 });

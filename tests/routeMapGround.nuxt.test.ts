@@ -85,7 +85,7 @@ describe("the route on the map", () => {
 // over a wider casing of its own, in a different stroke from its fill. Which colour the
 // edge is, is a palette call; that there is one is the obligation.
 describe("each line on the map", () => {
-  const paths = (w: VueWrapper) => [...w.element.querySelectorAll<SVGPathElement>(".leaflet-overlay-pane path")];
+  const paths = (w: VueWrapper) => [...(w.element as HTMLElement).querySelectorAll<SVGPathElement>(".leaflet-overlay-pane path")];
   const stroke = (p: SVGPathElement) => p.style.stroke || p.getAttribute("stroke") || "";
 
   it("has a casing drawn under it, wider than it", async () => {

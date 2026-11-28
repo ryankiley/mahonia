@@ -530,7 +530,7 @@ function commitDayMetres(id: string, field: "distanceM" | "ascentM", e: Event) {
   // the server and JSON.stringify drops undefined keys, so clearing a day's figure
   // changed it locally and was overwritten by the very next echo — it looked like
   // the server refusing the edit, when the server was never told. See DayPatch;
-  // tests/dayClear.test.ts pins each field's literal to this sentinel shape.
+  // tests/planGhostDayRow.nuxt.test.ts clears each field and expects the "".
   c.updateDay(
     id,
     field === "distanceM"
