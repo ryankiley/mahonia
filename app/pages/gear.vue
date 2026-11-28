@@ -560,9 +560,15 @@ const exporter = () => import("~~/shared/exporters/vault");
 const importOpen = ref(false);
 const importEverOpened = useLatch(() => importOpen.value);
 const { open: openFeedback } = useFeedback();
-// the read-only link to this gear (VaultShareModal), mounted on first use like import
+// the read-only link to this gear: the bar's share glyph opens the Sharing panel, as on
+// a list (VaultSharePanel); the copying and stopping are useVaultShare's, and say how
+// they went in the page's toast, since the panel has closed by then
+const { toast, flash } = useToast();
+const share = useVaultShare(flash);
+const shareRef = useTemplateRef<HTMLElement>("shareRef");
 const shareOpen = ref(false);
-const shareEverOpened = useLatch(() => shareOpen.value);
+useMenuDismiss(shareOpen, shareRef);
+watch(shareOpen, (open) => open && share.refresh());
 function onMenuPick(action: string) {
   if (action === "feedback") return openFeedback();
   if (action !== "import") return void exportGear(action);
@@ -624,19 +630,30 @@ async function exportGear(kind: string) {
           <!-- Sharing is a glyph in the bar, where the editor keeps its own (account,
                share, ⋯), not a row in the ⋯: one act, one place, on every page. Only
                when there is gear to share and an account to share it from. -->
-          <Tooltip v-if="hasVault && !offline && hasGear && items.length > 0" text="Share my gear" preferred-placement="bottom" :disabled="shareOpen">
-            <button
-              type="button"
-              class="btn btn--icon btn--ghost"
-              :class="{ 'is-on': shareOpen }"
-              aria-label="Share my gear"
-              aria-haspopup="dialog"
-              :aria-expanded="shareOpen"
-              @click="shareOpen = true"
-            >
-              <SvgIcon :icon="IconShareAndroid" />
-            </button>
-          </Tooltip>
+          <div v-if="hasVault && !offline && hasGear && items.length > 0" ref="shareRef" class="menu gear__sharemenu">
+            <Tooltip text="Sharing" preferred-placement="bottom" :disabled="shareOpen">
+              <button
+                type="button"
+                class="btn btn--icon btn--ghost"
+                :class="{ 'is-on': shareOpen }"
+                aria-label="Sharing"
+                aria-haspopup="dialog"
+                :aria-expanded="shareOpen"
+                @click="shareOpen = !shareOpen"
+              >
+                <SvgIcon :icon="IconShareAndroid" />
+              </button>
+            </Tooltip>
+            <Transition name="menu">
+              <LazyVaultSharePanel
+                v-if="shareOpen"
+                :sharing="share.sharing.value"
+                @close="shareOpen = false"
+                @copy="share.copy()"
+                @stop="share.stop()"
+              />
+            </Transition>
+          </div>
           <VaultMenu
             :signed-in="hasVault && !offline"
             :can-export="hasGear && items.length > 0"
@@ -891,7 +908,6 @@ async function exportGear(kind: string) {
       </template>
     </LazyVaultItemModal>
 
-    <LazyVaultShareModal v-if="shareEverOpened" :open="shareOpen" @close="shareOpen = false" />
 
     <!-- Same lazy idiom: nobody who never imports downloads the parser. -->
     <LazyVaultImportModal
@@ -910,12 +926,20 @@ async function exportGear(kind: string) {
         @take="undo()"
         @hold="(held: boolean) => (held ? holdUndo() : releaseUndo())"
       />
+      <div v-else-if="toast" class="toast" role="status">{{ toast }}</div>
     </Transition>
   </div>
 </template>
 
 <style scoped lang="scss">
 /* the switcher's width before it hydrates: its word and chevron, unseen */
+/* On a phone the Sharing panel measures from the bar, not its glyph (.menu__panel), as
+   the editor's does (.editor__sharemenu). */
+@media (max-width: $bp-stack) {
+  .gear__sharemenu {
+    position: static;
+  }
+}
 .gear__leadhold {
   visibility: hidden;
   padding-inline-end: calc(var(--icon-sm) + var(--space-1));

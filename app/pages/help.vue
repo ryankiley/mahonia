@@ -231,9 +231,9 @@ useHead({
             bring it back, add it again in My Gear.
           </li>
           <li>
-            The share button at the top of My Gear turns on a read-only link to your gear and kits, without
-            prices or food. Turning it off stops the link at once, and turning it on again makes a new
-            one.
+            The share button at the top of My Gear copies a read-only link to your gear and kits, without
+            prices or food, and with your name only if you’ve set one on your account. “Stop sharing”
+            there turns the link off at once, and copying it again makes a new one.
           </li>
           <li>“Download everything” in your account downloads your filed lists and My Gear.</li>
           <li>
