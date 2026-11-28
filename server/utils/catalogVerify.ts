@@ -479,7 +479,8 @@ export async function undoCatalogEdit(db: Db, editId: unknown): Promise<{ row: C
   if (!edit) return `No catalog edit has id ${editId}.`;
   const rowId = Number(edit.catalogItemId);
   if (edit.status === "reverted") return `Edit ${editId} is already undone.`;
-  if (edit.status === "rejected") return `Edit ${editId} is already turned down.`;  if (edit.status === "proposed") return rejectProposal(db, editId, rowId);
+  if (edit.status === "rejected") return `Edit ${editId} is already turned down.`;
+  if (edit.status === "proposed") return rejectProposal(db, editId, rowId);
   // only applied edits moved a weight
   if (edit.status !== "applied") return `Edit ${editId} is ${edit.status} and never moved the weight; there is nothing to undo.`;
   // only the most recent applied edit: undoing an older one would throw the newer away unseen
