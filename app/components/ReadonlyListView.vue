@@ -424,6 +424,14 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 .view__trailicon {
   border-radius: var(--radius-icon);
 }
+/* a site's mark draws a step smaller than the slot it shares with the calendar, the
+   difference given back as margin so the slot and the text's column hold (ListHead's
+   img.head__icon has the why) */
+img.view__trailicon {
+  inline-size: calc(var(--where-mark) * 0.8);
+  block-size: calc(var(--where-mark) * 0.8);
+  margin: calc(var(--where-mark) * 0.1);
+}
 /* read views are denser than the editor (no add-item row or controls per folder),
    so the inter-folder gap is a step tighter here (space-6, vs the editor's space-7)
    — the list scans as one block instead of drifting apart. */

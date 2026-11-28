@@ -215,16 +215,24 @@ function onName(e: Event) {
   opacity: 1;
 }
 
-/* A folder's controls are ALWAYS visible, on every pointer.
-   They used to fade in on hover — a clean header at rest, with only the grip
-   standing. The item rows made the opposite call and it held: an affordance you
-   have to discover by sweeping the pointer over the thing is one most people never
-   learn is there, and the header is where a folder is renamed, reordered and
-   removed. Touch had them permanently anyway, so
-   the hover branch was also the only place the two pointer types disagreed about
-   what the app can do.
-   The controls are already quiet enough to sit there: --foreground-tertiary glyphs that
-   deepen on hover, which is the affordance doing its job rather than announcing itself. */
+/* THE BIN RESTS UNSEEN under a pointer that can hover, and comes back when the heading
+   is under the pointer or holds focus: what the rows do with Duplicate and Remove
+   (ItemRow, the 2026-09-05 pick), and for their reason. The GRIP STAYS, as the rows'
+   does: it is the handle the folder is moved by, and it marks the heading's right edge.
+   This rule used to argue the opposite, that a folder's controls are always visible
+   because the rows' were; the rows changed and the heading was left showing a bin at
+   rest beside rows that showed none (Ryan, 2026-11-27).
+   Touch keeps both always: nothing hovers there. */
+@media (hover: hover) and (pointer: fine) {
+  .folder__actions .btn--icon:not(.grip) {
+    opacity: 0;
+    transition: opacity var(--spring-fade-dur) var(--spring-fade);
+  }
+  .folder__head:hover .folder__actions .btn--icon:not(.grip),
+  .folder__head:focus-within .folder__actions .btn--icon:not(.grip) {
+    opacity: 1;
+  }
+}
 
 @media (max-width: $bp-stack) {
   /* the header's own collapse to name + actions (--head-cols, the title and

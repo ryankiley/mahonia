@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "A weight that differs from the catalog's now wears a small mark. Click it to use the catalog's figure, keep yours, or suggest a fix.",
+    "A row's − and + buttons now appear when you hover or tab into the row, and a quantity of 1 reads in grey.",
+    "A short note now sits on the same line as the gear type, so most rows are two lines.",
+    "On desktop, a folder's delete button now appears when you hover its heading.",
+    "Menus opened from a row's icons now open centred under the icon.",
+    "A trail link's site icon is drawn a little smaller, to match the icons beside it."
+  ]
+}

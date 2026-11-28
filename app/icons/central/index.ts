@@ -67,6 +67,7 @@ export { IconFolder1 } from "./IconFolder1";
 export { IconFootsteps } from "./IconFootsteps";
 export { IconForkKnife } from "./IconForkKnife";
 export { IconForkSpoon } from "./IconForkSpoon";
+export { IconFormSeal } from "./IconFormSeal";
 export { IconFormSquare } from "./IconFormSquare";
 export { IconGemini } from "./IconGemini";
 export { IconGlobe2 } from "./IconGlobe2";

@@ -118,7 +118,7 @@ describe("renaming a row to a different piece of gear", () => {
     expect(row().unitWeightMg).toBe(541_000);
     expect(row().catalogItemId).toBe(76);
     expect(row().catalogWeightMgAtLink).toBe(541_000);
-    expect(w.find(".item__fixrow").exists()).toBe(false);
+    expect(w.find(".item__catnote").exists()).toBe(false);
     expect(weightField(w)).toBe("541");
   });
 
@@ -129,7 +129,7 @@ describe("renaming a row to a different piece of gear", () => {
     expect(row().catalogItemId).toBe(200);
     // the OLD product's catalog weight must not survive the re-link
     expect(row().catalogWeightMgAtLink).toBeUndefined();
-    expect(w.find(".item__fixrow").exists()).toBe(false);
+    expect(w.find(".item__catnote").exists()).toBe(false);
     expect(weightField(w)).toBe("545");
   });
 
@@ -138,7 +138,7 @@ describe("renaming a row to a different piece of gear", () => {
     await rename(w, fromCatalog());
     expect(row().unitWeightMg).toBe(541_000);
     expect(row().catalogWeightMgAtLink).toBe(541_000);
-    expect(w.find(".item__fixrow").exists()).toBe(false);
+    expect(w.find(".item__catnote").exists()).toBe(false);
   });
 
   it("vault row → another vault row: takes the new weight", async () => {
@@ -147,7 +147,7 @@ describe("renaming a row to a different piece of gear", () => {
     expect(row().unitWeightMg).toBe(439_000);
     expect(row().catalogItemId).toBe(201);
     expect(row().catalogWeightMgAtLink).toBeUndefined();
-    expect(w.find(".item__fixrow").exists()).toBe(false);
+    expect(w.find(".item__catnote").exists()).toBe(false);
   });
 
   it("a vault pick brings back the calories the vault remembers", async () => {
@@ -249,18 +249,40 @@ describe("renaming through the live autocomplete", () => {
     expect(weightField(w)).toBe(c.shown);
     // the "suggest a fix" nudge is only honest when the baseline belongs to the
     // product now linked — a re-link that can't stamp one must not inherit the old
-    expect(w.find(".item__fixrow").exists()).toBe(false);
+    expect(w.find(".item__catnote").exists()).toBe(false);
     const baseline = row().catalogWeightMgAtLink;
     expect(baseline === undefined || baseline === c.mg).toBe(true);
+  });
+
+  // The note's other answer: the catalog is right. One press takes its figure for the
+  // row, which then has nothing left to disagree with.
+  it("a row already nudging takes the catalog's weight from the mark's popover, and the mark goes", async () => {
+    const w = mountRow({ ...catalogPicked, unitWeightMg: 700_000, weightOverridden: true });
+    // the mark beside the weight says what the catalog says; its popover holds the acts
+    const mark = w.get(".item__catnote-btn");
+    expect(mark.attributes("aria-label")).toBe("Catalog: 688 g, for " + row().name);
+    await mark.trigger("click");
+    const use = w.get(".item__fixuse");
+    expect(use.text()).toBe("Use 688 g from the catalog");
+    // and the other two say what they do, by their own figures
+    expect(w.get(".item__fixdismiss").text()).toBe("Keep 700 g");
+    expect(w.get(".item__fixsuggest").text()).toBe("Suggest a catalog fix…");
+    await use.trigger("click");
+    expect(row().unitWeightMg).toBe(688_000);
+    expect(row().weightOverridden).toBe(false);
+    expect(row().catalogItemId).toBe(catalogPicked.catalogItemId);
+    await nextTick();
+    expect(weightField(w)).toBe("688");
+    expect(w.find(".item__catnote").exists()).toBe(false);
   });
 
   it("a row already nudging stops once it's renamed to a different product", async () => {
     // the catalog says 688 g, the user weighed 700 g — the nudge is showing
     const w = mountRow({ ...catalogPicked, unitWeightMg: 700_000, weightOverridden: true });
-    expect(w.find(".item__fixrow").exists()).toBe(true);
+    expect(w.find(".item__catnote").exists()).toBe(true);
     vaultHits.push({ ...vaultHit });
     await typeAndPick(w, "Duplex");
-    expect(w.find(".item__fixrow").exists()).toBe(false);
+    expect(w.find(".item__catnote").exists()).toBe(false);
   });
 
   // The classification leg. The catalog's consumable category is the one that maps

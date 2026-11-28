@@ -126,3 +126,92 @@ describe("at the base type size", () => {
     expect(placed({ top: 300, bottom: 330, h: 200, clip })).toEqual({ above: false, maxHeight: null });
   });
 });
+
+
+// A menu off a small icon in the middle of a row opens under the icon's middle, and is
+// slid only as far as the window makes it. The trigger here is 40 wide and the menu 120.
+describe("a menu set on its trigger's middle", () => {
+  function centredAt(left: number, width = 1000) {
+    viewport(800, width);
+    const anchor = document.createElement("div");
+    anchor.getBoundingClientRect = () => rect(100, 120, left, left + 40);
+    const list = document.createElement("ul");
+    Object.defineProperties(list, {
+      offsetParent: { get: () => anchor },
+      offsetWidth: { get: () => 120 },
+      offsetHeight: { get: () => 100 },
+      scrollHeight: { get: () => 100 },
+    });
+    anchor.append(list);
+    document.body.append(anchor);
+    const p = useMenuPlacement(ref(list), { fit: "center" });
+    p.place();
+    return { centered: p.centered.value, shift: p.shift.value, atStart: p.atStart.value };
+  }
+
+  it("sits centred, unmoved, where there is room either side", () => {
+    expect(centredAt(500)).toEqual({ centered: true, shift: 0, atStart: false });
+  });
+
+  it("slides in from the trailing edge by exactly the overrun", () => {
+    // centred it would span 900..1020; the window holds it to 872..992
+    expect(centredAt(940)).toEqual({ centered: true, shift: -28, atStart: false });
+  });
+
+  it("slides in from the leading edge the same way", () => {
+    // centred it would span -30..90; it starts at the 8px edge padding
+    expect(centredAt(10)).toEqual({ centered: true, shift: 38, atStart: false });
+  });
+
+  it("keeps the default when the menu is wider than the window", () => {
+    expect(centredAt(20, 100).centered).toBe(false);
+  });
+});
+
+// A menu left open while the window changes size: the row reflows and the trigger moves,
+// so the card is placed again rather than left where the old layout put it.
+describe("a menu left open while the window resizes", () => {
+  it("is placed again for the new window and the trigger's new place", () => {
+    viewport(800, 1024);
+    let left = 669;
+    const anchor = document.createElement("div");
+    anchor.getBoundingClientRect = () => rect(100, 120, left, left + 20);
+    const list = document.createElement("ul");
+    Object.defineProperties(list, {
+      offsetParent: { get: () => anchor },
+      offsetWidth: { get: () => 260 },
+      offsetHeight: { get: () => 100 },
+      scrollHeight: { get: () => 100 },
+    });
+    anchor.append(list);
+    document.body.append(anchor);
+    const p = useMenuPlacement(ref(list), { fit: "center" });
+    p.place();
+    expect(p.shift.value).toBe(0);
+
+    // the window drops to a phone's width and the mark moves with the row
+    viewport(800, 405);
+    left = 113;
+    window.dispatchEvent(new Event("resize"));
+    // centred it would start at -7; the 8px edge padding takes it to 8
+    expect(p.shift.value).toBe(15);
+  });
+
+  it("stops listening once its list is gone", () => {
+    viewport(800, 1024);
+    const anchor = document.createElement("div");
+    anchor.getBoundingClientRect = () => rect(100, 120, 500, 520);
+    const list = document.createElement("ul");
+    Object.defineProperties(list, { offsetParent: { get: () => anchor }, offsetWidth: { get: () => 120 }, offsetHeight: { get: () => 100 } });
+    anchor.append(list);
+    document.body.append(anchor);
+    const held = ref<HTMLElement | null>(list);
+    const p = useMenuPlacement(held, { fit: "center" });
+    p.place();
+    held.value = null;
+    anchor.remove();
+    viewport(800, 300);
+    window.dispatchEvent(new Event("resize"));
+    expect(p.shift.value).toBe(0);
+  });
+});

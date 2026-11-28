@@ -21,7 +21,8 @@ import { typeScale } from "~/utils/typeScale";
 // travelling plate (see useMenuPlate, which reads offsetTop inside the list) and scroll
 // with the page, and both of those would have to be rebuilt to make them fixed.
 //
-// Usage — measure once per open, since a menu can't resize while it's up:
+// Usage — measure on open; the composable measures again itself if the window resizes
+// while the menu is up:
 //   const { atStart, above, place } = useMenuPlacement(listRef);
 //   watch(open, (o) => o && nextTick(place));
 //   <ul ref="listRef" :class="{ 'menu__list--start': atStart, 'menu__list--above': above }">
@@ -30,6 +31,13 @@ import { typeScale } from "~/utils/typeScale";
 //  • `flip` (the default) hangs the menu from the leading edge instead — right for
 //    a menu whose trigger sits at one edge of a toolbar, where the other side is
 //    all room.
+//  • `center` sets the menu UNDER THE MIDDLE of its trigger, and slides it only as far
+//    as it must to stay on screen. For a menu that hangs off a small icon in the middle
+//    of something (a row's marks): flush to one of the icon's edges, the card reads as
+//    belonging to whatever is beside the icon, and it covers that neighbour. Centred, it
+//    points at the thing that opened it (Ryan, 2026-11-27: "shouldn't menu fire from
+//    center when it can?"). At a trigger hard against an edge the slide brings the card
+//    in to the edge padding, which is where the other two modes put it too.
 //  • `shift` slides it right by exactly the overflow and leaves it hanging from the
 //    trailing edge. For the row's classification popovers, whose trigger sits mid-
 //    row on a phone: a 13rem card flipped to the leading edge of a trigger at
@@ -77,11 +85,16 @@ const ANCHOR_GAP = 4;
 
 export function useMenuPlacement(
   listRef: Readonly<Ref<HTMLElement | null>>,
-  opts: { fit?: "flip" | "shift"; within?: boolean } = {},
+  opts: { fit?: "flip" | "shift" | "center"; within?: boolean } = {},
 ): {
   atStart: Ref<boolean>;
+  /** under `fit: "center"`: the menu is set on the trigger's middle (always, unless it
+   *  is wider than the window, when the default stands) */
+  centered: Ref<boolean>;
   above: Ref<boolean>;
-  /** px to translate rightward — only ever non-zero under `fit: "shift"` */
+  /** px to translate rightward: non-zero only under `fit: "shift"`, and under
+   *  `fit: "center"` (where it may be negative) when the centred card would leave the
+   *  window */
   shift: Ref<number>;
   /** px the card may be tall, or null for its own height — only ever set under
    *  `within`, when neither side of the trigger has room for the whole menu */
@@ -89,14 +102,42 @@ export function useMenuPlacement(
   place: () => void;
 } {
   const atStart = ref(false);
+  const centered = ref(false);
   const above = ref(false);
   const shift = ref(0);
   const maxHeight = ref<number | null>(null);
+
+  // A MENU LEFT OPEN WHILE THE WINDOW CHANGES SIZE IS PLACED AGAIN. It was measured once
+  // per open on the argument that a menu can't resize while it is up, which is true of
+  // the menu and not of the window: a phone turned on its side, a desktop window dragged
+  // narrower, a browser pane snapping from one width to another. The row reflows, the
+  // trigger moves, and the card stayed where the old layout had put it: one opened under
+  // a mark at 1024px was 7px off the left edge when the window dropped to 405 and the
+  // mark moved to x=122 (2026-11-27, and how it was found).
+  // Placed again, NOT closed: on engines where the on-screen keyboard resizes the window,
+  // closing would shut a card the moment its own field was tapped.
+  // The listener exists only from a menu's first place() until the first resize that
+  // finds its list gone, so a list of 150 rows carries one for each menu that is or was
+  // lately open, not one per row.
+  let watching = false;
+  const unwatch = () => {
+    window.removeEventListener("resize", onResize);
+    watching = false;
+  };
+  function onResize(): void {
+    if (listRef.value?.isConnected) place();
+    else unwatch();
+  }
+  if (getCurrentScope()) onScopeDispose(unwatch);
 
   function place(): void {
     const list = listRef.value;
     const anchor = list?.offsetParent as HTMLElement | null;
     if (!list || !anchor) return;
+    if (!watching) {
+      window.addEventListener("resize", onResize, { passive: true });
+      watching = true;
+    }
 
     // Measure the anchor, and the list's own WIDTH and HEIGHT only — its current top
     // and left depend on whichever sides it is hanging from right now, so compute the
@@ -121,7 +162,19 @@ export function useMenuPlacement(
     const trailingLeft = a.right - w; // the default: right edges flush
     const leadingRight = a.left + w; // the flip: left edges flush
 
-    if (opts.fit === "shift") {
+    // clientWidth, not innerWidth: the visible edge is the layout viewport's, and
+    // innerWidth also counts a classic scrollbar's column (Windows, Linux), so a menu
+    // could be judged to fit with its last 15px under the scrollbar.
+    const viewportWidth = document.documentElement.clientWidth;
+    centered.value = false;
+    if (opts.fit === "center" && w <= viewportWidth - 2 * edge) {
+      // middle to middle, then the least slide that keeps both edges on screen
+      const centredLeft = a.left + a.width / 2 - w / 2;
+      const kept = Math.min(Math.max(centredLeft, edge), viewportWidth - edge - w);
+      centered.value = true;
+      atStart.value = false;
+      shift.value = Math.round(kept - centredLeft);
+    } else if (opts.fit === "shift") {
       // slide by the exact overrun, measured off the rendered card rather than a
       // constant: its width is set in CSS (rem), so a hardcoded pixel twin is wrong
       // the moment the root font size isn't 16, and drifts if the rule is retuned
@@ -130,11 +183,7 @@ export function useMenuPlacement(
       // Prefer the default. Only flip when it would overrun the leading edge AND the
       // flip actually fits — a menu wider than the viewport is beyond helping, and
       // flipping it would just move which edge it's cut off at.
-      atStart.value =
-        // clientWidth, not innerWidth: the visible edge is the layout viewport's, and
-        // innerWidth also counts a classic scrollbar's column (Windows, Linux), so a
-        // flipped menu could be judged to fit with its last 15px under the scrollbar.
-        trailingLeft < edge && leadingRight <= document.documentElement.clientWidth - edge;
+      atStart.value = trailingLeft < edge && leadingRight <= viewportWidth - edge;
     }
 
     // Same rule downward, and the same preference: below unless below doesn't fit and
@@ -155,5 +204,5 @@ export function useMenuPlacement(
       : null;
   }
 
-  return { atStart, above, shift, maxHeight, place };
+  return { atStart, centered, above, shift, maxHeight, place };
 }
