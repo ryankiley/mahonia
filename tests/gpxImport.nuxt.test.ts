@@ -138,3 +138,66 @@ describe("the pin offer is bounded by the room the list has", () => {
     expect(addWaypoint).not.toHaveBeenCalled();
   });
 });
+
+// A list can have a distance before it has a route: the one typed off a sign. The file's
+// measurement went over it without a word (18 mi became 8.2 in the review that found it).
+describe("a typed distance the file's own takes the place of", () => {
+  // a list whose setMeta lands, as the reducer's does
+  function importerOn(start: Partial<ListSnapshot>) {
+    const current = ref<ListSnapshot | null>(snapshot("Trip", start));
+    const importer = useGpxImport({
+      epochRef: shallowRef(1),
+      snapshot: current,
+      setMeta: (patch) => {
+        current.value = { ...current.value!, ...patch } as ListSnapshot;
+      },
+      addWaypoint: vi.fn(),
+      updateWaypoint: vi.fn(),
+    });
+    return { current, importer };
+  }
+  const TYPED_M = 28_968; // 18 mi
+
+  it("says so, and puts the typed figure back when asked", async () => {
+    const { current, importer } = importerOn({ trailDistanceM: TYPED_M });
+    await importer.onGpx(fileOf(track));
+    const fileM = current.value!.trailDistanceM!;
+    expect(fileM).not.toBe(TYPED_M);
+    expect(importer.replaced.value).toMatchObject({ wasM: TYPED_M, nowM: fileM });
+
+    importer.keepTyped();
+    expect(current.value!.trailDistanceM).toBe(TYPED_M);
+    expect(importer.replaced.value).toBeNull();
+    // the route itself stays: only the figure went back
+    expect(current.value!.routeGeometry).toBeTruthy();
+  });
+
+  it("says nothing when there was no typed distance to lose", async () => {
+    // none at all
+    const blank = importerOn({});
+    await blank.importer.onGpx(fileOf(track));
+    expect(blank.importer.replaced.value).toBeNull();
+
+    // one a file put there: replacing a file changes the distance as a matter of course
+    const second = importerOn({});
+    await second.importer.onGpx(fileOf(track));
+    second.current.value = { ...second.current.value!, trailDistanceM: TYPED_M };
+    await second.importer.onGpx(fileOf(track));
+    expect(second.importer.replaced.value).toBeNull();
+
+    // the same distance, give or take a track's noise
+    const measured = blank.current.value!.trailDistanceM!;
+    const close = importerOn({ trailDistanceM: measured + 50 });
+    await close.importer.onGpx(fileOf(track));
+    expect(close.importer.replaced.value).toBeNull();
+  });
+
+  it("drops the notice once the distance is typed over", async () => {
+    const { current, importer } = importerOn({ trailDistanceM: TYPED_M });
+    await importer.onGpx(fileOf(track));
+    expect(importer.replaced.value).not.toBeNull();
+    current.value = { ...current.value!, trailDistanceM: 5_000 };
+    await nextTick();
+    expect(importer.replaced.value).toBeNull();
+  });
+});

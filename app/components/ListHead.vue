@@ -332,6 +332,18 @@ async function onGpx(e: Event) {
   return impl.onGpx(e);
 }
 const confirmPins = () => gpxImpl.value?.confirmPins();
+// the typed distance a file's own took the place of (useGpxImport says when), read in
+// the unit the field beside it is in; "OK" is an assignment, like the offer's "No thanks"
+const replaced = computed({
+  get: () => gpxImpl.value?.replaced.value ?? null,
+  set: (v) => {
+    if (gpxImpl.value) gpxImpl.value.replaced.value = v;
+  },
+});
+const keepTyped = () => gpxImpl.value?.keepTyped();
+// a figure in the notice, written as the field under it writes the same figure (two
+// places, not formatDistance's one): "6.1 mi" over a field reading 6.11 is two numbers
+const asTyped = (m: number) => `${distanceFieldValue(m, distanceUnit.value)} ${distanceUnit.value}`;
 
 // ---- distance ----
 // The route's length, typed. It can't be read off the linked page — see the note atop
@@ -827,6 +839,15 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
             This route can add {{ counted(pending.pins.length, "waypoint") }}.
             <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
             <button type="button" class="head__gpxno foreground-quiet" @click="pending = null">No thanks</button>
+          </p>
+          <!-- A NOTICE, with the way back in it. The file's distance is already in the
+               field above; this says it took the place of one that was typed, and holds
+               that figure for as long as the line is here. The same quiet sentence and
+               text buttons as the offer, which it can stand beside. -->
+          <p v-if="replaced" class="head__gpxerr">
+            Distance changed from {{ asTyped(replaced.wasM) }} to the file’s {{ asTyped(replaced.nowM) }}.
+            <button type="button" class="head__gpxyes" @click="keepTyped">Keep {{ asTyped(replaced.wasM) }}</button>
+            <button type="button" class="head__gpxno foreground-quiet" @click="replaced = null">OK</button>
           </p>
 
           <!-- edit only. On the way IN the single job is pasting a URL; a title box there

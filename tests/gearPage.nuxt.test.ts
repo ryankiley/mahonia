@@ -77,6 +77,8 @@ let addedOps: Record<string, unknown>[] = [];
 let editedOps: Record<string, unknown>[] = [];
 // whether a kit's save is taken (refused unless a case says otherwise)
 let kitSaves = false;
+// the pieces each kit save named, in the order asked
+let kitParts: number[][] = [];
 registerEndpoint("/api/vault/items", {
   method: "POST",
   handler: async (event) => {
@@ -84,6 +86,7 @@ registerEndpoint("/api/vault/items", {
       op: { t: string; name: string; id: number; patch: Record<string, unknown>; parts: { id: number; qty: number }[] };
     }>(event);
     if (body.op.t === "kit") {
+      kitParts.push(body.op.parts.map((part) => part.id));
       // a kit's save, refused: the page has to say so and put itself right
       if (!kitSaves) return { ok: false };
       // ...or taken: the piece just added, back as a kit of what it was given
@@ -376,6 +379,7 @@ describe("a kit on /gear", () => {
     removedIds = [];
     addedNames = [];
     kitSaves = false;
+    kitParts = [];
   });
   const stove = { ...entry(1, "Stove"), weightMg: 100_000 };
   const pot = { ...entry(2, "Pot"), weightMg: 250_000 };
@@ -492,6 +496,37 @@ describe("a kit on /gear", () => {
     await vi.waitFor(() => expect(w.find('[data-kit-add="901"]').exists()).toBe(true));
     expect(w.find('[data-kit-add="-1"]').exists()).toBe(false);
     await vi.waitFor(() => expect(document.activeElement).toBe(w.get('[data-kit-add="901"]').element));
+  });
+
+  // The choices under "Add an item" are a listbox the field owns, as a list's suggestions
+  // are: one row lit, the arrows move it, and Enter takes the lit one. Enter used to take
+  // the first whatever you had arrowed to, because nothing could be arrowed to.
+  it("takes the choice the arrows are on, not always the first", async () => {
+    const lamp = entry(5, "Lamp");
+    const lantern = entry(6, "Lantern");
+    listRows = [stove, pot, kit, lamp, lantern];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+
+    const add = w.get<HTMLInputElement>('[data-kit-add="3"]');
+    add.element.focus();
+    await add.setValue("La");
+    const options = () => w.findAll('.kitsec__menu [role="option"]');
+    await vi.waitFor(() => expect(options()).toHaveLength(2));
+    expect(add.attributes("aria-expanded")).toBe("true");
+    // the first is lit, and is what the field points at
+    expect(options()[0]!.attributes("aria-selected")).toBe("true");
+    expect(add.attributes("aria-activedescendant")).toBe(options()[0]!.attributes("id"));
+
+    await add.trigger("keydown", { key: "ArrowDown" });
+    expect(options()[1]!.attributes("aria-selected")).toBe("true");
+    expect(add.attributes("aria-activedescendant")).toBe(options()[1]!.attributes("id"));
+    const second = options()[1]!.text().includes("Lantern") ? lantern.id : lamp.id;
+
+    await add.trigger("keydown", { key: "Enter" });
+    await vi.waitFor(() => expect(kitParts).toHaveLength(1));
+    expect(kitParts[0]).toEqual([1, 2, second]);
   });
 
   // Spaces alone are no search: the kits all still list, so the way to make another

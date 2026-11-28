@@ -116,10 +116,32 @@ watch(
     nextTick(() => addEl.value?.focus());
   },
 );
+// THE CHOICES FLOAT under the field, as a list's suggestions do under its add row
+// (ItemInput), and for its reason: in the page's flow they pushed everything under the
+// kit down and back with each letter typed, and read as part of the kit. So they are
+// a listbox the field owns: up while the field has focus, one row lit (the one Enter
+// takes, the first until an arrow moves it), flipped above the field near the window's
+// floor.
+const addId = useId();
+const addFocused = ref(false);
+const active = ref(0);
+watch(choices, () => (active.value = 0));
+const menuOpen = computed(() => addFocused.value && choices.value.length > 0);
+const menuEl = useTemplateRef<HTMLElement>("menuEl");
+const { above, place } = useMenuPlacement(menuEl, { side: "start" });
+// placed as it opens, and again as its height changes with what is typed
+watch([menuOpen, () => choices.value.length], ([open]) => open && nextTick(place));
 function onAddKey(e: KeyboardEvent) {
   if (e.key === "Enter") {
     e.preventDefault();
-    if (choices.value[0]) add(choices.value[0]);
+    const g = choices.value[active.value] ?? choices.value[0];
+    if (g) add(g);
+  } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    const n = choices.value.length;
+    if (!n) return;
+    e.preventDefault();
+    active.value = (active.value + (e.key === "ArrowDown" ? 1 : n - 1)) % n;
+    nextTick(() => document.getElementById(`${addId}-${active.value}`)?.scrollIntoView({ block: "nearest" }));
   } else if (e.key === "Escape") {
     if (addQuery.value) addQuery.value = "";
     else if (!isKit.value) emit("cancel");
@@ -264,20 +286,42 @@ watch(
           :data-kit-add="kit.id"
           placeholder="Add an item"
           :aria-label="`Add an item from your gear to ${name}`"
+          role="combobox"
+          aria-autocomplete="list"
+          :aria-expanded="menuOpen"
+          :aria-controls="`${addId}-list`"
+          :aria-activedescendant="menuOpen ? `${addId}-${active}` : undefined"
           autocomplete="off"
           autocorrect="off"
           spellcheck="false"
           @keydown="onAddKey"
+          @focus="addFocused = true"
+          @blur="addFocused = false"
         />
-        <ul v-if="choices.length" class="kitsec__choices">
-          <li v-for="g in choices" :key="g.id">
-            <button type="button" class="kitsec__choice" @click="add(g)">
-              <span class="t-clip">{{ itemDisplayName(g.brand, g.name, g.variant) }}</span>
-              <span class="t-num t-muted">{{ formatWeight(g.weightMg, g.entryUnit ?? unit) }}</span>
-            </button>
-          </li>
-        </ul>
-        <p v-else-if="addQuery.trim()" class="t-muted kitsec__none">None of your gear matches. Add it to My Gear first.</p>
+        <!-- mousedown.prevent on a row, as the list's menu has it: a press here is a
+             press inside the control, and letting it take focus would close the menu
+             under the pointer before the click landed -->
+        <Transition name="menu">
+          <div v-if="menuOpen" ref="menuEl" class="popover kitsec__menu" :class="{ 'is-above': above }">
+            <ul :id="`${addId}-list`" class="kitsec__choices" role="listbox" aria-label="Your gear">
+              <li
+                v-for="(g, i) in choices"
+                :id="`${addId}-${i}`"
+                :key="g.id"
+                class="kitsec__choice"
+                :class="{ 'is-active': i === active }"
+                role="option"
+                :aria-selected="i === active"
+                @mousedown.prevent="add(g)"
+                @mouseenter="active = i"
+              >
+                <span class="t-clip">{{ itemDisplayName(g.brand, g.name, g.variant) }}</span>
+                <span class="t-num t-muted">{{ formatWeight(g.weightMg, g.entryUnit ?? unit) }}</span>
+              </li>
+            </ul>
+          </div>
+        </Transition>
+        <p v-if="addQuery.trim() && !choices.length" class="t-muted kitsec__none">None of your gear matches. Add it to My Gear first.</p>
       </div>
     </template>
   </VaultSection>
@@ -325,39 +369,62 @@ watch(
   text-align: center;
   color: var(--foreground-primary);
 }
-/* "Add an item", under the items' names, as a list folder's add row sits */
+/* "Add an item", under the items' names, as a list folder's add row sits. The anchor
+   of the choices that float under it. */
 .kitsec__add {
+  position: relative;
   padding: var(--space-2) 0 0 var(--gear-type-indent);
   border-top: 1px solid var(--border-primary);
 }
 .kitsec__none {
   margin: var(--space-1) 0 0;
 }
-.kitsec__choices {
-  margin: var(--space-1) 0 0;
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-2);
+/* THE CHOICES, on the card a list's suggestions come on (ItemInput's .ac__menu, whose
+   figures these are): the shared .popover surface, hung from the section's left edge
+   as that one hangs from its row's, the rows inset on the popover's concentric radius.
+   They were a bordered box in the page's flow with a hairline between rows, a second
+   look for the same act two tabs apart. The folder's collapse clip lets any .popover
+   out (atoms/folder.scss), so the last kit's card isn't cut off at the section's foot. */
+.kitsec__menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + var(--space-1));
+  z-index: var(--z-autocomplete);
+  width: min(40rem, 100%);
+  padding: 0 var(--space-2);
   overflow: hidden;
+  transform-origin: top left;
 }
-.kitsec__choices li + li {
-  border-top: 1px solid var(--border-primary);
+/* no room under the field (useMenuPlacement): it hangs over it, and the shared menu
+   entrance mirrors itself for .is-above (controls.scss) */
+.kitsec__menu.is-above {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+  transform-origin: bottom left;
+}
+/* the scroller, inside the card's padding so its bar never rides the corners; the cap
+   is the list menu's ten and a half rows, the half row being the cue that it scrolls */
+.kitsec__choices {
+  padding: var(--space-2) 0;
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 50dvh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  overscroll-behavior: contain;
 }
 .kitsec__choice {
   display: flex;
-  width: 100%;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--popover-item-radius);
   color: var(--foreground-primary);
-  text-align: left;
+  cursor: pointer;
 }
-.kitsec__choice:focus-visible {
+/* one lit row: the pointer's, or the one Enter takes */
+.kitsec__choice.is-active {
   background: var(--background-hover);
-}
-@media (hover: hover) and (pointer: fine) {
-  .kitsec__choice:hover {
-    background: var(--background-hover);
-  }
 }
 </style>
