@@ -40,3 +40,17 @@ export function exportSections(list: Pick<ListData, "folders" | "items">): Expor
 export function exportOrderedItems(list: Pick<ListData, "folders" | "items">): Item[] {
   return exportSections(list).flatMap((s) => s.rows.flatMap((r) => [r.item, ...r.children]));
 }
+
+/**
+ * A row's gear type, when it says something its name doesn't. The text and Markdown
+ * exports both trail a name with its gear type, and both printed it twice where the two
+ * overlap: "Toothpaste — Toothpaste", "Gardetto’s Snack Mix — Snack Mix", "Moisturizer
+ * face moisturizer". Either one holding the other, ignoring case, is an overlap.
+ */
+export function gearTypeBeside(name: string, commonName: string | null | undefined): string | undefined {
+  const common = commonName?.trim();
+  if (!common) return undefined;
+  const a = name.trim().toLowerCase();
+  const b = common.toLowerCase();
+  return a.includes(b) || b.includes(a) ? undefined : common;
+}

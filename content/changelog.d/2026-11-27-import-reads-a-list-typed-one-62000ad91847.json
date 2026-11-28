@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-27",
+  "added": [
+    "Import reads a list typed one item per line, cells copied from a spreadsheet, a Markdown table, or a Mahonia link.",
+    "Copy as Markdown now carries notes, the trip's trail, dates and distance, the list's link and its calories."
+  ],
+  "fixed": [
+    "CSV downloads open with accents and apostrophes intact in every spreadsheet app, and a CSV round trip keeps rows in their groups.",
+    "Markdown shows each row in the unit it reads in on screen, and the plain-text copy fits a comment with its link.",
+    "My Gear import now reads a list's JSON backup with its weights, and the gear in an account export.",
+    "An imported CSV keeps its list's unit, and rows in no folder stay in no folder."
+  ]
+}

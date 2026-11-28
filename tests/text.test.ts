@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { twoFolderList } from "./helpers/list";
-import { listToText } from "../shared/exporters/text";
+import { listToText, TEXT_MAX } from "../shared/exporters/text";
 import type { ListSnapshot } from "../shared/types";
 
 // the exporter suites' list, with the tent's maker split out into its own field
@@ -117,5 +117,42 @@ describe("listToText", () => {
     const empty = snap();
     empty.items = [];
     expect(listToText(empty)).toBe("");
+  });
+});
+
+describe("listToText: a comment's worth", () => {
+  it("names a group's rows and not the group, when it holds nothing of its own", () => {
+    const s = snap();
+    s.items.push(
+      { id: "g", folderId: "f1", name: "Monday", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 5 },
+      { id: "g1", folderId: "f1", parentId: "g", name: "Risotto", unitWeightMg: 213_000, qty: 1, classification: null, sortOrder: 0 },
+    );
+    expect(listToText(s).split("\n\n")[0]).toBe("Zpacks Duplex, Risotto, Rain jacket");
+  });
+
+  it("says a thing packed in several places once, with its whole count", () => {
+    const s = snap();
+    s.items.push(
+      { id: "a", folderId: "f1", name: "Bloks", unitWeightMg: 60_000, qty: 1, classification: null, sortOrder: 5 },
+      { id: "b", folderId: "f2", name: "Bloks", unitWeightMg: 60_000, qty: 2, classification: null, sortOrder: 5 },
+    );
+    expect(listToText(s).split("\n\n")[0]).toBe("Zpacks Duplex, Bloks ×3, Rain jacket");
+  });
+
+  it("drops the gear type when it and the name overlap either way", () => {
+    const s = snap();
+    Object.assign(s.items[1]!, { name: "Moisturizer", commonName: "Face moisturizer" });
+    expect(listToText(s).split("\n\n")[0]).toBe("Zpacks Duplex, Moisturizer");
+  });
+
+  it("fits a long list in a comment, naming what fits and keeping the totals and link", () => {
+    const s = snap();
+    for (let i = 0; i < 200; i++) s.items.push({ id: `x${i}`, folderId: "f1", name: `Thing number ${i}`, unitWeightMg: 1000, qty: 1, classification: null, sortOrder: 10 + i });
+    const out = listToText(s, { shareUrl: "https://mahonia.app/s/X" });
+    expect(out.length).toBeLessThanOrEqual(TEXT_MAX);
+    expect(out).toMatch(/, and \d+ more\n\nBase weight .* — full list at https:\/\/mahonia\.app\/s\/X$/);
+    // the count is the true number left out
+    const shown = out.split("\n\n")[0]!.split(", ");
+    expect(shown.length - 1 + Number(/and (\d+) more/.exec(out)![1])).toBe(202);
   });
 });

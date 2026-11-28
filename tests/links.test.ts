@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { editLinkPath, itemSearchName, itemSearchUrl, webSearchUrl } from "../shared/links";
+import { editLinkPath, itemSearchName, itemSearchUrl, shareCodeInText, webSearchUrl } from "../shared/links";
 
 describe("webSearchUrl", () => {
   it("builds a Google search URL for a simple query", () => {
@@ -82,5 +82,21 @@ describe("editLinkPath", () => {
     expect(editLinkPath("", token)).toBe(`/e#${token}`);
     expect(editLinkPath(null, token)).toBe(`/e#${token}`);
     expect(editLinkPath(undefined, token)).toBe(`/e#${token}`);
+  });
+});
+
+describe("shareCodeInText", () => {
+  it("finds the list a pasted Mahonia address names, anywhere in the text", () => {
+    expect(shareCodeInText("https://mahonia.app/s/P3PWAH8RMCVR")).toBe("P3PWAH8RMCVR");
+    expect(shareCodeInText("Tent, Quilt\n\nBase weight 2 lb — full list at https://mahonia.app/s/p3pwah8rmcvr")).toBe("P3PWAH8RMCVR");
+    expect(shareCodeInText("mahonia.app/s/P3PWAH8RMCVR.md")).toBe("P3PWAH8RMCVR");
+    // an edit link: the code in the path, never the token
+    expect(shareCodeInText("https://mahonia.app/e/P3PWAH8RMCVR#secret")).toBe("P3PWAH8RMCVR");
+  });
+
+  it("finds nothing in text without one", () => {
+    expect(shareCodeInText("https://lighterpack.com/r/abc123")).toBe("");
+    expect(shareCodeInText("https://mahonia.app/s/SHORT")).toBe("");
+    expect(shareCodeInText("Tent 540 g")).toBe("");
   });
 });

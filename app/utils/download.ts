@@ -3,7 +3,12 @@
 // share views. Nuxt auto-imports app/utils, so callers use downloadFile(...) /
 // listFileBase(...) bare.
 export function downloadFile(filename: string, text: string, type: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+  // A CSV leads with a byte-order mark. Excel opens a CSV without one as Windows-1252,
+  // so every curly apostrophe tidyText writes ("Arc’teryx", "Men’s") came out as
+  // "Arcâ€™teryx" there; Numbers and Sheets read either. Our own importer reads past
+  // the mark (a header cell is trimmed, and trim() takes U+FEFF).
+  const body = type === "text/csv" ? `\uFEFF${text}` : text;
+  const url = URL.createObjectURL(new Blob([body], { type: type === "text/csv" ? "text/csv;charset=utf-8" : type }));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
@@ -21,6 +26,10 @@ export function downloadFile(filename: string, text: string, type: string): void
 export function listFileBase(title?: string | null, slug?: string | null): string {
   const fromTitle = (title || "")
     .trim()
+    // accents come off rather than taking their letter with them: "Haleakalā" is
+    // haleakala.csv, not haleakal.csv, and "Señal Peak" is senal-peak, not se-al-peak
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");

@@ -45,6 +45,15 @@ registerEndpoint("/api/lists/create", {
   },
 });
 registerEndpoint("/api/catalog/match", { method: "POST", handler: () => ({ matches: matchReply }) });
+registerEndpoint("/api/s/SHARED000001", () => ({
+  snapshot: snapshotFor({
+    shareCode: "SHARED000001",
+    slug: "s",
+    title: "Timberline",
+    folders: [{ id: "f", name: "Shelter", colorKey: "green", defaultClassification: "base", sortOrder: 0 }],
+    items: [{ id: "i", folderId: "f", name: "Tiger Wall UL2", brand: "Big Agnes", qty: 1, sortOrder: 0, unitWeightMg: 992000, classification: null }],
+  }),
+}));
 registerEndpoint("/api/import", {
   method: "POST",
   handler: async () => {
@@ -98,6 +107,19 @@ describe("importing a list", () => {
 
   // A row recognised as catalog food, in a folder that is already food, stores no class
   // of its own, as the editor's pick stores it, so it follows the folder if moved.
+  // Our own plain-text copy ends "…full list at https://mahonia.app/s/CODE". Read as
+  // text, its one line of names made one item; the link names the whole list.
+  it("brings in the list a pasted Mahonia link names, whole, not the text around it", async () => {
+    const w = dialog();
+    await submit(w, "Big Agnes Tiger Wall UL2 tent, Zenbivy Quilt, Nemo Tensor\n\nBase weight 2.2 lb, 4 lb total — full list at https://mahonia.app/s/shared000001");
+    await settle();
+    expect(creates).toBe(1);
+    const body = createdBodies[0] as { title?: string; data: { items: { name: string; brand?: string; unitWeightMg: number }[] } };
+    expect(body.title).toBe("Timberline");
+    expect(body.data.items.map((i) => [i.brand, i.name, i.unitWeightMg])).toEqual([["Big Agnes", "Tiger Wall UL2", 992000]]);
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+
   it("links catalog food in a food folder without pinning its class", async () => {
     matchReply = [{ id: 4, brand: "Clif", name: "Builders Bar", variant: null, weightMg: 68_000, weightSource: "manufacturer", verified: true, commonName: "Energy bar", categoryHint: "consumable", kcal: 290 }];
     const backup = JSON.stringify({
@@ -222,6 +244,20 @@ describe("where the import dialog says a backup comes from", () => {
     expect(w.text()).not.toContain("Download JSON");
   });
 
+  // The account export holds every list. It isn't one, so it can't become one, but
+  // "not a list backup" told someone holding the file their lists came from that it
+  // was nothing of ours.
+  it("says what an account export is, pasted or chosen", async () => {
+    const w = dialog();
+    const takeout = JSON.stringify({ format: "mahonia-account-export", version: 1, exportedAt: "x", lists: [{}, {}], gear: { items: [] } });
+    const said = "That’s an account export, with 2 lists in it. A list comes back from its own JSON; My Gear’s import reads the gear in this file.";
+    await submit(w, takeout);
+    expect(w.get(".import__err").text()).toBe(said);
+    w.findComponent({ name: "FilePickButton" }).vm.$emit("text", takeout, new File([takeout], "mahonia-export.json"));
+    await nextTick();
+    expect(w.get(".import__err").text()).toBe(said);
+  });
+
   it("names the paste box for a screen reader, not by its placeholder alone", () => {
     expect(dialog().get("textarea").attributes("aria-label")).toBe("LighterPack link or CSV");
   });
@@ -274,7 +310,7 @@ describe("the import dialog's buttons", () => {
     const why = row.get("button.import__why");
     expect(why.attributes("aria-label")).toBe("Which files and columns can be imported");
     expect(w.findComponent({ name: "Tooltip" }).props("text")).toContain(
-      "A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable.",
+      "A CSV’s header row names its columns: Category, Item Name, Qty, Weight, Unit, Worn, Consumable. Without one, each line is an item.",
     );
     // nothing left on the card spells the columns out
     expect(w.text()).not.toContain("header row");
