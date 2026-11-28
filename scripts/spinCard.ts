@@ -1,7 +1,7 @@
-// /trail-spin's link preview: the page's first frame, the example route turned an eighth of the way
-// round, white on black, and nothing else. No words and no mark: the title, the description
-// and the site's name under a preview already say what it is and whose, and a line reads at
-// any size a preview is shown at.
+// /trail-spin's link preview: the example route whole, turned an eighth of the way round
+// (where the stage starts), white on black, and nothing else. No words and no mark: the
+// title, the description and the site's name under a preview already say what it is and
+// whose, and a line reads at any size a preview is shown at.
 //
 // Drawn as an SVG from the same projection the stage draws with (shared/routeSpin.ts) and
 // rasterized by resvg, as the site card is. public/og-trail-spin.png is COMMITTED, written by

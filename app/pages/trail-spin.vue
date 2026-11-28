@@ -19,7 +19,7 @@ import {
   type VideoTurns,
 } from "~~/shared/routeSpin";
 import { formatDistance, heightWithUnit, resolveDistanceUnit } from "~~/shared/trailDistance";
-import { contrast, mix, readableShare, rgbOf, luminance, type Rgb } from "~~/shared/contrast";
+import { mix, readableShare, rgbOf, luminance, type Rgb } from "~~/shared/contrast";
 import RouteSpin from "~/components/RouteSpin.vue";
 import { spinExampleTrack } from "~/data/spinExample";
 import { IconChevronDownMedium, IconCircleInfo, IconMap, IconWave, IconWriting } from "~/icons/central";
@@ -69,8 +69,11 @@ const stageRef = useTemplateRef<InstanceType<typeof RouteSpin>>("stageRef");
 // own takes its place. It isn't labelled as an example: the bar under it offers one thing,
 // Upload a route, until there is one, which says enough. Whatever was picked last time, it
 // plays a 20-second video drawn on (Ryan, 2026-11-28): the first thing a visitor sees is what
-// the tool does, and then the whole route turning for a while before it draws again. Built on mount, not on the server: the stage
-// is a canvas, and a prerendered page has nothing to draw it with.
+// the tool does, and then the whole route turning for a while before it draws again. Built on
+// mount, not on the server: the stage is a canvas, and a prerendered page has nothing to draw
+// it with.
+const EXAMPLE_REVEAL: SpinReveal = "draw";
+const EXAMPLE_TURNS: VideoTurns = 2;
 onMounted(() => (example.value = spinModel(spinExampleTrack())));
 
 // The reader (shared/gpx.ts and its formats) arrives with the first file, as it does in the
@@ -171,43 +174,39 @@ const REVEALS = [
   { key: "draw", label: "Draw on", icon: IconWriting },
   { key: "whole", label: "All at once", icon: IconWave },
 ];
-const FORMAT_KEY = "gear.spin.format.v1";
-const TURNS_KEY = "gear.spin.turns.v1";
-const REVEAL_KEY = "gear.spin.reveal.v1";
+// The video's shape, length and reveal are remembered: they're how you export, and a second
+// visit means the same again. Each is read back on mount (the prerendered page has no
+// storage), saved on every change, and set by its menu's pick, which passes a string key and
+// is kept only when `read` makes one of the choices of it. The colours are not remembered:
+// they're one route's look, and a page that opened in last week's colours read as broken.
+// (Their inputs say autocomplete="off" too, so a browser restoring a reloaded form can't put
+// one back.)
+function rememberedChoice<T extends string | number>(key: string, initial: T, read: (raw: string) => T | null) {
+  const value = ref(initial) as Ref<T>;
+  const pick = (raw: string) => {
+    const v = read(raw);
+    if (v !== null) value.value = v;
+  };
+  onMounted(() => pick(recall(key) ?? ""));
+  watch(value, (v) => remember(key, String(v)));
+  return [value, pick] as const;
+}
 // Vertical first: most of these are made to post from a phone, where it fills the screen. Once
-// picked, a shape is remembered (below), so the default only decides a first save.
-const format = ref<SpinFormat>("vertical");
-const turns = ref<VideoTurns>(1);
-const reveal = ref<SpinReveal>("draw");
+// picked, a shape is remembered, so the default only decides a first save.
+const [format, pickFormat] = rememberedChoice<SpinFormat>("gear.spin.format.v1", "vertical", (r) =>
+  isSpinFormat(r) ? r : null,
+);
+const [turns, pickLength] = rememberedChoice<VideoTurns>("gear.spin.turns.v1", 1, (r) =>
+  isVideoTurns(Number(r)) ? (Number(r) as VideoTurns) : null,
+);
+const [reveal, pickReveal] = rememberedChoice<SpinReveal>("gear.spin.reveal.v1", "draw", (r) =>
+  isSpinReveal(r) ? r : null,
+);
 /** the word for a menu's current choice, for its trigger's spoken name */
 const labelOf = (options: readonly { key: string; label: string }[], key: string) =>
   options.find((o) => o.key === key)?.label ?? "";
 const ink = ref("#ffffff");
 const ground = ref("#000000");
-onMounted(() => {
-  const f = recall(FORMAT_KEY);
-  if (isSpinFormat(f)) format.value = f;
-  turns.value = recallJson(TURNS_KEY, isVideoTurns, turns.value);
-  const r = recall(REVEAL_KEY);
-  if (isSpinReveal(r)) reveal.value = r;
-});
-function pickFormat(key: string) {
-  if (isSpinFormat(key)) format.value = key;
-}
-function pickLength(key: string) {
-  const t = Number(key);
-  if (isVideoTurns(t)) turns.value = t;
-}
-function pickReveal(key: string) {
-  if (isSpinReveal(key)) reveal.value = key;
-}
-// The video's shape, length and reveal are remembered, whichever control set them: they're how
-// you export, and a second visit means the same again. The colours are not: they're one route's
-// look, and a page that opened in last week's colours read as broken. (Their inputs say
-// autocomplete="off" too, so a browser restoring a reloaded form can't put one back.)
-watch(format, (v) => remember(FORMAT_KEY, v));
-watch(turns, (v) => remember(TURNS_KEY, String(v)));
-watch(reveal, (v) => remember(REVEAL_KEY, v));
 
 // THE WHOLE PAGE IS THE GROUND. The picked background runs edge to edge, the stage draws
 // the same colour and so has no edge of its own, and the line floats on the page itself.
@@ -260,7 +259,8 @@ const TITLE = `${PAGE_TITLE} — Mahonia`;
 const PAGE_DESCRIPTION =
   "Turn a GPX, KML, TCX or FIT file into a spinning 3D line, and save it as a video: vertical, wide or square. Free, no account, and the file never leaves your browser.";
 // The preview a pasted link unfurls into: the page's own title and description over the site's,
-// and its own card, the first frame of the example (scripts/spinCard.ts, `npm run og:spin`).
+// and its own card, the example whole at the angle the stage starts from (scripts/spinCard.ts,
+// `npm run og:spin`).
 const previewImage = `${useSiteOrigin()}/og-trail-spin.png`;
 useSeoMeta({
   description: PAGE_DESCRIPTION,
@@ -414,8 +414,8 @@ const saveLabel = computed(() =>
           :label="spun ? `${spun.name}, turning in 3D` : 'An example route, turning in 3D'"
           :ink="ink"
           :ground="ground"
-          :reveal="spun ? reveal : 'draw'"
-          :turns="spun ? turns : 2"
+          :reveal="spun ? reveal : EXAMPLE_REVEAL"
+          :turns="spun ? turns : EXAMPLE_TURNS"
         />
         <p v-if="dropping" class="t-label spin-screen__drop">Drop to use this route</p>
       </div>
@@ -434,7 +434,7 @@ const saveLabel = computed(() =>
             :current="format"
             label="Video shape"
             :trigger-label="`Video shape: ${labelOf(FORMATS, format)}`"
-            tooltip="Video shape"
+            tooltip
             trigger-class="spin-menu"
             @pick="pickFormat"
           >
@@ -447,8 +447,8 @@ const saveLabel = computed(() =>
             :options="LENGTHS"
             :current="String(turns)"
             label="Video length"
-            :trigger-label="`Video length: ${videoSeconds(turns)} seconds`"
-            tooltip="Video length"
+            :trigger-label="`Video length: ${labelOf(LENGTHS, String(turns))}`"
+            tooltip
             trigger-class="spin-menu"
             @pick="pickLength"
           >
@@ -462,7 +462,7 @@ const saveLabel = computed(() =>
             :current="reveal"
             label="How the line appears"
             :trigger-label="`How the line appears: ${labelOf(REVEALS, reveal)}`"
-            tooltip="How the line appears"
+            tooltip
             trigger-class="spin-menu"
             @pick="pickReveal"
           >
@@ -642,6 +642,11 @@ const saveLabel = computed(() =>
 .spin-dock :deep(.spin-menu[aria-expanded="true"]) {
   background: var(--background-selected);
 }
+/* A menu's list opened from the dock hangs the app's 4px off the BAR, not off its button: the
+   button sits inside the bar's padding, and 4px off it put the list's edge over the bar's. */
+.spin-dock :deep(.menu__list--above) {
+  bottom: calc(100% + var(--dock-pad) + var(--space-1));
+}
 /* Under an iPhone's 375px (the 360px most Android phones are), three menus left the bar 6px
    too wide for the screen and squeezed Save: each trigger gives up 8px of its padding. */
 @media (max-width: 23.4rem) {
@@ -686,11 +691,6 @@ const saveLabel = computed(() =>
 .spin-info__name {
   font-weight: var(--font-weight-semibold);
 }
-/* A card opened from the dock hangs the app's 4px off the BAR, not off its button: the button
-   sits inside the bar's padding, and 4px off it put the card's edge over the bar's. */
-.spin-dock :deep(.menu__list--above) {
-  bottom: calc(100% + var(--dock-pad) + var(--space-1));
-}
 .spin-info__change {
   justify-self: start;
   margin-top: var(--space-2);
@@ -713,8 +713,9 @@ const saveLabel = computed(() =>
 .spin-round {
   color: var(--foreground-primary);
 }
-/* Under a pointer, the dock's controls all take the same soft plate: the menu triggers, the
-   round buttons (a ghost button's own hover only brightens its glyph) and the color chips. */
+/* Under a pointer, the page's controls all take the same soft plate: the dock's menu triggers
+   and color chips, and the round buttons up top (a ghost button's own hover only brightens
+   its glyph). */
 @media (hover: hover) and (pointer: fine) {
   .spin-dock :deep(.spin-menu:hover),
   .spin-round:hover,

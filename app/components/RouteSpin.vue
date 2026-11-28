@@ -22,7 +22,7 @@ import {
   drawSpin,
   SPIN_START_ANGLE,
   spinAngle,
-  videoSeconds,
+  videoMs,
   type SpinFormat,
   type SpinModel,
   type SpinReveal,
@@ -63,14 +63,14 @@ const canvasRef = useTemplateRef<HTMLCanvasElement>("canvasRef");
 let angle = SPIN_START_ANGLE;
 /** how far into the video the stage is, in ms: it starts again from 0 each time round */
 let clock = 0;
-const loopMs = () => videoSeconds(props.turns) * 1000;
+const loopMs = () => videoMs(props.turns);
 let raf = 0;
 let last = 0;
 let drag: { x: number; angle: number } | null = null;
 let scratch: Float64Array | undefined;
 let reduce: MediaQueryList | null = null;
-/** while Save makes its video: the stage holds still and leaves the frames to the encoder */
-let saving = false;
+/** set while Save makes its video: the stage holds still and leaves the frames to the
+ *  encoder, and leaving the page aborts it */
 let saveAbort: AbortController | null = null;
 /** opaque: every pixel is painted each frame, and an opaque layer is cheaper to composite */
 let ctx: CanvasRenderingContext2D | null = null;
@@ -126,7 +126,7 @@ function tick(now: number) {
  *  (a hidden tab gets no frames anyway). Otherwise it holds still and repaints when something
  *  changes. */
 function schedule() {
-  if (raf || drag || saving || reduce?.matches) return;
+  if (raf || drag || saveAbort || reduce?.matches) return;
   raf = requestAnimationFrame(tick);
 }
 function stop() {
@@ -216,7 +216,6 @@ watch(
 // file is the loop you were watching, from its first frame. The stage holds still while it
 // saves, and leaving the page calls the save off.
 async function record(format: SpinFormat, onProgress: (share: number) => void): Promise<Blob> {
-  saving = true;
   stop();
   saveAbort = new AbortController();
   try {
@@ -232,7 +231,6 @@ async function record(format: SpinFormat, onProgress: (share: number) => void): 
       signal: saveAbort.signal,
     });
   } finally {
-    saving = false;
     saveAbort = null;
     schedule();
   }

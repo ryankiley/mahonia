@@ -348,7 +348,7 @@ export function validLatLon(lat: number, lon: number): boolean {
  * sampling in increasing order hands its last `i` back in and the whole pass stays
  * linear — pointAlong and the GPX profile resamplers each carried this loop.
  */
-export function segmentAt(cum: readonly number[], target: number, from = 0): { i: number; f: number } {
+export function segmentAt(cum: ArrayLike<number>, target: number, from = 0): { i: number; f: number } {
   let i = from;
   while (i < cum.length - 2 && cum[i + 1]! < target) i++;
   const span = cum[i + 1]! - cum[i]!;
