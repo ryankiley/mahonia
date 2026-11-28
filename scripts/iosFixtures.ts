@@ -797,6 +797,8 @@ function csvImportVector(name: string, text: string) {
     name,
     text,
     displayUnit: data.displayUnit ?? null,
+    // read as typed text: the one shape in which the import box follows a pasted link
+    typed: data.typed ?? false,
     folders: data.folders.map((f) => f.name),
     people: (data.people ?? []).map((p) => p.name),
     items: data.items.map((it) => ({
