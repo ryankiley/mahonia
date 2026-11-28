@@ -119,3 +119,5 @@ export { IconUserDuo } from "./IconUserDuo";
 export { IconUserEdit } from "./IconUserEdit";
 export { IconUserKey } from "./IconUserKey";
 export { IconWallet1 } from "./IconWallet1";
+export { IconWave } from "./IconWave";
+export { IconWriting } from "./IconWriting";

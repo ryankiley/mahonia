@@ -5,7 +5,8 @@
 // just above the horizon (4°), so the line's highs and lows stay at almost the same height
 // on screen while it turns, and its shape on the map is what comes and goes. One turn every
 // ten seconds. Orthographic: nothing grows as it nears you, and the turn alone carries the
-// depth.
+// depth. The line is there whole from the first frame, or draws itself on from the trail's
+// start to its end while it turns (drawnAt).
 //
 // Arithmetic over track points, and one function that draws it on a canvas. The page owns
 // the loop, the size and the colours.
@@ -21,6 +22,15 @@ export const SPIN_PERIOD_MS = 10_000;
 export const VIDEO_TURN_CHOICES = [1, 2, 3] as const;
 export type VideoTurns = (typeof VIDEO_TURN_CHOICES)[number];
 export const isVideoTurns = (v: unknown): v is VideoTurns => VIDEO_TURN_CHOICES.includes(v as VideoTurns);
+/** How the line appears: drawn on from the trail's start while it turns, or whole from the
+ *  first frame. */
+export const SPIN_REVEALS = ["draw", "whole"] as const;
+export type SpinReveal = (typeof SPIN_REVEALS)[number];
+export const isSpinReveal = (v: unknown): v is SpinReveal => SPIN_REVEALS.includes(v as SpinReveal);
+/** How long the line takes to draw itself on: the same in a video of any length, so the
+ *  length is only how long it then goes on turning whole. Six seconds is a little over half
+ *  a turn, and leaves a ten-second video four to show the whole route turning. */
+export const DRAW_ON_MS = 6000;
 /** How far above the horizon the camera sits when there is elevation to look at. */
 const PITCH = (4 * Math.PI) / 180;
 /** And when there isn't: a flat track seen from 4° is a line, so it is looked down on. */
@@ -88,6 +98,10 @@ export interface SpinModel {
   /** 1 where the line lifts and starts again: after a stretch that went back over ground
    *  the line has already drawn (see retraces). The first point is always a start. */
   starts: Uint8Array;
+  /** How far along the drawn line each point is, as a share of its whole length: 0 at the
+   *  first point, 1 at the last. The jump where it lifts adds nothing, so a line drawing
+   *  itself on picks up at the next start without a pause. */
+  along: Float64Array;
 }
 
 /**
@@ -315,6 +329,14 @@ export function spinModel(points: readonly TrackPoint[]): SpinModel | null {
     u.push(pu);
     starts.push(k < 0 || restart[i] ? 1 : 0);
   }
+  // measured in the model's own units, height drawn tall and all: the length on screen,
+  // so the line draws on at an even pace however the route climbs
+  const along = new Float64Array(e.length);
+  for (let i = 1; i < e.length; i++) {
+    along[i] = along[i - 1]! + (starts[i] ? 0 : Math.hypot(e[i]! - e[i - 1]!, n[i]! - n[i - 1]!, u[i]! - u[i - 1]!));
+  }
+  const total = along[e.length - 1]!;
+  for (let i = 0; i < e.length; i++) along[i] = total > 0 ? along[i]! / total : 1;
   return {
     e: Float64Array.from(e),
     n: Float64Array.from(n),
@@ -322,6 +344,7 @@ export function spinModel(points: readonly TrackPoint[]): SpinModel | null {
     halfHeight: (relief * exaggeration) / 2 / radius,
     exaggeration,
     starts: Uint8Array.from(starts),
+    along,
   };
 }
 
@@ -332,6 +355,17 @@ export const pitchFor = (m: SpinModel): number => (m.exaggeration ? PITCH : FLAT
 export const spinAngle = (ms: number): number => (ms / SPIN_PERIOD_MS) * 2 * Math.PI;
 /** How long a video of `turns` full turns runs, in seconds. */
 export const videoSeconds = (turns: number): number => (turns * SPIN_PERIOD_MS) / 1000;
+
+/** How much of the line is drawn `ms` into a video (or the stage's loop of one): all of it
+ *  when it appears whole; drawn on, none at the start and all of it after DRAW_ON_MS, easing
+ *  in and out (smoothstep) so the pen sets off and arrives rather than starting and stopping
+ *  dead. */
+export function drawnAt(reveal: SpinReveal, ms: number): number {
+  if (reveal === "whole" || ms >= DRAW_ON_MS) return 1;
+  if (ms <= 0) return 0;
+  const t = ms / DRAW_ON_MS;
+  return t * t * (3 - 2 * t);
+}
 
 /** Where a route starts: an eighth of a turn in, so its first frame isn't the flat
  *  north-facing view that every other picture of it already is. The stage opens here, and
@@ -392,6 +426,21 @@ export interface SpinFrame {
    *  unless said. The stage's frame is the room between the bars, and its turn sits on the
    *  middle of the screen, which the room needn't be centred on. */
   middleY?: number;
+  /** How much of the line to draw, from its start, as a share of its length (drawnAt): all
+   *  of it unless said. */
+  drawn?: number;
+}
+
+/** The last point at or before `share` of the way along (along is rising, 0 to 1). */
+function lastReached(along: Float64Array, share: number): number {
+  let lo = 0;
+  let hi = along.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (along[mid]! <= share) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
 }
 
 /**
@@ -402,7 +451,7 @@ export function drawSpin(
   ctx: CanvasRenderingContext2D,
   m: SpinModel,
   angle: number,
-  { width, height, ink, ground, minLine = 1, fit, middleY = height / 2 }: SpinFrame,
+  { width, height, ink, ground, minLine = 1, fit, middleY = height / 2, drawn = 1 }: SpinFrame,
   scratch?: Float64Array,
 ): Float64Array {
   ctx.fillStyle = ground;
@@ -410,12 +459,20 @@ export function drawSpin(
   const box = fit ?? { width: width * (width > height ? FILL_ACROSS_WIDE : FILL_ACROSS_NARROW), height: height * FILL_DOWN };
   const scale = spinScale(m, box);
   const xy = projectSpin(m, angle, pitchFor(m), scratch);
+  if (drawn <= 0) return xy;
+  const x = (i: number) => width / 2 + xy[2 * i]! * scale;
+  const y = (i: number) => middleY - xy[2 * i + 1]! * scale;
+  // the last point the pen has reached, and how far it is past it toward the next
+  const last = drawn >= 1 ? m.e.length - 1 : lastReached(m.along, drawn);
   ctx.beginPath();
-  for (let i = 0; i < m.e.length; i++) {
-    const x = width / 2 + xy[2 * i]! * scale;
-    const y = middleY - xy[2 * i + 1]! * scale;
-    if (m.starts[i]) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  for (let i = 0; i <= last; i++) {
+    if (m.starts[i]) ctx.moveTo(x(i), y(i));
+    else ctx.lineTo(x(i), y(i));
+  }
+  const next = last + 1;
+  if (next < m.e.length && !m.starts[next]) {
+    const t = (drawn - m.along[last]!) / (m.along[next]! - m.along[last]!);
+    ctx.lineTo(x(last) + (x(next) - x(last)) * t, y(last) + (y(next) - y(last)) * t);
   }
   ctx.lineWidth = Math.max(minLine, Math.min(width, height) * LINE_OF_SHORT_SIDE);
   ctx.lineJoin = "round";

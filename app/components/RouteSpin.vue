@@ -13,8 +13,21 @@
 // turn as fits round the screen's middle without reaching the room's nearer edge, so it is
 // centred on the screen and still clear of the bars above and below it. It draws in the colours the video will have, with the same function. The
 // video's SHAPE is not shown here: vertical, wide or square is a choice about the file Save
-// makes, and the preview is the route, not a mock-up of a frame.
-import { drawSpin, SPIN_START_ANGLE, spinAngle, type SpinFormat, type SpinModel, type VideoTurns } from "~~/shared/routeSpin";
+// makes, and the preview is the route, not a mock-up of a frame. Its TIME is: the stage plays
+// the video's length over and over, so a line that draws itself on draws again each time
+// round, as the saved file will when a player repeats it.
+import {
+  DRAW_ON_MS,
+  drawnAt,
+  drawSpin,
+  SPIN_START_ANGLE,
+  spinAngle,
+  videoSeconds,
+  type SpinFormat,
+  type SpinModel,
+  type SpinReveal,
+  type VideoTurns,
+} from "~~/shared/routeSpin";
 
 const props = defineProps<{
   model: SpinModel;
@@ -22,6 +35,12 @@ const props = defineProps<{
   /** the line's colour and the ground's, as CSS colours */
   ink: string;
   ground: string;
+  /** the video's: how the line appears, and how many turns long it is */
+  reveal: SpinReveal;
+  turns: VideoTurns;
+  /** play the video's start once and go on turning, rather than the video over and over: a
+   *  line that draws on draws once, then stays whole (the page's example) */
+  once?: boolean;
 }>();
 
 /** A drag the stage's full width turns it half way round, the near side following the
@@ -45,6 +64,10 @@ const FIT_DOWN = 0.95;
 const roomRef = useTemplateRef<HTMLDivElement>("roomRef");
 const canvasRef = useTemplateRef<HTMLCanvasElement>("canvasRef");
 let angle = SPIN_START_ANGLE;
+/** how far into the video the stage is, in ms: it starts again from 0 each time round, or
+ *  stops counting once there's nothing more to draw (once) */
+let clock = 0;
+const loopMs = () => videoSeconds(props.turns) * 1000;
 let raf = 0;
 let last = 0;
 let drag: { x: number; angle: number } | null = null;
@@ -86,13 +109,19 @@ function paint() {
     minLine: MIN_LINE_PX * ratio,
     fit: { width: place.width * ratio, height: place.height * ratio },
     middleY: place.middleY * ratio,
+    // a stage held still for reduced motion shows the line whole: there's no next frame to
+    // draw any more of it in
+    drawn: reduce?.matches ? 1 : drawnAt(props.reveal, clock),
   };
   scratch = drawSpin(ctx, props.model, angle, frame, scratch);
 }
 
 function tick(now: number) {
   raf = 0;
-  if (last) angle += spinAngle(now - last);
+  if (last) {
+    angle += spinAngle(now - last);
+    clock = props.once ? Math.min(clock + now - last, DRAW_ON_MS) : (clock + now - last) % loopMs();
+  }
   last = now;
   paint();
   schedule();
@@ -153,13 +182,26 @@ onBeforeUnmount(() => {
   resize?.disconnect();
   reduce?.removeEventListener("change", onMotionPref);
 });
-// a new route starts from the same place every route does
+// a new route starts from the same place every route does, and a new way of appearing starts
+// from the top, so it's seen from its first frame
 watch(
   () => props.model,
   () => {
     angle = SPIN_START_ANGLE;
+    clock = 0;
     paint();
   },
+);
+watch(
+  () => props.reveal,
+  () => {
+    clock = 0;
+    paint();
+  },
+);
+watch(
+  () => props.turns,
+  () => (clock %= loopMs()),
 );
 // a still stage (reduced motion, held, saving) has no next frame to show a new colour in;
 // a spinning one does, and a second paint per picker step would only repeat it
@@ -172,10 +214,12 @@ watch(
 );
 
 // ---- Save video ----
-// The video starts where the stage is, in the stage's colours, in the shape and length the
-// dock chose; how it's made is app/utils/spinVideo.ts. The stage holds still while it saves,
-// and leaving the page calls the save off.
-async function record(format: SpinFormat, turns: VideoTurns, onProgress: (share: number) => void): Promise<Blob> {
+// The video is the stage's, in its colours, in the shape the dock chose; how it's made is
+// app/utils/spinVideo.ts. A line that appears whole starts where the stage is, at the angle
+// you were looking from. One that draws on starts where the stage's time round began, so the
+// file is the loop you were watching, from its first frame. The stage holds still while it
+// saves, and leaving the page calls the save off.
+async function record(format: SpinFormat, onProgress: (share: number) => void): Promise<Blob> {
   saving = true;
   stop();
   saveAbort = new AbortController();
@@ -183,8 +227,9 @@ async function record(format: SpinFormat, turns: VideoTurns, onProgress: (share:
     return await saveSpinVideo({
       model: props.model,
       format,
-      from: angle,
-      turns,
+      from: props.reveal === "draw" ? angle - spinAngle(clock) : angle,
+      turns: props.turns,
+      reveal: props.reveal,
       ink: props.ink,
       ground: props.ground,
       onProgress,

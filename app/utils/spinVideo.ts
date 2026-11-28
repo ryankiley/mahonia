@@ -18,7 +18,7 @@
 // answered: a save sat at 0% until a watchdog gave up on it (2026-11-27). The stage holds
 // still while it saves anyway.
 import { mp4Blob, mp4Colour, type Mp4Colour, type Mp4Sample } from "~~/shared/mp4";
-import { drawSpin, SPIN_FORMATS, videoSeconds, type SpinFormat, type SpinModel, type VideoTurns } from "~~/shared/routeSpin";
+import { drawnAt, drawSpin, SPIN_FORMATS, videoSeconds, type SpinFormat, type SpinModel, type SpinReveal, type VideoTurns } from "~~/shared/routeSpin";
 
 const VIDEO_FPS = 60;
 /** Line art on a flat ground compresses well; this is generous for 1080p at 60. */
@@ -50,6 +50,8 @@ export interface SpinVideoJob {
   from: number;
   /** how many full turns the video runs, ten seconds each */
   turns: VideoTurns;
+  /** whether the line draws itself on from the first frame, or is there whole */
+  reveal: SpinReveal;
   ink: string;
   ground: string;
   onProgress: (share: number) => void;
@@ -86,6 +88,8 @@ export async function saveSpinVideo(job: SpinVideoJob): Promise<Blob> {
 }
 
 const angleAt = (job: SpinVideoJob, share: number) => job.from + share * job.turns * 2 * Math.PI;
+/** How much of the line is drawn `share` of the way through the video. */
+const drawnFor = (job: SpinVideoJob, share: number) => drawnAt(job.reveal, share * videoSeconds(job.turns) * 1000);
 
 /** A page canvas at the format's full size, drawn on and never shown. Opaque: every pixel is
  *  painted, and an opaque canvas is cheaper to read back. */
@@ -198,7 +202,8 @@ async function encodeFrames(job: SpinVideoJob): Promise<Blob | null> {
     for (let i = 0; i < frames; i++) {
       job.signal?.throwIfAborted();
       if (failure) throw failure;
-      scratch = drawSpin(ctx, job.model, angleAt(job, i / frames), look, scratch);
+      const share = i / frames;
+      scratch = drawSpin(ctx, job.model, angleAt(job, share), { ...look, drawn: drawnFor(job, share) }, scratch);
       const picture = new VideoFrame(canvas, { timestamp: Math.round(i * step), duration: Math.round(step) });
       encoder.encode(picture, { keyFrame: i % KEY_EVERY === 0 });
       picture.close();
@@ -234,7 +239,7 @@ async function recordAsItPlays(job: SpinVideoJob): Promise<Blob | null> {
   const { canvas, ctx, frame } = canvasFor(job.format);
   if (!type || !ctx) return null;
   const look = { ...frame, ink: job.ink, ground: job.ground };
-  let scratch = drawSpin(ctx, job.model, job.from, look);
+  let scratch = drawSpin(ctx, job.model, job.from, { ...look, drawn: drawnFor(job, 0) });
   const stream = canvas.captureStream(VIDEO_FPS);
   const recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: VIDEO_BITRATE });
   const chunks: Blob[] = [];
@@ -250,7 +255,7 @@ async function recordAsItPlays(job: SpinVideoJob): Promise<Blob | null> {
       const tick = (now: number) => {
         if (job.signal?.aborted) return reject(job.signal.reason);
         const share = Math.min(1, (now - t0) / (videoSeconds(job.turns) * 1000));
-        scratch = drawSpin(ctx, job.model, angleAt(job, share), look, scratch);
+        scratch = drawSpin(ctx, job.model, angleAt(job, share), { ...look, drawn: drawnFor(job, share) }, scratch);
         if (now - told > SAVE_PROGRESS_MS) {
           job.onProgress(share);
           told = now;
