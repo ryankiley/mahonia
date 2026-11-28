@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "The add and edit gear dialog keeps its short fields side by side on a phone, so it fits without scrolling."
+  ]
+}
