@@ -854,9 +854,7 @@ async function exportGear(kind: string) {
           class="vault__catalog"
           :unit="unit"
           placeholder="Search the catalog"
-          sources="catalog"
-          pick-only
-          well
+          mode="pick"
           autofocus
           @draft="typed"
           @commit="pick"

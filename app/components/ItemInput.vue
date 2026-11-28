@@ -16,15 +16,23 @@ import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
 import { menuRoom, visibleBand } from "~/utils/viewportRoom";
 
-// Maps-grade autocomplete, used for BOTH adding a new item and renaming an
-// existing one in place. In add mode it clears after commit; in edit mode
-// (clearOnCommit=false) it keeps the value and only emits when it actually changed.
+// Maps-grade autocomplete for a gear name, in one of two places (`mode`):
+// - "row": a list row's own name, new or existing. It keeps what was committed (the
+//   box shows the row's name), commits free text on Enter or blur, emits only when the
+//   name actually changed, and offers My Gear and water beside the catalog.
+// - "pick": the catalog search in My Gear's add dialog (/gear). The catalog alone, since
+//   it adds TO My Gear, where your own gear could only come back as a duplicate, and
+//   water isn't gear. Only a pick (or a name typed exactly as one product the menu
+//   shows) emits `commit`; Enter on anything else emits `submit`, and leaving the field
+//   commits nothing, as the form has a weight field beside this one that tabbing
+//   across to must not commit. Cleared after a pick, and drawn as a tinted box (the
+//   shared .well atom), standing on its own where nothing around it says "type here".
 const props = withDefaults(
   defineProps<{
     unit: Unit;
     initial?: string;
     placeholder?: string;
-    clearOnCommit?: boolean;
+    mode?: "row" | "pick";
     autofocus?: boolean; // focus the field on mount (a freshly-added blank row)
     // Offer catalog / My Gear matches while typing. FALSE on a GROUP's name: a pick
     // stamps a weight (onNameCommit in ItemRow) and a group's weight cell is read-only
@@ -35,31 +43,16 @@ const props = withDefaults(
     // children. Off means no request and no menu — typing and committing free text are
     // untouched, so renaming a group still works exactly as it did.
     suggest?: boolean;
-    // Where suggestions come from. "catalog" is the catalog alone: no My Gear rows and
-    // no water row. For the place that ADDS to My Gear (/gear's add row), where your own
-    // gear could only be offered back to you as a duplicate, and water isn't gear.
-    sources?: "all" | "catalog";
-    // Free text is the parent's to submit, not this field's to commit. Only a pick (or
-    // a name typed exactly as one product the menu shows) emits `commit`; Enter on
-    // anything else emits `submit`, and leaving the field commits nothing. For a form
-    // with a second field beside this one (/gear's add row: name, then weight), where
-    // the list row's commit-on-blur would fire on tabbing across to the weight.
-    pickOnly?: boolean;
-    // Drawn as a tinted box (the shared .well atom, as the search field is) rather than
-    // the list row's bare text: for a field standing on its own, the catalog search in
-    // My Gear's add dialog, where nothing around it says "type here".
-    well?: boolean;
   }>(),
   {
     initial: "",
     placeholder: "Add an item…",
-    clearOnCommit: true,
+    mode: "row",
     autofocus: false,
     suggest: true,
-    sources: "all",
-    pickOnly: false,
   },
 );
+const pick = computed(() => props.mode === "pick");
 const emit = defineEmits<{
   commit: [NameCommit];
   // Enter (the mobile return key too) landed a commit — the parent may continue
@@ -71,9 +64,9 @@ const emit = defineEmits<{
   // undo. `rest` are the lines after it, one row each, for the parent to make below
   // this one (see onPaste).
   pasteRows: [{ first: NameCommit | null; rest: string[] }];
-  // pickOnly: Enter on text that isn't a pick — the parent submits its own form
+  // pick mode: Enter on text that isn't a pick — the parent submits its own form
   submit: [];
-  // the text as typed, every change: a pickOnly parent submits it, so it has to have it
+  // the text as typed, every change: a pick-mode parent submits it, so it has to have it
   draft: [string];
 }>();
 
@@ -160,7 +153,7 @@ watch(draft, (v) => {
     sizing.value = null;
   }
   search(v);
-  if (props.sources !== "catalog") vaultSearch(v);
+  if (!pick.value) vaultSearch(v);
   active.value = -1;
   open.value = true;
 });
@@ -212,7 +205,7 @@ onScopeDispose(() => openScope?.stop());
 // adds a consumable with the derived weight. "water" alone defaults to 1 L.
 type WaterSug = { ml: number; name: string; label: string; weightMg: number };
 const waterSuggestion = computed<WaterSug | null>(() => {
-  if (props.sources === "catalog") return null;
+  if (pick.value) return null;
   // read by shared/water, the way the Enter and paste paths read the same text, so
   // the menu can't offer less than Enter would make ("Water - 2 L" once did)
   // the name is the one the line keeps ("Drinking water"), or Water for a bare volume
@@ -537,20 +530,22 @@ function selectResult(r: CatalogResult) {
   // editableName), and commitFree compares this box against it on the way out. A box
   // still holding "Brand Model Variant" would read as a rename and unlink the pick it
   // had just made.
-  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(r.brand, r.name)));
+  setDraftQuiet(pick.value ? "" : tidyText(itemDisplayName(r.brand, r.name)));
   close();
 }
+// Row mode only: pick mode offers no water.
 function selectWater(w: WaterSug) {
   // named just "Water" — the volume shows in the qty (litres) field, so "Water · 1 L"
   // in the name plus "1 L" in qty was redundant/confusing
   emit("commit", { name: w.name, weightMg: w.weightMg, classification: "consumable" });
-  setDraftQuiet(props.clearOnCommit ? "" : w.name);
+  setDraftQuiet(w.name);
   close();
 }
 // Pulling a piece of your own gear into the list. It carries YOUR weight, not the
 // catalog's — that's the difference between the vault and the catalog, and the
 // reason the row exists. The catalog link rides along when the gear originally
 // came from a pick, so weight-drift nudges and live name resolution keep working.
+// Row mode only: pick mode never searches My Gear.
 function selectVault(v: VaultEntry) {
   emit("commit", {
     name: v.name,
@@ -570,7 +565,7 @@ function selectVault(v: VaultEntry) {
     fromVault: true,
   });
   // the same "Brand Model" as selectResult, for the same reason
-  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name)));
+  setDraftQuiet(tidyText(itemDisplayName(v.brand, v.name)));
   close();
 }
 // A size the catalog doesn't list, typed in the version step: the product's brand, model
@@ -590,7 +585,7 @@ function selectOther(size: string) {
     classification: head.categoryHint === "consumable" ? "consumable" : undefined,
     own: true,
   });
-  setDraftQuiet(props.clearOnCommit ? "" : nameOfProduct(head));
+  setDraftQuiet(pick.value ? "" : nameOfProduct(head));
   close();
 }
 // the one weight cell a gear row ends with — three sources, one rendering (a product
@@ -702,6 +697,7 @@ function freeCommit(raw: string): NameCommit | null {
   if (!name) return null;
   return { name, weight: split.weight, classification: isWaterName(name) ? "consumable" : undefined };
 }
+// Row mode only: pick mode leaves free text to its form (onFocusOut, onKeydown).
 function commitFree() {
   // Left on a product, mid-step, which picks only what the menu would. Words that fit
   // one version name it, as a product typed in full with its size always did
@@ -728,7 +724,7 @@ function commitFree() {
   // so retyping "Ryan's" over a stored "Ryan’s" is correctly read as no change. The
   // field is then put back to the stored spelling explicitly, because on this branch
   // nothing reactive changes and the props.initial watcher has nothing to fire on.
-  if (!props.clearOnCommit && tidyText(raw) === tidyText(props.initial)) {
+  if (tidyText(raw) === tidyText(props.initial)) {
     setDraftQuiet(props.initial);
     return close();
   }
@@ -741,7 +737,7 @@ function commitFree() {
   emit("commit", c);
   // the TIDIED name, not the typed one — this field has to show what got stored, and
   // Enter commits without ever unfocusing, so the watcher can't do it here either
-  setDraftQuiet(props.clearOnCommit ? "" : c.name);
+  setDraftQuiet(c.name);
   close();
 }
 // A list pasted in, one item per line. The browser's paste would fold every line
@@ -754,8 +750,8 @@ function commitFree() {
 // it (the paste's undo gives that row back). One line is left to the browser, so an
 // ordinary paste of a product name behaves exactly as it always has.
 function onPaste(e: ClipboardEvent) {
-  // a pickOnly field has no rows to make below it: the browser folds the lines into one
-  if (props.pickOnly) return;
+  // a pick field has no rows to make below it: the browser folds the lines into one
+  if (pick.value) return;
   const rows = pasteRows(e.clipboardData?.getData("text/plain") ?? "");
   if (rows.length < 2) return;
   e.preventDefault();
@@ -770,15 +766,15 @@ function onPaste(e: ClipboardEvent) {
   emit("pasteRows", { first: c, rest });
   // the field shows what got stored: the first line's name, or, when it named nothing,
   // the name the row still has — never text the store didn't take
-  setDraftQuiet(props.clearOnCommit ? "" : (c?.name ?? props.initial));
+  setDraftQuiet(c?.name ?? props.initial);
   close();
 }
 // commit when focus leaves the whole control
 function onFocusOut(e: FocusEvent) {
   if (rootRef.value?.contains(e.relatedTarget as Node | null)) return;
   focused.value = false;
-  // pickOnly: the text waits for its form's submit; only the menu goes
-  if (props.pickOnly) {
+  // pick mode: the text waits for its form's submit; only the menu goes
+  if (pick.value) {
     open.value = false;
     return;
   }
@@ -805,7 +801,7 @@ function onKeydown(e: KeyboardEvent) {
     if (open.value && active.value >= 0 && options.value[active.value]) {
       // no new row yet when the versions, or the weight, come first
       if (!selectOption(options.value[active.value]!)) return;
-    } else if (props.pickOnly) {
+    } else if (pick.value) {
       // A product's own name typed in full still links, as tabbing away does in a
       // list (exactMatch); anything else is the form's to submit, weight and all. The
       // menu goes with it: the parent clears the field quietly once the add lands, and
@@ -832,9 +828,9 @@ function onKeydown(e: KeyboardEvent) {
     }
     emit("advance");
   } else if (e.key === "Escape") {
-    // cancel: revert to the original (or clear in add mode) so the focusout that
+    // cancel: revert to the row's name (or clear the pick field) so the focusout that
     // follows blur won't commit the rejected draft
-    setDraftQuiet(props.clearOnCommit ? "" : props.initial);
+    setDraftQuiet(pick.value ? "" : props.initial);
     sizing.value = null;
     open.value = false;
     active.value = -1;
@@ -862,7 +858,7 @@ const hlVersion = (text: string) => highlightParts(text, sizingText.value);
     <input
       ref="inputEl"
       v-model="draft"
-      :class="['field ac__input', { well }]"
+      :class="['field ac__input', { well: pick }]"
       :maxlength="MAX_ITEM_NAME_LEN"
       :placeholder="placeholder"
       :aria-label="placeholder"
