@@ -630,7 +630,7 @@ function parseRoute(fit: Uint8Array | null, text: string): Omit<RouteFile, "stat
  * ("17345678901.fit"), and a number isn't a name.
  */
 export function fileRouteName(fileName: string): string | undefined {
-  const name = fileName.replace(/\.[^.]+$/, "").replace(/_+/g, " ").replace(/\s+/g, " ").trim();
+  const name = fileName.replace(/\.[^.]+$/, "").replace(/[_\s]+/g, " ").trim();
   return /\p{L}/u.test(name) ? name : undefined;
 }
 
