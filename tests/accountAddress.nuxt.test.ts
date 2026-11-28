@@ -310,7 +310,7 @@ describe("the dialog a sign-in link asks in", () => {
     s.asking = { email: "a@example.com", asked: true };
     s.question = "lists";
     await nextTick();
-    expect(w.get(".signin__head h2").text()).toMatch(/^Add this browser’s lists? to your account\?$/);
+    expect(w.get(".signin__head h2").text()).toBe("Add this browser’s lists to your account?");
     expect(w.findAll(".signin__body p")).toHaveLength(1);
     expect(w.get(".signin__body p").text()).toMatch(/^(It|They)’ll open anywhere you sign in as a@example\.com\.$/);
 
