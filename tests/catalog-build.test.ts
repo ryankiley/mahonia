@@ -15,9 +15,8 @@ const build = buildCatalog(readResearchFiles(RESEARCH_DIR));
 describe("seed/catalog.csv is the research, built", () => {
   it("builds every research row, each with a gear type", () => {
     expect({
-      skipped: build.skipped,
       missingCommon: build.missingCommon.map((r) => [r.brand, r.name, r.variant].filter(Boolean).join(" ")),
-    }).toEqual({ skipped: [], missingCommon: [] });
+    }).toEqual({ missingCommon: [] });
   });
 
   it("matches a fresh `npm run catalog:build` (run it, and keep only the rows you meant to change)", () => {

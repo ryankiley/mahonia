@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { EXTRA_TERMS, isVocabularyCanon } from "../scripts/searchTerms";
 import { describe, expect, it } from "vitest";
-import { csvToCatalogRows, isCitationUrl, isWeightSource } from "../scripts/catalogCsv";
+import { csvToCatalogRows } from "../scripts/catalogCsv";
 import { runCatalogChecks } from "../scripts/catalogChecks";
 import { CATALOG_CSV } from "../scripts/paths";
 import { GEAR_TRAITS } from "../shared/catalogAxes";
@@ -46,12 +46,5 @@ describe("seed/catalog.csv data quality", () => {
   it("every gear type in shared/catalogAxes.ts is a live catalog type", () => {
     const live = new Set(rows.map((r) => (r.commonName ?? "").toLowerCase()));
     expect(Object.keys(GEAR_TRAITS).filter((t) => !live.has(t))).toEqual([]);
-  });
-
-  it("every row has provenance + a citation URL", () => {
-    const bad = rows.filter(
-      (r) => !isWeightSource(r.weightSource) || !isCitationUrl(r.sourceUrl ?? ""),
-    );
-    expect(bad.map((r) => r.name)).toEqual([]);
   });
 });

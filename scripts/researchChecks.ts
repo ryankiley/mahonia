@@ -15,7 +15,7 @@ import { gearLabel } from "./catalogChecks";
 import { identityKey, isCitationUrl, isWeightSource, specToMg } from "./catalogCsv";
 import { researchGearType, type ResearchFile } from "./research";
 import { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
-import { nearestQuoteFigure, quoteBacksWeight, RANGE_G, tidyQuote, weightsInQuote } from "../shared/catalogQuality";
+import { CATALOG_CATEGORIES, nearestQuoteFigure, normalizeVariant, quoteBacksWeight, RANGE_G, tidyQuote, weightsInQuote } from "../shared/catalogQuality";
 import type { Unit } from "../shared/types";
 
 const WORD_NUMBER: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
@@ -117,7 +117,7 @@ function figureBy(q: string, re: RegExp): number | null {
   return before ? inGrams(before[1]!, before[2]!) : figureAfter(q, re);
 }
 
-export function runResearchChecks(files: ResearchFile[]): Finding[] {
+export function runResearchChecks(files: readonly ResearchFile[]): Finding[] {
   const out: Finding[] = [];
   // a finding is about a file, and within it a row (its identity in the key); the file is
   // kept apart from the message, and the audit prints it in front (findingText)
@@ -135,6 +135,11 @@ export function runResearchChecks(files: ResearchFile[]): Finding[] {
       const key = identityKey(r.brand ?? "", r.name ?? "", r.variant ?? "");
       const err = (code: string, message: string) => push("error", code, file, key, message);
       const warn = (code: string, message: string) => push("warning", code, file, key, message);
+
+      // a row names its product, and files it under a category the catalog has (the sort
+      // order, the plausibility band and the food rules all read it)
+      if (!(r.name ?? "").trim()) err("name", `${where}: the row has no name`);
+      if (!CATALOG_CATEGORIES.includes(r.category_hint ?? "")) err("category", `${where}: category_hint="${r.category_hint ?? ""}" is not one of ${CATALOG_CATEGORIES.join(", ")}`);
 
       // hygiene: provenance enum + a real citation URL
       if (!isWeightSource(r.weight_source ?? "")) err("source", `${where}: weight_source="${r.weight_source}"`);
@@ -209,24 +214,31 @@ export function runResearchChecks(files: ResearchFile[]): Finding[] {
         err("quote", `${where}: computed ${g.toFixed(0)} g, nearest quote figure ${nearest.toFixed(0)} g (Δ${Math.abs(g - nearest).toFixed(0)} g) | grams in quote: ${figures.map((n) => n.toFixed(0)).join(", ")} | "${quote.slice(0, 90)}"`);
       }
 
-      // the same identity cited twice with a different weight
-      // The same identity cited twice: a conflicting weight is a real error; an
-      // agreeing copy is dead research the build silently drops (kept-first), and
-      // the copy that ships may not be the one someone later edits — an error too.
-      const prev = identity.get(key);
+      // The same identity cited twice, keyed as the build keys a CSV row (trimmed text,
+      // the variant normalized, so "M" beside "Medium" is one row): a conflicting weight is
+      // a real error, and an agreeing copy is dead research that can't both ship.
+      const builtKey = identityKey((r.brand ?? "").trim(), (r.name ?? "").trim(), normalizeVariant(r.variant ?? ""));
+      const prev = identity.get(builtKey);
       if (prev) {
         if (Math.abs(prev.g - g) > Math.max(8, 0.02 * g)) err("dup", `${where}: ${g.toFixed(0)} g conflicts with ${prev.g.toFixed(0)} g from ${prev.where}`);
         else err("dup-row", `${where}: same identity already cited in ${prev.where} — delete one`);
       } else {
-        identity.set(key, { g, where: `${file}: ${where}` });
+        identity.set(builtKey, { g, where: `${file}: ${where}` });
       }
 
-      // KCAL CROSS-CHECK — the calorie figure is held to the same bar as the weight:
-      // it has to be readable out of its own quote (per pouch, or per serving × servings).
+      // KCAL — held to the weight's bar: food only, a whole number for one retail unit (the
+      // largest here, multi-serving pouches, sit under 1,500), cited from its own page (a
+      // spec page rarely shows a nutrition panel), and readable out of that quote (per
+      // pouch, or per serving × servings).
       if (r.kcal != null) {
         const kq = (r.kcal_quote ?? "").trim();
-        if (kq && !kcalMatchesQuote(Number(r.kcal), kq, servingsOf(r.variant, kq))) {
-          err("kcal-quote", `${where}: kcal ${r.kcal} is not in its quote (nor a per-serving figure × ${servingsOf(r.variant, kq)} servings) | "${kq.slice(0, 90)}"`);
+        if (!Number.isInteger(r.kcal) || r.kcal <= 0 || r.kcal > 10_000) err("kcal-range", `${where}: kcal must be a whole number from 1 to 10000, got ${r.kcal}`);
+        else {
+          if (r.category_hint !== "consumable") err("kcal-not-food", `${where}: kcal on a ${r.category_hint ?? "uncategorized"} row — calories go on consumables only`);
+          if (!isCitationUrl((r.kcal_source_url ?? "").trim()) || !kq) err("kcal-cite", `${where}: kcal needs its own kcal_source_url and kcal_quote`);
+          if (kq && !kcalMatchesQuote(r.kcal, kq, servingsOf(r.variant, kq))) {
+            err("kcal-quote", `${where}: kcal ${r.kcal} is not in its quote (nor a per-serving figure × ${servingsOf(r.variant, kq)} servings) | "${kq.slice(0, 90)}"`);
+          }
         }
       }
 

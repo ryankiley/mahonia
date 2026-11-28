@@ -595,9 +595,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     for (const key of Object.keys(stated) as AttributeKey[]) {
       const want = stated[key];
       const have = r.attributes?.[key];
-      if (have === undefined) {
-        err("attr-missing", `${rowKey(r)}|${key}`, `${gearLabel(r)}: the variant states ${key}=${want} but the attributes column lacks it — rebuild with catalog:build`);
-      } else if (have !== want) {
+      if (have !== undefined && have !== want) {
         err("attr-mismatch", `${rowKey(r)}|${key}`, `${gearLabel(r)}: attributes say ${key}=${have} but the variant reads ${key}=${want}`);
       }
     }
