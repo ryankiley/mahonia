@@ -120,9 +120,11 @@ export function useVaultList(
   const { hasVault, vaultFetch } = useVaultAccess();
   const session = useSession();
   const items = ref<VaultEntry[]>([]);
-  /** Where `items` came from: nothing yet, this device's copy, or the server. Only a
+  /** Where the surface stands, moved only by load(): nothing on screen yet; this
+   *  device's copy on screen while the server is asked; the server's answer; offline
+   *  with gear on screen (the copy, or the last answer); offline with none. Only a
    *  server answer is ever written back as the copy, and a copy is never edited. */
-  const source = ref<"none" | "copy" | "server">("none");
+  const status = ref<"none" | "copy" | "live" | "offline" | "offlineEmpty">("none");
   /** Whose gear `items` is: the owner marker it was loaded under. A sign-in to another
    *  account (in this tab, or in another, which changes the cookie under this one)
    *  doesn't change what's on screen, so the copy is written under this, and only while
@@ -139,30 +141,14 @@ export function useVaultList(
   const hasGear = computed(() => hasVault.value || session.presence.value !== "signedOut");
   // "presumed" with the ask still out is a question; with the ask failed, it is offline
   const asking = computed(() => !hasVault.value && session.presence.value === "presumed" && session.pending.value);
-  // Once the server has failed to answer, asking AGAIN doesn't take the offline state
-  // down: the retries below would blink the note and the controls every 30 s.
-  const wasOffline = ref(false);
   /** The server can't be asked: the session never answered, or the gear's read failed. */
-  const offline = computed(
-    () => hasGear.value && (!hasVault.value || loadError.value !== "") && (!asking.value || wasOffline.value),
-  );
-  // `immediate`: a surface opened when the ask has ALREADY failed (the list's pane,
-  // opened offline) starts out offline, and that never changes for a plain watcher to
-  // see, so the first re-ask blinked it. (clear() below keeps the latch for the same
-  // case: the first load runs it.)
-  watch(
-    offline,
-    (off) => {
-      if (off) wasOffline.value = true;
-    },
-    { immediate: true },
-  );
+  const offline = computed(() => status.value === "offline" || status.value === "offlineEmpty");
   /** Nothing on screen may be changed: offline, or still the copy while the server's
    *  answer is on its way. The copy can be behind an edit made on another device, so a
    *  row of it opened for editing could save over that edit, or edit a piece since put
    *  away. A NEW piece is safe to add meanwhile, so the page keys Add gear on `offline`;
    *  a new kit isn't, its items are picked from these rows. */
-  const readonly = computed(() => offline.value || source.value === "copy");
+  const readonly = computed(() => offline.value || status.value === "copy");
   /** Waiting on either answer. */
   const loading = computed(() => fetching.value || asking.value);
 
@@ -177,17 +163,13 @@ export function useVaultList(
     return loadError.value || "You’re offline, and this device hasn’t kept a copy of your gear yet.";
   });
 
+  // The next account's first ask is a question, not the last one's offline answer.
   function clear() {
-    source.value = "none";
+    status.value = "none";
     items.value = [];
     readAt.value = null;
-    // The next account's first ask is a question, not the last one's offline answer.
-    // With no ask out it is offline already, though, and has to stay latched: nothing
-    // about `offline` changes then for the watcher above to set it again, and the first
-    // load of a surface opened offline comes through here.
-    wasOffline.value = false;
-    wasOffline.value = offline.value;
   }
+  const goOffline = () => (status.value = items.value.length ? "offline" : "offlineEmpty");
 
   async function load() {
     if (!hasGear.value) {
@@ -204,13 +186,21 @@ export function useVaultList(
     if (!items.value.length) {
       const copy = readGearCopy(who);
       if (copy) {
-        source.value = "copy";
+        status.value = offline.value ? "offline" : "copy";
         items.value = copy.items;
         readAt.value = copy.savedAt;
       }
     }
-    // presumed: nothing to ask with yet, and offline nothing ever will be; the copy stands in
-    if (!hasVault.value) return;
+    // Presumed: nothing to ask with yet, and offline nothing ever will be; the copy stands
+    // in. Offline once the session's ask has failed, and still offline while it asks
+    // again, so its retries don't blink the note and the controls every 30 s.
+    if (!hasVault.value) {
+      if (!asking.value) goOffline();
+      return;
+    }
+    // The session answering ends the offline its failed ask meant; a failed read of the
+    // gear itself stays offline until the read answers.
+    if (offline.value && !loadError.value) status.value = items.value.length ? "copy" : "none";
     fetching.value = true;
     let stale = false;
     try {
@@ -219,7 +209,8 @@ export function useVaultList(
       // its twin re-rendered every row for nothing. Kept as it is, then; only the
       // copy's date moves, which the items watcher below won't do for an array that
       // didn't change.
-      const same = source.value !== "none" && JSON.stringify(got) === JSON.stringify(items.value);
+      const shown = status.value === "copy" || status.value === "live" || status.value === "offline";
+      const same = shown && JSON.stringify(got) === JSON.stringify(items.value);
       if (!same) await opts.before?.();
       // Answered for an account this browser no longer holds (a sign-in in another tab
       // changes the cookie under this one, and this tab's session never hears of it):
@@ -227,21 +218,22 @@ export function useVaultList(
       // left the page on the old copy, read-only, with nothing saying why.
       stale = sessionCacheOwner() !== who;
       if (!stale) {
-        source.value = "server";
+        // moved only by an answer, so a retry in flight doesn't blink the offline state
+        status.value = "live";
         if (same) writeGearCopy(items.value, who);
         else items.value = got;
         readAt.value = Date.now();
-        // cleared only by an answer, so a retry in flight doesn't blink the offline state
         loadError.value = "";
-        wasOffline.value = false;
       }
     } catch {
       loadError.value = "Couldn’t load your gear. Check your connection and try again.";
+      goOffline();
     }
     fetching.value = false;
     if (stale) await load();
   }
-  watch([hasGear, hasVault, () => session.user.value?.owner], () => void load(), { immediate: true });
+  // `asking` too: the session's ask failing (or going out again) moves nothing else here.
+  watch([hasGear, hasVault, () => session.user.value?.owner, asking], () => void load(), { immediate: true });
 
   // The copy follows every answer: each read, and each change the page saves in place
   // (they splice the row the vault answered with into `items`, so the next offline visit
@@ -250,7 +242,7 @@ export function useVaultList(
   watch(
     items,
     (list) => {
-      if (source.value !== "server" || !hasVault.value || loadedFor === null) return;
+      if (status.value !== "live" || !hasVault.value || loadedFor === null) return;
       if (sessionCacheOwner() === loadedFor) writeGearCopy(list, loadedFor);
     },
     { deep: true },

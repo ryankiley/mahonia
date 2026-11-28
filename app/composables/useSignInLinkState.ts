@@ -1,7 +1,7 @@
 import { reactive } from "vue";
 
-// The sign-in link dialog's state, and NOTHING ELSE, on purpose. app.vue reads
-// `everOpened` to decide whether to mount the dialog, and app.vue is on every page's
+// The sign-in link dialog's state, and NOTHING ELSE, on purpose. AppOverlays reads
+// `everOpened` to decide whether to mount the dialog, and AppOverlays is on every page's
 // first load: whatever this file imports arrives with it. The link's logic
 // (useSignInLink) pulls in the session, the list registry and the return path, so it
 // lives next door and is loaded only by the two things that run it, the link's own page

@@ -1297,8 +1297,6 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-/* The expanded map's own controls, floating over the terrain rather than pushing it down:
-   the point of expanding is the map being big. */
 /* A PIN'S POPUP, drawn as the app's own popover and not as Leaflet's.
    It was Leaflet's card with our three controls inside it, and none of its measures were
    ours: a 12px corner beside the menus' 20, a 40%-black drop shadow, text at 1.083em of
@@ -1384,6 +1382,8 @@ onBeforeUnmount(() => {
   }
 }
 
+/* The expanded map's own controls, floating over the terrain rather than pushing it down:
+   the point of expanding is the map being big. */
 .routemap__overlay {
   position: absolute;
   // clear of Leaflet's zoom buttons (top-left) and the expand button (top-right)

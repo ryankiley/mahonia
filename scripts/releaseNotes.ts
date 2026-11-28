@@ -6,7 +6,7 @@
 // The version scheme is the date. Every push to main deploys and the changelog has
 // always been keyed by the day a change shipped, so a release is a day and its tag is
 // that day in CalVer: v2026.09.12. SemVer would be a number nothing consumes. The one
-// real version number here is the MCP server's (server/utils/mcp.ts), which clients
+// real version number here is the MCP server's (server.json), which clients
 // and the registry read; it moves on its own schedule and has nothing to do with these.
 //
 // A day is released once it is over (in the changelog's own timezone, Pacific), so its

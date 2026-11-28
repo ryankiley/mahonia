@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // THE MENU LIST: the card a menu's rows sit in, and the travelling wash that lights
-// them. Every anchored menu in the app is this (the ⋯ menus, sharing, the account
-// menu, the option menus, the lists switcher); each one spelled it out by hand, the
+// them. The app's anchored menus are this (the ⋯ menus, the account menu, the option
+// menus, the lists switcher); each one spelled it out by hand, the
 // `ul`, its first `li` holding the plate, and the useMenuPlate() call wired to both.
 // The rows are the slot, so each menu keeps its own markup and its own scoped styles
 // (slot content belongs to the parent's scope).

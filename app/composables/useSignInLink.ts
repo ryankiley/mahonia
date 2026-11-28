@@ -19,7 +19,7 @@ import type { AccountNotice } from "./useAccountModal";
 // sign-in already done or not possible here anyway.
 //
 // The dialog's reactive state is its own small file (useSignInLinkState), which is all
-// app.vue reads; everything here is loaded with the link's page or the dialog. Called in
+// AppOverlays reads; everything here is loaded with the link's page or the dialog. Called in
 // the browser only (arrive, from the link page's onMounted).
 
 type VerifyAnswer =

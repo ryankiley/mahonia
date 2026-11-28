@@ -197,10 +197,6 @@ const planTip = computed(() => {
      number, two spacings. */
   padding-block: 0 var(--space-4);
 }
-/* the figure, its unit and its chevron are Headline's own (Headline.vue), and it is
-   drawn here only where one is passed: in the editor the big figure moved out to
-   GearEditor's shared Headline, so `props.headline` is false there and nothing stands
-   above the breakdown */
 .totals__breakdown {
   /* one step up from --space-4 — the display-size figure above has a lot of optical
      mass, so the breakdown needs more clearance than a body-copy gap to stop reading

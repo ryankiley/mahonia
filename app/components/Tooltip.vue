@@ -27,21 +27,12 @@
 // every row control, so a 150-item list was calling matchMedia ~900 times to learn the
 // same fact. Resolved lazily on first use so importing the component never touches
 // `window` (it renders on the server too). `.matches` is still read live at each call,
-// so a device that gains a pointer mid-session is picked up exactly as before.
-//
-// Keyed on `window.matchMedia` itself, because what's memoised is a HANDLE to that API:
-// if the function is ever replaced the old MediaQueryList is stale and has to be
-// re-derived. Costs one reference compare per call, and keeps the probe honest under a
-// stubbed matchMedia (see tests/tooltip.nuxt.test.ts, which swaps it mid-suite).
+// so a device that gains a pointer mid-session is picked up.
 let hoverlessMq: MediaQueryList | null = null;
-let hoverlessFrom: unknown;
 function isHoverless(): boolean {
   if (!import.meta.client) return false;
-  if (hoverlessFrom !== window.matchMedia) {
-    hoverlessFrom = window.matchMedia;
-    hoverlessMq = window.matchMedia("(hover: none)");
-  }
-  return hoverlessMq?.matches ?? false;
+  hoverlessMq ??= window.matchMedia("(hover: none)");
+  return hoverlessMq.matches;
 }
 </script>
 

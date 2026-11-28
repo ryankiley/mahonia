@@ -15,6 +15,12 @@ import Tooltip from "~/components/Tooltip.vue";
 
 enableAutoUnmount(afterEach);
 
+// What the device reports for `(hover: none)`. Stubbed once for the file: the component
+// asks matchMedia once per page and keeps the handle, so a case that wants a touch-only
+// device flips `matches` on the one answer rather than swapping the function.
+const hoverNone = { matches: false, media: "(hover: none)" };
+vi.stubGlobal("matchMedia", () => hoverNone as MediaQueryList);
+
 type Rect = { top: number; bottom: number; left: number; right: number; width: number; height: number };
 const rect = (r: Partial<Rect>): DOMRect =>
   ({ top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}), ...r }) as DOMRect;
@@ -63,7 +69,7 @@ describe("Tooltip positioning", () => {
     Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
     // the horizontal clamp reads the LAYOUT viewport (no scrollbar column), not innerWidth
     Object.defineProperty(document.documentElement, "clientWidth", { value: 1200, configurable: true });
-    vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q }) as MediaQueryList);
+    hoverNone.matches = false;
 
     geom.trigger = { top: 400, bottom: 424, left: 500, width: 32, height: 24 };
     geom.tooltip = { width: 100, height: 24 };
@@ -88,7 +94,6 @@ describe("Tooltip positioning", () => {
   afterEach(() => {
     document.body.innerHTML = ""; // the cases append raw nodes beside the mount
     vi.restoreAllMocks();
-    vi.unstubAllGlobals();
   });
 
   it("prefers top, and centres the popup on the trigger", async () => {
@@ -161,7 +166,7 @@ describe("Tooltip positioning", () => {
   });
 
   it("shows nothing on a touch-only device", async () => {
-    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q === "(hover: none)", media: q }) as MediaQueryList);
+    hoverNone.matches = true;
     mountTooltip({ text: "Remove item" });
 
     expect(await hover()).toBeNull();
@@ -173,7 +178,7 @@ describe("Tooltip positioning", () => {
   // a control that already acts when pressed, so on a phone all three were describing
   // something the same tap had just done.
   it("raises nothing a touch can reach", async () => {
-    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q === "(hover: none)", media: q }) as MediaQueryList);
+    hoverNone.matches = true;
     mountTooltip({ text: "Remove item" });
 
     for (const ev of ["mouseenter", "click", "focusin"]) {

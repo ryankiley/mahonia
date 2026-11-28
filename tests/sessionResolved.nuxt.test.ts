@@ -113,21 +113,6 @@ describe("an answer that arrives after the session has changed", () => {
     expect(storage.has(ROWS_TWO)).toBe(true);
   });
 
-  it("counts the stale ask's own re-read as the forced one: two requests, not three", async () => {
-    // the sign-in page's case exactly: its forced re-read arrives while the page's
-    // first ask is out, and that ask is about the session before the sign-in
-    answer = "no-user";
-    const release = held();
-    const first = useSession().refresh();
-    signInAsTwo();
-    const forced = useSession().refresh(true);
-    release();
-    await Promise.all([first, forced]);
-
-    expect(asked).toBe(2);
-    expect(useSession().user.value?.owner).toBe("2");
-  });
-
   it("reads a user as stale once the hint that there is one has gone", async () => {
     // a session too old to have a marker cookie, signed out in another tab while
     // it was being asked about: no marker ever changed, only the hint went

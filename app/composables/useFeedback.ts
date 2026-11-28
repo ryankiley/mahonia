@@ -4,7 +4,7 @@ import { reactive } from "vue";
 // the read views' ⋯ menu, My Gear's ⋯ menu, and the read views' "Report list" (which
 // is feedback about one list, with the message seeded).
 //
-// Module-level singleton driving ONE <FeedbackModal> mount in app.vue, the same shape
+// Module-level singleton driving ONE <FeedbackModal> mount in AppOverlays, the same shape
 // as useAccountModal and useDialogs, so a surface opens it without wiring its own
 // overlay: the editor and the read menu each carried the open/everOpened pair, the
 // preset and the title, and a Lazy mount of their own. Only ever mutated client-side,
