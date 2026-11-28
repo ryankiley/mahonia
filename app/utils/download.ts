@@ -34,6 +34,9 @@ export function listFileBase(title?: string | null, slug?: string | null): strin
     // haleakala.csv, not haleakal.csv, and "Señal Peak" is senal-peak, not se-al-peak
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
+    // and an apostrophe or ʻokina belongs to its word: "Keoneheʻeheʻe" is keoneheehee, not
+    // keonehe-ehe-e, and "Arc’teryx" arcteryx
+    .replace(/['’ʻʼ`]/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
