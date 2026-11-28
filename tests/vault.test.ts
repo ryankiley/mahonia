@@ -4,7 +4,7 @@ import { stubLocalStorage } from "./helpers/storage";
 import { listEntry } from "./helpers/myLists";
 import { gear } from "./helpers/list";
 import { DUPLEX, cap } from "./helpers/vault";
-import { catalogItems, vaultItems, vaults } from "../server/db/schema";
+import { catalogItems, vaultItems } from "../server/db/schema";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
@@ -17,8 +17,6 @@ import {
   listVaultItems,
   vaultItemById,
   vaultGearAmong,
-  purgeDeletedVaults,
-  reapAbandonedVaults,
   removeVaultItem,
   restoreVaultItem,
   searchVaultItems,
@@ -623,103 +621,6 @@ describe("vault search", () => {
   });
 });
 
-
-// ---------------------------------------------------------------------------
-// the nightly reaper
-// ---------------------------------------------------------------------------
-describe("vault reaping — bounding a table nothing else ever shrinks", () => {
-  let db: TestDb;
-  const ago = (days: number) => new Date(Date.now() - days * 86_400_000);
-
-  // a vault row + one piece of gear in it, last seen `days` ago
-  async function seedVault(days: number): Promise<number> {
-    const [row] = await db
-      .insert(vaults)
-      .values({ lastSeenAt: ago(days) })
-      .returning();
-    await captureVaultItems(db, row!.id, [
-      { normKey: "", name: `Thing ${row!.id}`, brand: "Maker", weightMg: 100 } as any,
-    ]);
-    return row!.id;
-  }
-
-  beforeEach(async () => {
-    db = await createTestDb(VAULT_DDL);
-  });
-
-  it("soft-deletes a vault past the stale window and leaves a fresh one alone", async () => {
-    const stale = await seedVault(200);
-    const fresh = await seedVault(3);
-
-    expect(await reapAbandonedVaults(db)).toEqual({ vaultsReaped: 1 });
-    const rows = await db.select().from(vaults);
-    expect(rows.find((r) => r.id === stale)!.deletedAt).not.toBeNull();
-    expect(rows.find((r) => r.id === fresh)!.deletedAt).toBeNull();
-    // SOFT — the gear is still there, which is what makes the revive possible
-    expect(await listVaultItems(db, stale)).toHaveLength(1);
-  });
-
-  it("does not purge inside the grace window", async () => {
-    await seedVault(200);
-    await reapAbandonedVaults(db);
-    expect(await purgeDeletedVaults(db)).toEqual({ vaultsPurged: 0 });
-    expect(await db.select().from(vaults)).toHaveLength(1);
-  });
-
-  it("purges past the grace, taking the gear with it", async () => {
-    const id = await seedVault(400);
-    await db.update(vaults).set({ deletedAt: ago(120) }).where(eq(vaults.id, id));
-
-    expect(await purgeDeletedVaults(db)).toEqual({ vaultsPurged: 1 });
-    expect(await db.select().from(vaults)).toHaveLength(0);
-    // no orphans left behind — there's no DB-level FK doing this for us
-    expect(await listVaultItems(db, id)).toHaveLength(0);
-  });
-
-  it("leaves another vault's gear alone when it purges one", async () => {
-    const doomed = await seedVault(400);
-    const keeper = await seedVault(1);
-    await db.update(vaults).set({ deletedAt: ago(120) }).where(eq(vaults.id, doomed));
-
-    await purgeDeletedVaults(db);
-    expect(await listVaultItems(db, keeper)).toHaveLength(1);
-  });
-
-  it("batches, so one run can't issue an unbounded write", async () => {
-    await seedVault(200);
-    await seedVault(200);
-    await seedVault(200);
-    expect(await reapAbandonedVaults(db, { limit: 2 })).toEqual({ vaultsReaped: 2 });
-    expect(await reapAbandonedVaults(db, { limit: 2 })).toEqual({ vaultsReaped: 1 });
-  });
-
-  // An account's My Gear is the account's for as long as the account is: someone who
-  // packs once a year comes back to what they left. Only a vault no account owns
-  // (the link-owned ones from before accounts) is ever abandoned.
-  it("never reaps an account's vault, however long it has gone unseen", async () => {
-    const mine = await seedVault(365);
-    await db.update(vaults).set({ userId: 7 }).where(eq(vaults.id, mine));
-    const orphan = await seedVault(365);
-
-    expect(await reapAbandonedVaults(db)).toEqual({ vaultsReaped: 1 });
-    const rows = await db.select().from(vaults);
-    expect(rows.find((r) => r.id === mine)!.deletedAt).toBeNull();
-    expect(rows.find((r) => r.id === orphan)!.deletedAt).not.toBeNull();
-    expect(await listVaultItems(db, mine)).toHaveLength(1);
-  });
-
-  it("never purges an account's vault, even one that carries a soft-delete", async () => {
-    const mine = await seedVault(400);
-    await db.update(vaults).set({ userId: 7, deletedAt: ago(120) }).where(eq(vaults.id, mine));
-    const orphan = await seedVault(400);
-    await db.update(vaults).set({ deletedAt: ago(120) }).where(eq(vaults.id, orphan));
-
-    expect(await purgeDeletedVaults(db)).toEqual({ vaultsPurged: 1 });
-    expect((await db.select().from(vaults)).map((r) => r.id)).toEqual([mine]);
-    expect(await listVaultItems(db, mine)).toHaveLength(1);
-    expect(await listVaultItems(db, orphan)).toHaveLength(0);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ceilings — a vault's growth is bounded

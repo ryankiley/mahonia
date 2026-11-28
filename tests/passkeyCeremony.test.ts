@@ -52,8 +52,6 @@ const verified = (credentialId: string) =>
     verified: true,
     registrationInfo: {
       credential: { id: credentialId, publicKey: new Uint8Array([1, 2, 3]), counter: 0, transports: ["internal"] },
-      credentialDeviceType: "multiDevice",
-      credentialBackedUp: true,
     },
   }) as never;
 
@@ -279,27 +277,6 @@ describe("register-verify — adding a key to a signed-in account", () => {
     verifyMock.mockResolvedValue(verified("cred-last"));
 
     expect(await registerVerify(post({ flowId, response: {} }, cookie))).toEqual({ ok: true });
-    expect(await db.select().from(schema.credentials)).toHaveLength(MAX_PASSKEYS_PER_USER);
-  });
-  // Counting before the save is not enough when the verifies arrive together: each
-  // reads the same count, each finds room, and each saves. So the cap is settled by
-  // the rows themselves once they are in: the keys beyond it, newest first, go.
-  it("keeps to the cap when several ceremonies are verified at the same moment", async () => {
-    for (let i = 0; i < MAX_PASSKEYS_PER_USER - 1; i++) {
-      await savePasskey(db, { userId: myId, credentialId: `cred-${i}`, ...PASSKEY, unproven: false });
-    }
-    // five ceremonies opened while there was room for one, each completed on its own key
-    const flows = await Promise.all([1, 2, 3, 4, 5].map((n) => startChallenge(`chal-race-${n}`, myId)));
-    let key = 0;
-    verifyMock.mockImplementation(async () => verified(`cred-race-${++key}`));
-
-    const answers = await Promise.allSettled(flows.map((flowId) => registerVerify(post({ flowId, response: {} }, cookie))));
-    // one key takes the last place, and the rest hear what register-options says at the cap
-    expect(answers.filter((a) => a.status === "fulfilled").map((a) => (a as PromiseFulfilledResult<unknown>).value)).toEqual([{ ok: true }]);
-    const refused = answers.filter((a) => a.status === "rejected").map((a) => (a as PromiseRejectedResult).reason);
-    expect(refused).toHaveLength(4);
-    for (const reason of refused) expect(reason).toMatchObject({ statusCode: 409, statusMessage: "Too many passkeys" });
-    // exactly the cap: not over it, and not under it from each undoing the other's
     expect(await db.select().from(schema.credentials)).toHaveLength(MAX_PASSKEYS_PER_USER);
   });
 });

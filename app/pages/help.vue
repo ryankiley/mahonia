@@ -16,6 +16,8 @@
 // Short and plain, on purpose. No colon or dash setting up an elaboration, no tagline
 // sentences, no "never X" pivots: they read as machine-written (Ryan's call, and
 // tests/prose-dashes.test.ts holds the dash half of it).
+import { LIST_REAP_STALE_DAYS } from "~~/shared/retention";
+
 useHead({
   title: "Help — Mahonia",
   meta: [
@@ -80,7 +82,7 @@ useHead({
         </p>
         <p>
           “Delete this list” removes it for everyone and can’t be undone in the app. Only a list with
-          one item or none is ever cleared automatically, after 30 days untouched. The
+          one item or none is ever cleared automatically, after {{ LIST_REAP_STALE_DAYS }} days untouched. The
           <NuxtLink to="/legal#privacy">privacy policy</NuxtLink> has the details.
         </p>
 

@@ -141,7 +141,6 @@ export const ACCOUNT_DDL: string[] = [
     public_key text NOT NULL,
     counter bigint NOT NULL DEFAULT 0,
     transports text,
-    discoverable boolean NOT NULL DEFAULT false,
     label text,
     created_at timestamptz NOT NULL DEFAULT now(),
     last_used_at timestamptz,
@@ -159,6 +158,8 @@ export const ACCOUNT_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_list_claims_identity ON list_claims (user_id, list_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_list_claims_user ON list_claims (user_id)`,
+  // (user_id) alone is a prefix of the unique index above, which serves it. Delete
+  // this DROP once it has deployed.
+  `DROP INDEX IF EXISTS idx_list_claims_user`,
 
   ];

@@ -151,20 +151,12 @@ export function requirePasskeysConfigured(): void {
  * that request reads it: register-options, so nobody touches a sensor for a key that
  * can't be kept, and register-verify, because a ceremony stays redeemable for minutes
  * after it is opened and a batch opened while there was room would otherwise all
- * land. One refusal, so the two can't word it differently. Verifies that arrive
- * TOGETHER all pass this, each reading the count before any has saved: what holds
- * the cap against those is register-verify's look after the save
- * (removePasskeyBeyondCap).
+ * land. One refusal, so the two can't word it differently. Verifies that arrive in
+ * the same instant can each read the count before any has saved, and so pass it
+ * together: the cap is exact for requests one after another.
  */
 export function requirePasskeyRoom(held: number): void {
-  if (held >= MAX_PASSKEYS_PER_USER) throw tooManyPasskeys();
-}
-
-/** The refusal itself, for register-verify's second look: a key that was saved beside
- *  others arriving at the same moment and turned out to be one past the cap. Returned
- *  rather than thrown, like notFound, so the call site keeps its `throw`. */
-export function tooManyPasskeys() {
-  return createError({ statusCode: 409, statusMessage: "Too many passkeys" });
+  if (held >= MAX_PASSKEYS_PER_USER) throw createError({ statusCode: 409, statusMessage: "Too many passkeys" });
 }
 
 interface StoredChallenge {
@@ -225,17 +217,13 @@ export async function takeChallenge(flowId: unknown): Promise<StoredChallenge | 
 }
 
 /** What a verified registration leaves us to store — the credential as
- *  savePasskey takes it, plus the one fact the two callers read differently. */
+ *  savePasskey takes it. */
 interface VerifiedRegistration {
   credentialId: string;
   /** base64url COSE key, the storage form */
   publicKey: string;
   counter: number;
   transports: string[] | null;
-  /** A synced/multi-device credential is discoverable by construction; a
-   *  hardware key may not be. register-verify stores this as `discoverable`;
-   *  signup-verify ignores it, since signup demands a resident key. */
-  syncable: boolean;
 }
 
 /**
@@ -271,6 +259,5 @@ export async function verifyPasskeyRegistration(
     publicKey: Buffer.from(info.credential.publicKey).toString("base64url"),
     counter: info.credential.counter,
     transports: info.credential.transports ?? null,
-    syncable: Boolean(info.credentialDeviceType === "multiDevice" || info.credentialBackedUp),
   };
 }

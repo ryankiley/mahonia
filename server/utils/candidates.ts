@@ -27,7 +27,8 @@ import { bumpUsage, ensureCatalogSchema, searchCatalog } from "./catalog";
 import { ensureOf } from "./ddl";
 import type { Db } from "./db";
 
-const K_DISTINCT_LISTS = Math.max(2, Number(process.env.CATALOG_MIN_DISTINCT_LISTS) || 3);
+// app/pages/legal.vue tells visitors "three or more different lists": change both together.
+const K_DISTINCT_LISTS = 3;
 const DEDUP_THRESHOLD = 0.6; // 2x the autocomplete recall floor — bias to a new (recoverable) row
 const MIN_WEIGHTS = 2; // need at least this many corroborating weights to set a community weight
 

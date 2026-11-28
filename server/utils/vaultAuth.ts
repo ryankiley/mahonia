@@ -1,6 +1,6 @@
 import type { H3Event } from "h3";
 import { createError } from "h3";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { vaults } from "../db/schema";
 import { useVaultDb, type Db } from "./db";
 import { resolveSession } from "./authSession";
@@ -30,8 +30,8 @@ import { resolveSession } from "./authSession";
  */
 
 /** The shared preamble of every resolver below: session or 401, then the vault
- *  looked up AND touched (see touchVaultByUser). One body, so the 401 wording
- *  and the last-seen bump can't drift between the three public entry points. */
+ *  looked up (touchVaultByUser). One body, so the 401 wording can't drift between
+ *  the three public entry points. */
 async function vaultFor(
   event: H3Event,
 ): Promise<{ db: Db; vaultId: number | null; userId: number }> {
@@ -47,11 +47,6 @@ async function vaultFor(
  * remove/restore), which need an existing vault to act on. Reads go through
  * resolveVaultForRead below, where "no vault yet" is a normal state, not an
  * error.
- *
- * Resolving a vault stamps its `last_seen_at` (touchVaultByUser, at most once a
- * day), and the same write clears a soft-delete should the row carry one, with no
- * separate restore path to remember to call. The nightly sweep takes only vaults no
- * account owns (vaultRepo), so an account's vault is never reaped for going unseen.
  */
 export async function requireVault(event: H3Event): Promise<{ db: Db; vaultId: number }> {
   const { db, vaultId } = await vaultFor(event);
@@ -78,29 +73,12 @@ export async function resolveVaultForRead(
 }
 
 /**
- * Resolve a user's vault AND mark it used — bump last_seen_at, clear any
- * soft-delete. Split out of requireVault so the rule can be tested without an
- * H3Event; what's left up there is error handling.
- *
- * The mark is written at most once a day. Every vault call comes through here, the
- * autocomplete's per-keystroke search included, and nothing reads last_seen_at to
- * the day (the nightly sweep counts in months, and only over vaults no account
- * owns): so the common request is a read, and the row is rewritten only when the
- * stamp has gone stale or there is a soft-delete to lift.
+ * A user's vault id, or null when they have none yet. Split out of requireVault so
+ * it can be tested without an H3Event; what's left up there is error handling.
  */
-const VAULT_TOUCH_AFTER_MS = 24 * 60 * 60_000;
 export async function touchVaultByUser(db: Db, userId: number): Promise<number | null> {
-  const rows = await db
-    .select({ id: vaults.id, lastSeenAt: vaults.lastSeenAt, deletedAt: vaults.deletedAt })
-    .from(vaults)
-    .where(eq(vaults.userId, userId))
-    .limit(1);
-  const vault = rows[0];
-  if (!vault) return null;
-  if (vault.deletedAt || Date.now() - new Date(vault.lastSeenAt).getTime() > VAULT_TOUCH_AFTER_MS) {
-    await db.update(vaults).set({ lastSeenAt: sql`now()`, deletedAt: null }).where(eq(vaults.id, vault.id));
-  }
-  return vault.id;
+  const rows = await db.select({ id: vaults.id }).from(vaults).where(eq(vaults.userId, userId)).limit(1);
+  return rows[0]?.id ?? null;
 }
 
 /**
@@ -124,7 +102,7 @@ export async function mintVault(db: Db, userId: number): Promise<number> {
 }
 
 /**
- * The account's vault, marked used, minted when it has none yet: touchVaultByUser,
+ * The account's vault, minted when it has none yet: touchVaultByUser,
  * then mintVault. For the writes that reach a vault by user id rather than by a
  * request's session and must have somewhere to land: the sign-in backfill and a list
  * the connector files. Each holds a user id it has already verified.
