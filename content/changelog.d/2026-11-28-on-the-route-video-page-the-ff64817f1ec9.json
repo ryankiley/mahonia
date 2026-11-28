@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-28",
+  "added": [
+    "On the route video page, the icon buttons now show their names when you hover over them."
+  ],
+  "changed": [
+    "The route video page's example now draws itself on again every 20 seconds."
+  ]
+}
