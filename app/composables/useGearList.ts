@@ -10,8 +10,7 @@ import { pickListMeta, stateData } from "~~/shared/types";
 import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultGearKey } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
-import { computeTotals, lineMg } from "~~/shared/weights";
-import { isWaterName } from "~~/shared/water";
+import { computeTotals } from "~~/shared/weights";
 import { createEdits } from "~/composables/useGearListEdits";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
 import { useUndo } from "~/composables/useUndo";
@@ -117,23 +116,14 @@ function create() {
   function setStatus(next: Status) {
     if (!remoteMissing()) status.value = next;
   }
-  // bumped on every load/dispose so in-flight responses for a previous list are ignored
-  let epoch = 0;
-  // The same count as a ref, for a consumer that has to REACT to the list changing
-  // rather than compare once after an await — the route import's held pin offer,
-  // which outlives a `dispose(); startDraft()` that never unmounts ListHead.
+  // Bumped on every load/dispose so in-flight responses for a previous list are ignored.
+  // A ref, for the one consumer that has to REACT to the list changing rather than
+  // compare once after an await — the route import's held pin offer, which outlives a
+  // `dispose(); startDraft()` that never unmounts ListHead.
   const epochRef = shallowRef(0);
   function bumpEpoch(): number {
-    epochRef.value = ++epoch;
-    return epoch;
+    return ++epochRef.value;
   }
-  // True while load() runs its one-time backfills (water's qty fold). Those go through
-  // dispatch like any edit — which is right for persistence, and wrong for the vault:
-  // they fire on OPEN, so a list someone shared with you would capture its owner's
-  // whole gear set into your vault the moment a single row needed one. Suppressed here
-  // rather than at each backfill, so one added later inherits the rule instead of
-  // reintroducing the leak.
-  let hydrating = false;
   // Raised when gear would reach the vault from a list this device didn't create
   // and hasn't been answered for. The editor shows it as a toast; nothing is
   // captured until it's answered, and the answer is remembered per list.
@@ -433,8 +423,7 @@ function create() {
   }
 
   // Keep this list's row in "Your lists" in step with the snapshot. Called after a
-  // sync — which is where the server's version number comes from — AND optimistically
-  // from dispatch, because the list switcher reads the REGISTRY, not the snapshot.
+  // sync AND optimistically from dispatch, because the list switcher reads the REGISTRY, not the snapshot.
   // A list you just renamed has to answer to its new name in the dropdown straight
   // away, not one debounce plus a round-trip later; the reducer here is the same one
   // the server runs, so the title we write is already the title it will store.
@@ -448,8 +437,6 @@ function create() {
     if (!snapshot.value) return;
     const patch = {
       title: snapshot.value.title,
-      version: snapshot.value.version,
-      totalMg: totals.value?.totalMg ?? 0, // the memoized rollup — no fresh full-list pass
       displayUnit: snapshot.value.displayUnit, // keep the summary in the list's unit system
     };
     const held = access.value;
@@ -473,11 +460,11 @@ function create() {
 
   // The gate on that optimistic call. dispatch runs on every keystroke and touch()
   // REASSIGNS the registry array (which persists the whole registry), so this asks
-  // first whether anything the row actually shows has moved — for most edits, nothing
-  // has. No row at all — a draft with no token yet, or a list removed from this
-  // device — means nothing to update: touch is update-only by design, and re-adding
-  // one here would undo a "Remove from device". Version is deliberately not compared;
-  // an optimistic op never moves it, only the server does.
+  // first whether anything the row actually shows, its name or its unit, has moved —
+  // for most edits, nothing has. (A sync answer still writes the row once, unasked.)
+  // No row at all — a draft with no token yet, or a list removed from this device —
+  // means nothing to update: touch is update-only by design, and re-adding one here
+  // would undo a "Remove from device".
   function registryStale() {
     if (!snapshot.value) return false;
     const held = access.value;
@@ -488,11 +475,7 @@ function create() {
           ? claimedLists.lists.value.find((l) => l.shareCode === held.code)
           : undefined;
     if (!row) return false;
-    return (
-      row.title !== snapshot.value.title ||
-      row.displayUnit !== snapshot.value.displayUnit ||
-      row.totalMg !== (totals.value?.totalMg ?? 0)
-    );
+    return row.title !== snapshot.value.title || row.displayUnit !== snapshot.value.displayUnit;
   }
 
   // Add this list to the device's "Your lists" (upsert, not touch), so a list
@@ -510,7 +493,7 @@ function create() {
     // A claimed open has no token to register and never gets a registry row; its
     // row copy and its ledger stamp are syncRegistry's, and a first open on this
     // device has no on-device copy for the hydrate path to have run it on — so it
-    // runs here, on the server's fresh title and total, the way registerCreated
+    // runs here, on the server's fresh title, the way registerCreated
     // below refreshes a token's row.
     if (claimCode()) {
       syncRegistry();
@@ -523,11 +506,7 @@ function create() {
     // someone SENT you: signing in must not quietly attach it to your account.
     // upsert keeps a prior "created" if you made this list yourself and are merely
     // reopening it, so your own lists aren't downgraded by coming back to them.
-    myLists.registerCreated(
-      { editToken: token, snapshot: snapshot.value },
-      totals.value?.totalMg ?? 0,
-      "opened",
-    );
+    myLists.registerCreated({ editToken: token, snapshot: snapshot.value }, "opened");
     // The token is the way into this list from now on: the row just minted is what
     // the bare address ranks and how it navigates. A ledger entry from an earlier
     // open through the account would only resurface — ranked at that older time —
@@ -594,7 +573,7 @@ function create() {
     const key = storeKey();
     const ahead = store.take(key);
     const local = ahead?.landed ? ahead.landed.record : await (ahead?.read ?? store.get(key));
-    if (myEpoch !== epoch) return; // a newer load() superseded this one
+    if (myEpoch !== epochRef.value) return; // a newer load() superseded this one
     if (local) {
       // Backfilled on the way in, matching what the server does on the way out
       // (rowToSnapshot). This copy is the FIRST paint and, offline, the only one — an
@@ -614,7 +593,7 @@ function create() {
       const res = await $fetch<{ snapshot: ListSnapshot }>("/api/edit/list", {
         headers: authHeaders(),
       });
-      if (myEpoch !== epoch) return;
+      if (myEpoch !== epochRef.value) return;
       // server is authoritative; replay any un-acked local ops on top of it
       const merged = rebaseOnto(res.snapshot, pending);
       snapshot.value = merged;
@@ -632,14 +611,6 @@ function create() {
       // had never asked for one. The whole-list cases capture at the moment they're
       // CREATED instead (useVaultCapture().captureNewList), where the device knows
       // it made the thing; everything else still captures as you edit.
-      hydrating = true;
-      // one-time cleanup: water is a volume, not a count (foldWaterQty, shared/ops): a
-      // row stored with qty 3 before the reducer folded it becomes its whole volume at
-      // qty 1, weighing what it did. Self-persists via the mutate flow.
-      for (const it of merged.items) {
-        if (isWaterName(it.name) && it.qty > 1) updateItem(it.id, { qty: 1, unitWeightMg: lineMg(it) });
-      }
-      hydrating = false;
       // Upgrade a legacy bare /e#{token} URL to the share-ready pretty path
       // (/e/{shareCode}#{token}) once the share code is known. Pre-#54 lists —
       // every bookmark and my-lists entry from before the pretty links shipped —
@@ -660,7 +631,7 @@ function create() {
       if (pending.length) scheduleFlush();
       startPoll();
     } catch (e: any) {
-      if (myEpoch !== epoch) return;
+      if (myEpoch !== epochRef.value) return;
       // 404: the server has no list under this capability (deleted, the link
       // rotated — or, for a claimed open, the claim revoked). 401 on a claimed
       // open is its sibling: the session lapsed or never covered this code, and
@@ -766,7 +737,7 @@ function create() {
     // Restore an in-progress, never-saved draft if one survived a reload/crash.
     // Async (IndexedDB), so the fresh starter paints first and is replaced if found.
     store.get(DRAFT_KEY).then((local) => {
-      if (myEpoch !== epoch || editToken() || !local) return;
+      if (myEpoch !== epochRef.value || editToken() || !local) return;
       snapshot.value = tidyListText(local.snapshot); // same backfill as the token path
       // not local.pending: a draft's queue is what was typed while a create was out,
       // and the snapshot saved beside it already holds every one of those edits —
@@ -803,9 +774,9 @@ function create() {
   async function saveDraft(): Promise<boolean> {
     if (holdsList()) return true;
     if (!snapshot.value || !online.value) return false;
-    const myEpoch = epoch;
+    const myEpoch = epochRef.value;
     await createFromDraft();
-    return myEpoch === epoch && holdsList();
+    return myEpoch === epochRef.value && holdsList();
   }
 
   async function runCreate() {
@@ -814,7 +785,7 @@ function create() {
     if (inFlight || holdsList() || !snapshot.value) return;
     // offline: the draft is already persisted locally; create once back online
     if (!online.value) { setStatus("offline"); return; }
-    const myEpoch = epoch;
+    const myEpoch = epochRef.value;
     inFlight = true;
     // the flush's rule: once the line reads "Not saved", a retry doesn't flip it to
     // "Syncing…" and back — that strobes once per attempt and says nothing new
@@ -832,7 +803,7 @@ function create() {
           data: stateData(s),
         },
       });
-      if (myEpoch !== epoch) {
+      if (myEpoch !== epochRef.value) {
         // Landed after the editor moved on (rotate's rule): the list exists now, and its
         // edit link is in this answer and nowhere else. It goes into Your lists so it can
         // be found, and the draft that made it is let go, or the next New list would
@@ -855,7 +826,7 @@ function create() {
       persistLocal();
       // register the write capability + put the token in the URL WITHOUT routing
       // (replaceState, so the editor's hash watcher doesn't dispose/reload us)
-      const token = myLists.registerCreated(res, totals.value?.totalMg ?? 0);
+      const token = myLists.registerCreated(res);
       setVaultDecisionFor(token, "yes"); // you built it; it's yours without asking
       refreshVaultCover(); // the answer moved onto the new token; keep the mirror true
       // pretty path (/e/{shareCode}#{token}) so the URL is share-ready immediately;
@@ -864,7 +835,7 @@ function create() {
         history.replaceState(history.state, "", editLinkPath(res.snapshot.shareCode, token));
       startPoll();
     } catch {
-      if (myEpoch !== epoch) return;
+      if (myEpoch !== epochRef.value) return;
       // `pending` on a draft holds only what was typed while this create was out, and
       // all of it is already IN the snapshot the next create sends whole. Left queued,
       // the next success replayed it over everything typed since: a weight changed
@@ -884,7 +855,7 @@ function create() {
         if (!holdsList() && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
       });
     } finally {
-      if (myEpoch === epoch) {
+      if (myEpoch === epochRef.value) {
         inFlight = false;
         if (editToken() && pending.length) scheduleFlush();
       }
@@ -909,12 +880,12 @@ function create() {
     // Every mutation funnels through here, whatever made it — typing, a catalog
     // pick, a drag, an undo — so this one call captures gear from all of them
     // without each call site having to remember to.
-    if (!hydrating) captureIfMine();
+    captureIfMine();
     // ...and the same for the READ side: gear typed in after the list opened has
     // no answer yet, so a row that IS in My Gear would offer to save it — the
     // original bug, in miniature, on rows added since. Debounced, and a no-op
     // unless the list actually gained an identity nothing has answered for.
-    if (!hydrating) queueVaultGear();
+    queueVaultGear();
     // Draft (no capability yet): keep edits local until there's real content, then
     // create the list once. While that create is in flight, queue ops for the
     // post-create flush. A claimed open is NOT a draft — it queues and flushes
@@ -947,7 +918,7 @@ function create() {
     if (inFlight || remoteMissing() || !pending.length || !snapshot.value) return;
     // offline: leave the queue intact + persisted; the online watcher re-flushes
     if (!online.value) { setStatus("offline"); persistLocal(); return; }
-    const myEpoch = epoch;
+    const myEpoch = epochRef.value;
     // One batch per request (FLUSH_BATCH_MAX). A longer queue (offline session)
     // drains across sequential flushes: the finally reschedules while pending is
     // non-empty, and the rebase below re-applies the remainder onto each merged
@@ -977,7 +948,7 @@ function create() {
       // batch (dispose wrote the whole queue), so the next open sends it again; the
       // server takes a replay, and nothing here may write to a record that is no
       // longer this session's.
-      if (myEpoch !== epoch) return;
+      if (myEpoch !== epochRef.value) return;
       // A 2xx with no list in it (something between here and the server answering for
       // it) acknowledges nothing. Refused while the batch is still queued, so the
       // catch retries it like any other failure.
@@ -1002,7 +973,7 @@ function create() {
       persistLocal(); // snapshot adopted + queue drained → update the on-device copy
     } catch (e: any) {
       // moved on, as above: the batch is in that list's record and goes again from there
-      if (myEpoch !== epoch) return;
+      if (myEpoch !== epochRef.value) return;
       // The batch never left the queue, so it goes again (incl. 409 contention).
       // mutate's 404 is permanent (token deleted/rotated mid-session), never
       // transient — stop retrying; the queue stays persisted on device. Unless THIS
@@ -1023,7 +994,7 @@ function create() {
       // count resets the moment anything lands, so a one-off blip costs one wait.
       retryAfterBackoff(scheduleFlush);
     } finally {
-      if (myEpoch === epoch) {
+      if (myEpoch === epochRef.value) {
         inFlight = false;
         inFlightOps = 0;
         // ONLY chase the queue when this attempt actually landed. This is what drains
@@ -1053,9 +1024,10 @@ function create() {
   // fast. A timeout chain rather than an interval, so the delay can move between
   // ticks.
   //
-  // Two guards keep the chain honest. A tick carries the epoch it was SCHEDULED in,
-  // so one queued by a list that has since been replaced exits on arrival rather
-  // than adopting the new session (dispose, load, a new draft all bump the epoch).
+  // Two guards keep the chain honest. A tick notes the epoch it started in, so a
+  // request that answers after its list was replaced (dispose, load, a new draft all
+  // bump the epoch) neither adopts its answer nor reschedules; a tick still QUEUED
+  // when that happens never fires, because each bump is followed by stopPoll().
   // And a wake that lands while a tick's request is in flight is noted rather than
   // started: a second concurrent request for the same version would race the first,
   // and the first's own rescheduling would otherwise cancel the immediate poll the
@@ -1071,8 +1043,7 @@ function create() {
   }
   function schedulePoll(delay = pollDelay()) {
     clearTimeout(pollTimer);
-    const scheduledEpoch = epoch;
-    pollTimer = setTimeout(() => void pollTick(scheduledEpoch), delay);
+    pollTimer = setTimeout(() => void pollTick(), delay);
   }
   /** Note a sign of life. `now` also polls straight away — the tab, or the network,
    *  just came back. */
@@ -1082,9 +1053,9 @@ function create() {
     if (pollInFlight) pollWakePending = true;
     else schedulePoll(0);
   }
-  async function pollTick(myEpoch: number) {
+  async function pollTick() {
     pollTimer = undefined;
-    if (myEpoch !== epoch) return; // queued by a session that has since been replaced
+    const myEpoch = epochRef.value;
     try {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!online.value) return; // nothing to pull while the connection is down
@@ -1094,7 +1065,7 @@ function create() {
         "/api/edit/changes",
         { headers: authHeaders(), query: { since: snapshot.value.version } },
       );
-      if (myEpoch !== epoch) return;
+      if (myEpoch !== epochRef.value) return;
       // adopt only a strictly-newer snapshot, and only when not mid-write/edit —
       // so a slow poll can't clobber a fresher flushed state with stale data
       if (
@@ -1119,7 +1090,7 @@ function create() {
       pollInFlight = false;
       // the chain goes on only for the session that started it — a load() that
       // superseded this one mid-flight has a chain of its own
-      if (polling && myEpoch === epoch) {
+      if (polling && myEpoch === epochRef.value) {
         const wake = pollWakePending;
         pollWakePending = false;
         schedulePoll(wake ? 0 : pollDelay());
@@ -1168,9 +1139,7 @@ function create() {
   // Every mutator a component calls (folders, rows, days, pins, people, paste, nesting)
   // lives in useGearListEdits: they answer to the snapshot and the op queue and nothing
   // else, and were the longest stretch of this file that had nothing to do with syncing.
-  // The few named here are the ones the engine itself calls.
   const edits = createEdits({ snapshot, dispatch, offerUndo, pendingBlankId });
-  const { updateItem } = edits;
 
   /** Bank one row on demand — see useVault.captureOne for why it bypasses the
    *  debounce and the consent prompt that the automatic path is built around. */
@@ -1228,9 +1197,9 @@ function create() {
       return refreshVaultCover();
     }
     const s = snapshot.value;
-    const myEpoch = epoch;
+    const myEpoch = epochRef.value;
     const caps = s ? await vault.buildCaptures(s.items, s.folders) : [];
-    if (myEpoch !== epoch) return; // the list changed under the question
+    if (myEpoch !== epochRef.value) return; // the list changed under the question
     // nothing to choose between — record the answer and take the (empty) set, so
     // an empty chooser never appears and the question doesn't come back
     if (caps.length < 2) {
@@ -1270,12 +1239,12 @@ function create() {
     // /gear all stay usable while it's out), and reading editToken() then handed the
     // list now on screen the rotated list's token: its registry row and on-device
     // record were dropped and its edits flushed into the rotated list.
-    const myEpoch = epoch;
+    const myEpoch = epochRef.value;
     const old = editToken();
     const oldCode = claimCode();
     const oldKey = storeKey();
     const fromSnapshot = snapshot.value
-      ? myLists.entryFromSnapshot({ editToken: old, snapshot: snapshot.value }, totals.value?.totalMg ?? 0)
+      ? myLists.entryFromSnapshot({ editToken: old, snapshot: snapshot.value })
       : null;
     let fresh: string;
     try {
@@ -1290,7 +1259,7 @@ function create() {
     // Still the session that asked? Only then does the screen change. Either way the
     // new token is kept below: the old one is dead server-side, so dropping the answer
     // would cost this device its only way back into the list.
-    const ours = myEpoch === epoch;
+    const ours = myEpoch === epochRef.value;
     // A rotate hands THIS device the new link whichever way it was holding the
     // list — so a claimed open graduates to the token path here, and the editor
     // behaves from now on exactly as if the link had been opened directly.
@@ -1348,7 +1317,7 @@ function create() {
     // Callers pass the epoch of the session THEY started; if the controller has
     // moved on, this dispose isn't theirs to run. An undefined ownEpoch disposes
     // unconditionally (a new instance clearing whatever came before it).
-    if (ownEpoch !== undefined && ownEpoch !== epoch) return;
+    if (ownEpoch !== undefined && ownEpoch !== epochRef.value) return;
     // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
     // queued ops aren't silently dropped on the way out. Capped at one batch
     // (FLUSH_BATCH_MAX), and starting past the ops flush() already has out, so no
@@ -1380,7 +1349,7 @@ function create() {
     snapshot, totals, status,
     get editToken() { return editToken(); },
     get claimCode() { return claimCode(); },
-    get epoch() { return epoch; },
+    get epoch() { return epochRef.value; },
     epochRef,
     openedByCode,
     keylessCode,

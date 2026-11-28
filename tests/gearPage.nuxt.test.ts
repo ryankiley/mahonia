@@ -220,7 +220,7 @@ describe("the /gear page's vault calls", () => {
     it("opens in the most recent list's unit, whatever was picked on this page before", async () => {
       onTestFinished(() => void (useMyLists().entries.value = []));
       localStorage.setItem("gear.gear.unit.v1", "oz");
-      const list = { editToken: "t", shareCode: "C0DE00000001", slug: "s", title: "L", totalMg: 0, version: 1, origin: "created" as const };
+      const list = { editToken: "t", shareCode: "C0DE00000001", slug: "s", title: "L", origin: "created" as const };
       useMyLists().entries.value = [
         { ...list, editToken: "t1", lastOpened: 2, displayUnit: "kg" },
         { ...list, editToken: "t2", lastOpened: 1, displayUnit: "lb" },

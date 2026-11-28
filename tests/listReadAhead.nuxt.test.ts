@@ -188,7 +188,7 @@ describe("editorCapability — the address the page reads ahead for is the one t
 
   it("reads ahead a truncated link to a list this browser holds, under its token", async () => {
     idb.disk.set(localKey(TOKEN), record("On device"));
-    useMyLists().registerCreated({ editToken: TOKEN, snapshot: record("On device").snapshot }, 0, "opened");
+    useMyLists().registerCreated({ editToken: TOKEN, snapshot: record("On device").snapshot }, "opened");
     await readAhead({ hash: "", params: { code: "AHEAD0000001" } });
     expect(useLocalListStore().take(localKey(TOKEN))?.landed?.record?.snapshot.title).toBe("On device");
   });

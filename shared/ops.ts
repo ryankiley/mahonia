@@ -933,7 +933,8 @@ export function normalizeItem(raw: Item): Item {
 }
 
 /**
- * An already-stored list's text brought up to the current tidy rules, IN PLACE.
+ * An already-stored list brought up to the current tidy rules, IN PLACE: its text, and
+ * one shape rule, water's count folded into its volume (foldWaterQty).
  *
  * The backfill. cleanText only runs when a field is written, so without this a list
  * made before the tidy existed keeps every straight apostrophe until someone happens
@@ -950,8 +951,9 @@ export function normalizeItem(raw: Item): Item {
  * at exactly the pace the lists are actually used.
  *
  * Deliberately NOT normalizeItem: that clamps and coerces every field and allocates a
- * new object per row. This touches only the text and only the fields cleanItemPatch
- * would have touched, so a read can afford to run it every time.
+ * new object per row. This touches only the text fields cleanItemPatch would have
+ * touched, plus a water row that still carries a count, so a read can afford to run it
+ * every time.
  */
 export function tidyListText<T extends {
   title?: string;
@@ -980,6 +982,15 @@ export function tidyListText<T extends {
     if (it.commonName) it.commonName = cleanText(it.commonName, MAX_GEAR_TYPE_LEN) || undefined;
     if (it.description) it.description = cleanText(it.description, MAX_ITEM_NOTE_LEN) || undefined;
     // productUrl left alone — an apostrophe in a path is part of the address
+    // A water row stored with a count before the reducer folded one: the same fold and
+    // worn-split clean-up updateItem runs, so a reader never sees the count and the
+    // editor never has to write the fix on open.
+    if (it.qty > 1 && isWaterName(it.name)) {
+      Object.assign(it, foldWaterQty(it.name, it.qty, it.unitWeightMg));
+      const worn = normalizeWornSplit(it.qty, it.classification, it.wornQty);
+      it.classification = worn.classification;
+      it.wornQty = worn.wornQty;
+    }
   }
   return list;
 }

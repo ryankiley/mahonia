@@ -39,9 +39,7 @@ useHead({
            bar (vault, account, share, ⋯). The reader's one text action keeps the
            lead; the two glyphs close the row. -->
       <template #end>
-        <!-- fullTotals, not totals: the weight a Duplicate registers in "Your lists"
-             describes the list, not the viewer's filter -->
-        <ReadonlyMenu v-if="snapshot" :snapshot="snapshot" :totals="fullTotals" />
+        <ReadonlyMenu v-if="snapshot" :snapshot="snapshot" />
       </template>
     </SiteTopbar>
 
