@@ -280,9 +280,11 @@ describe("what it refuses", () => {
     expect(await refusal({ catalog_id: row.id, weight_g: 139, source_url: montbell, quote: "Average Weight 4.4 oz, fill weight 50 g" })).toContain("doesn't state 139 g");
     const first = await verify({ catalog_id: row.id, weight_g: 138, source_url: montbell, quote: "Average Weight 138g" });
     expect(first.refused, first.text).toBe(false);
-    // stamped like any verification; the gear type, kind and search terms stay the build's
-    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 138_000, verifiedBy: admin, sourceQuote: "Average Weight 138g", commonName: "Down jacket", categoryHint: "clothing", searchTerms: built });
-    // stamped, it's still the research's to rename or retype, and still the maker's figure
+    // stamped like any verification; the gear type, kind and search terms stay the build's,
+    // and so does the seed's record of what the research said
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 138_000, verifiedBy: admin, sourceQuote: "Average Weight 138g", commonName: "Down jacket", categoryHint: "clothing", searchTerms: built, seedWeightMg: 136_078, seedSourceUrl: montbell });
+    // stamped, it's still the research's to rename or retype, and still the maker's figure:
+    // the seed's record on the row says so
     const cite = { catalog_id: row.id, weight_g: 138, source_url: montbell, quote: "Average Weight 138g" };
     expect(await refusal({ ...cite, name: "Plasma 1000 Down Parka" })).toContain("seed/_research");
     expect(await refusal({ ...cite, gear_type: "Insulated jacket" })).toContain("seed/_research");
@@ -296,6 +298,13 @@ describe("what it refuses", () => {
     expect((await adminCall("revert_catalog_edit", { edit_id: second.data.edit_id })).refused).toBe(false);
     expect((await adminCall("revert_catalog_edit", { edit_id: first.data.edit_id })).refused).toBe(false);
     expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 136_078, verified: true, verifiedBy: null, sourceQuote: null, sourceUrl: montbell });
+    // a row verified in the app that the seed never wrote is the database's, whatever its
+    // edit history holds: the tool renames it
+    const own = await seedCatalogRow(db, { brand: "Montbell", name: "Versalite Jkt", variant: "Men's Medium", commonName: "Rain jacket", categoryHint: "clothing", weightMg: 182_000, weightSource: "manufacturer", sourceUrl: montbell, sourceQuote: "Weight 182g", verified: true, verifiedBy: admin });
+    await db.insert(schema.catalogEdits).values({ catalogItemId: own.id, oldWeightMg: 180_000, newWeightMg: 182_000, status: "applied", undo: { verified: true, verifiedBy: null, sourceUrl: montbell } });
+    const renamed = await verify({ catalog_id: own.id, name: "Versalite Jacket", weight_g: 182, source_url: montbell, quote: "Weight 182g" });
+    expect(renamed.refused, renamed.text).toBe(false);
+    expect((await catalogRow(db, own.id)).name).toBe("Versalite Jacket");
   });
 
   it("refuses a weight outside its kind of gear's range until the person confirms it", async () => {

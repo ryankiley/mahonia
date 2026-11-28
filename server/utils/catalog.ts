@@ -118,6 +118,9 @@ export const CATALOG_DDL: string[] = [
     source_quote text,
     attributes text
   )`,
+  // seed_weight_mg + seed_source_url — what the research last said of the row, written
+  // only by the seed (schema.ts). Folds into the CREATE once it has deployed (CLAUDE.md).
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS seed_weight_mg bigint, ADD COLUMN IF NOT EXISTS seed_source_url text`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used

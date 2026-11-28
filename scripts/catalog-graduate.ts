@@ -2,7 +2,7 @@
 // so the audit checks them and the next reseed takes them over: id kept, verified_by
 // cleared, the seed's from then on. Optional and by hand, before a research PR:
 //   DATABASE_URL=$(cat .data/prod-db-url) npm run catalog:graduate
-// It only reads the database (two SELECTs) and writes research files. A row the research
+// It only reads the database (one SELECT) and writes research files. A row the research
 // already has (a research row whose weight was corrected from the maker's page) is written
 // back into that row of its own file, its other keys kept; every other row is merged into
 // seed/_research/verified-in-app.json. A file it writes is written whole in the house
@@ -13,10 +13,11 @@
 // row), so it is listed and stays in the database, where its stamp keeps it.
 //
 // Every row written back into its own file is listed with what the research said and what
-// the app holds. One whose research changed after the verification (the edit history says
-// what the row held then) is marked: graduating throws that research change away, so it
-// wants a look before the PR merges. .github/workflows/graduate-catalog.yml runs this
-// weekly and puts the output in the PR it opens.
+// the app holds. One whose research changed after the verification (the row keeps what the
+// research said when the seed last wrote it) is marked: graduating throws that research
+// change away, so it wants a look before the PR merges.
+// .github/workflows/graduate-catalog.yml runs this weekly and puts the output in the PR it
+// opens.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -33,7 +34,7 @@ async function main() {
   const kept = rows.filter((_, i) => !research[i]);
   // every research file, verified-in-app.json among them: planGraduation tells them apart
   const files = researchFileNames(RESEARCH_DIR).map((file) => ({ file, raw: readFileSync(join(RESEARCH_DIR, file), "utf8") }));
-  const plan = planGraduation(research.filter((r): r is ResearchRow => r !== null), files, await researchWhenVerified(db, rows));
+  const plan = planGraduation(research.filter((r): r is ResearchRow => r !== null), files, researchWhenVerified(rows));
   for (const [file, text] of plan.writes) writeFileSync(join(RESEARCH_DIR, file), text);
 
   const back = [...plan.inPlace.values()].reduce((a, b) => a + b, 0);

@@ -39,6 +39,7 @@ on:
       - scripts/seedUpsert.ts
       - scripts/seedRenames.ts
       - scripts/seedRetire.ts
+      - scripts/seedBackfill.ts
       # the seeder reads which rows were verified in the app through this
       - scripts/graduate.ts
       # and what those passes decide by: which rows the seed manages and the successor match

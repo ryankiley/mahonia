@@ -7,7 +7,7 @@ import * as schema from "../server/db/schema";
 import { CATALOG_DDL, proposeCorrection, recentChanges } from "../server/utils/catalog";
 import { undoCatalogEdit } from "../server/utils/catalogVerify";
 import type { CatalogCsvRow } from "../scripts/catalogCsv";
-import { upsertSeedRows, weightBeforeCorrections } from "../scripts/seedUpsert";
+import { upsertSeedRows } from "../scripts/seedUpsert";
 import { createTestDb, type TestDb } from "./helpers/db";
 
 const csv = (over: Partial<CatalogCsvRow>): CatalogCsvRow => ({
@@ -131,6 +131,28 @@ describe("upsertSeedRows", () => {
     expect((await all()).find((r) => r.name === "Bandana")!.attributes).toBeNull();
   });
 
+  it("records what the research said on each row it writes, and leaves a held row's record alone", async () => {
+    const pair = async () => (await all()).map((r) => [Number(r.seedWeightMg), r.seedSourceUrl]);
+    const moved = "https://zpacks.com/products/duplex-tent-2026";
+    await upsertSeedRows(db, [csv({})]);
+    expect(await pair()).toEqual([[539_000, csv({}).sourceUrl]]);
+    await upsertSeedRows(db, [csv({ weightMg: 524_000, sourceUrl: moved })]);
+    expect(await pair()).toEqual([[524_000, moved]]);
+    // verified in the app at another weight, then the research moves under it: held, unwritten
+    await db.update(schema.catalogItems).set({ weightMg: 530_000, verifiedBy: 7, sourceQuote: "18.7 oz / 530 g" });
+    expect(await upsertSeedRows(db, [csv({ weightMg: 500_000, sourceUrl: moved })])).toMatchObject({ held: 1, updated: 0 });
+    expect(await pair()).toEqual([[524_000, moved]]);
+    // taken over once the research agrees, and the record is the research's again
+    expect(await upsertSeedRows(db, [csv({ weightMg: 530_000, sourceUrl: moved })])).toMatchObject({ held: 0, updated: 1 });
+    expect(await pair()).toEqual([[530_000, moved]]);
+  });
+
+  it("refuses a table whose seed rows predate the record, rather than read them all as moved", async () => {
+    await db.insert(schema.catalogItems).values({ brand: "Zpacks", name: "Duplex", weightMg: 545_000, weightSource: "manufacturer", verified: true });
+    await expect(upsertSeedRows(db, [csv({})])).rejects.toThrow("backfillSeedColumns");
+    expect((await all()).map((r) => Number(r.weightMg))).toEqual([545_000]);
+  });
+
   it("inserts past one batch", async () => {
     const many = Array.from({ length: 1203 }, (_, i) => csv({ name: `Stake ${i}` }));
     expect(await upsertSeedRows(db, many)).toEqual({ inserted: 1203, updated: 0, unchanged: 0, held: 0, kept: [] });
@@ -140,9 +162,9 @@ describe("upsertSeedRows", () => {
   // research moves; writing the CSV over it used to undo the fix with no trace in the edits.
   describe("a visitor's correction", () => {
     const fix = "https://zpacks.com/products/duplex-tent?spec";
-    const correct = async (newWeightMg: number) => {
+    const correct = async (newWeightMg: number, sourceUrl = fix) => {
       const [row] = await all();
-      expect((await proposeCorrection(db, { catalogItemId: row!.id, newWeightMg, sourceUrl: fix })).status).toBe("applied");
+      expect((await proposeCorrection(db, { catalogItemId: row!.id, newWeightMg, sourceUrl })).status).toBe("applied");
     };
 
     it("stays, with its citation, while the research still says the old weight, and is named in kept", async () => {
@@ -157,6 +179,10 @@ describe("upsertSeedRows", () => {
         kept: [{ id: row!.id, brand: "Zpacks", name: "Duplex", variant: null, researchMg: 539_000, liveMg: 545_000, sourceUrl: fix }],
       });
       expect((await all()).map((r) => [Number(r.weightMg), r.sourceUrl])).toEqual([[545_000, fix]]);
+      // the record beside it is still the research's, and follows the research's link
+      const moved = csv({ sourceUrl: "https://zpacks.com/products/duplex" });
+      expect(await upsertSeedRows(db, [moved])).toMatchObject({ updated: 1, kept: [{ liveMg: 545_000 }] });
+      expect((await all()).map((r) => [Number(r.weightMg), r.sourceUrl, Number(r.seedWeightMg), r.seedSourceUrl])).toEqual([[545_000, fix, 539_000, moved.sourceUrl]]);
     });
 
     it("stays through a chain of corrections, while the seeded fields beside it still update", async () => {
@@ -166,6 +192,21 @@ describe("upsertSeedRows", () => {
       const out = await upsertSeedRows(db, [csv({ searchTerms: "tent shelter duplex" })]);
       expect([out.updated, out.kept.map((k) => k.liveMg)]).toEqual([1, [548_000]]);
       expect((await all()).map((r) => [Number(r.weightMg), r.sourceUrl, r.searchTerms])).toEqual([[548_000, fix, "tent shelter duplex"]]);
+    });
+
+    it("stays when it follows a correction the research has since adopted", async () => {
+      // both cite the research's own page, so once the research takes the first one's weight
+      // the row holds nothing the research doesn't say: only the record of it has moved
+      const page = csv({}).sourceUrl!;
+      await upsertSeedRows(db, [csv({})]);
+      await correct(545_000, page);
+      await upsertSeedRows(db, [csv({})]);
+      const adopted = csv({ weightMg: 545_000 });
+      expect(await upsertSeedRows(db, [adopted])).toMatchObject({ kept: [] });
+      await correct(539_000, page);
+      const out = await upsertSeedRows(db, [adopted]);
+      expect(out.kept.map((k) => [k.researchMg, k.liveMg])).toEqual([[545_000, 539_000]]);
+      expect((await all()).map((r) => Number(r.weightMg))).toEqual([539_000]);
     });
 
     it("gives way when the research moves, and can't then be undone over it", async () => {
@@ -193,25 +234,5 @@ describe("upsertSeedRows", () => {
       expect(await upsertSeedRows(db, [csv({})])).toMatchObject({ updated: 1, kept: [] });
       expect((await all()).map((r) => [Number(r.weightMg), r.verified])).toEqual([[539_000, true]]);
     });
-  });
-});
-
-describe("weightBeforeCorrections", () => {
-  const fix = (oldWeightMg: number, newWeightMg: number) => ({ oldWeightMg, newWeightMg, correction: true });
-  const verify = (oldWeightMg: number, newWeightMg: number) => ({ oldWeightMg, newWeightMg, correction: false });
-
-  it("walks back the corrections that set the weight, to the weight before them", () => {
-    expect(weightBeforeCorrections(300, [fix(100, 200), fix(200, 300)])).toBe(100);
-  });
-
-  it("stops at another writer: a reseed between two corrections, or an admin's verification", () => {
-    expect(weightBeforeCorrections(300, [fix(100, 200), fix(250, 300)])).toBe(250);
-    expect(weightBeforeCorrections(300, [verify(100, 200), fix(200, 300)])).toBe(200);
-  });
-
-  it("is null when the weight isn't the newest correction's", () => {
-    expect(weightBeforeCorrections(200, [fix(100, 200), fix(200, 300)])).toBeNull();
-    expect(weightBeforeCorrections(200, [verify(100, 200)])).toBeNull();
-    expect(weightBeforeCorrections(539, [])).toBeNull();
   });
 });
