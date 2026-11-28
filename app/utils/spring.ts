@@ -1,9 +1,11 @@
-// The spring table, in JS: the same springs tokens.scss samples into linear() easings
-// at build time (spring-curve there), as (nominal duration, bounce). A retune changes
-// both files. The stylesheet keeps the motion; this file is for the one move CSS can't
-// make — one caught in flight carrying on at the speed it has (springTiming, run as a
-// Web Animation) — and for a Web Animation that must run on a token's own curve (springCss).
-const SPRINGS = { fade: [200, 0], step: [260, 0], move: [420, 0], pop: [380, 0.2], track: [140, 0] } as const;
+// Springs in JS, as (nominal duration, bounce). The stylesheet keeps the motion
+// (spring-curve in tokens.scss); this file is for the one move CSS can't make — one
+// caught in flight carrying on at the speed it has (springTiming, run as a Web
+// Animation) — and for a Web Animation that must run on a token's own curve (springCss).
+// Only `move` is run from this table, so only `move` must match its stylesheet curve; a
+// retune of either changes both. The others give springCss a duration when the
+// stylesheet's value can't be read.
+const SPRINGS = { fade: [200, 0], step: [260, 0], move: [420, 0], pop: [380, 0.2] } as const;
 type SpringName = keyof typeof SPRINGS;
 
 export interface Spring {
