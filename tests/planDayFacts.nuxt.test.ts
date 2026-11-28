@@ -43,14 +43,14 @@ describe("a day's facts", () => {
     const w = mountPlan();
     const lines = w.findAll(".plan__day .plan__facts .plan__fact");
     expect(lines.map((l) => l.text())).toEqual([
-      "Finish 600 m, about 3 °C warmer",
+      "Finish 600 m, ~3 °C warmer than the start",
       "High point 2,500 m",
       "Longest climb 1,500 m over 4.8 km",
       "Steepest 31% up at 600 m",
     ]);
     // the figures, and only the figures, stand forward of the words
     expect(lines.map((l) => l.findAll(".plan__fig").map((f) => f.text()))).toEqual([
-      ["600 m", "3 °C"],
+      ["600 m", "~3 °C"],
       ["2,500 m"],
       ["1,500 m", "4.8 km"],
       ["31%", "600 m"],
