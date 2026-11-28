@@ -15,11 +15,13 @@ import {
   restoreSnapshotByEditHash,
   rowToSnapshot,
 } from "../server/utils/listRepo";
+import { keepSharedList } from "../app/utils/sharedListCopy";
 import { listToCsv } from "../shared/exporters/csv";
 import { listToJson } from "../shared/exporters/json";
 import { encodePolyline } from "../shared/polyline";
 import type { ListRow } from "../server/db/schema";
 import type { ListData, ListMeta } from "../shared/types";
+import { stubCacheStorage } from "./helpers/cacheStorage";
 import { seedCatalogRow } from "./helpers/catalog";
 import { byToken, createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
@@ -258,5 +260,18 @@ describe("…but the OWNER still gets it back", () => {
     const json = JSON.stringify(snap);
     for (const secret of [GEOMETRY, "Cairn Basin", "packed", "priceCents", "currency", "28900", "26000"])
       expect(json).not.toContain(secret);
+  });
+
+  it("nor does the copy a reader's device keeps of the shared page, to open it with no connection", async () => {
+    // The copy is the share-code answer and nothing added to it, so it is as public as
+    // the page: what the device holds is what any holder of the link is sent.
+    const kept = stubCacheStorage();
+    const answer = (await getByShareCode(shareCode))!;
+    await keepSharedList(answer);
+    const body = await kept.get("mahonia-shared-lists")!.get(`/api/s/${shareCode}`)!.text();
+    vi.unstubAllGlobals();
+    expect(JSON.parse(body)).toEqual({ snapshot: JSON.parse(JSON.stringify(answer)) });
+    for (const secret of [GEOMETRY, "Cairn Basin", "packed", "priceCents", "currency", "28900", "26000"])
+      expect(body).not.toContain(secret);
   });
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBackpack, IconFootsteps, IconMap, IconMapPin, IconGlobe2, IconSquareChecklist } from "~/icons/central";
+import { IconBackpack, IconCloudOff, IconFootsteps, IconMap, IconMapPin, IconGlobe2, IconSquareChecklist } from "~/icons/central";
 import { datesIcon } from "~/utils/datesIcon";
 import { StairsGlyph } from "~/icons/mahonia";
 import { SvgIcon } from "~/utils/icon";
@@ -33,6 +33,11 @@ const props = defineProps<{
   chipWeights?: Record<string, string>;
   /** Visible parent rows that exist only to contain a selected child. */
   contextOnlyIds?: ReadonlySet<string>;
+  /** Set when the list is this device's copy, on screen because the server couldn't be
+   *  reached: when the copy was kept, epoch ms (useSharedList). */
+  keptAt?: number;
+  /** With no list, why there is none (useSharedList). */
+  missing?: "gone" | "offline" | "failed";
 }>();
 
 defineEmits<{ "set-unit": [Unit]; "pick-person": [PersonSelection] }>();
@@ -179,6 +184,11 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
           </template>
         </ClientOnly>
       </p>
+      <!-- With no connection the list is this device's copy, and the page says so once,
+           here, under the line that dates the list itself, the way My Gear's offline
+           line does ("Offline · last updated …"). Only ever drawn in the browser (a copy
+           is never what the server renders), so it needs no ClientOnly of its own. -->
+      <p v-if="keptAt != null" class="view__meta">Offline · saved on this device {{ timeAgo(keptAt, now.getTime()) }}</p>
 
       <!-- Where and when: the route the list was packed for, and the trip's dates. One
            line wherever there's room — each is icon-led, so they read as two facts side
@@ -307,10 +317,18 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
     </div>
   </main>
 
-  <!-- Nothing to show: the site's one-message page, with the list's own mark (the one
-       "Create a list" wears in My Gear's menu) -->
-  <MessagePage v-else :icon="IconSquareChecklist">
-    <p>This list doesn’t exist, or was deleted.</p>
+  <!-- Nothing to show, and why: the site's one-message page. No connection and no copy
+       on this device wears the struck cloud the account control does, and the editor's
+       sentence for the same thing; the page asks again by itself (useSharedList). -->
+  <MessagePage v-else-if="missing === 'offline'" :icon="IconCloudOff">
+    <p>You’re offline, and this list isn’t saved on this device. It opens once you’re back online.</p>
+  </MessagePage>
+  <!-- ...and the list's own mark (the one "Create a list" wears in My Gear's menu) for
+       the other two. "Doesn't exist" is only for a list the server says is gone; a
+       server that failed gets the editor's words for a list that couldn't be loaded. -->
+  <MessagePage v-else-if="missing" :icon="IconSquareChecklist">
+    <p v-if="missing === 'gone'">This list doesn’t exist, or was deleted.</p>
+    <p v-else>This list couldn’t be loaded. Check your connection and try again.</p>
   </MessagePage>
 </template>
 
@@ -323,9 +341,9 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   flex-direction: column;
   gap: var(--space-6);
 }
-/* the title/head block and the two quiet lines under it (who + edited, then
-   route + dates), kept tight (--space-1) so the name and everything about it read as
-   one unit, one --space-6 step off TotalsBar */
+/* the title/head block and the quiet lines under it (who + edited, the offline line
+   when the list is a copy, then route + dates), kept tight (--space-1) so the name and
+   everything about it read as one unit, one --space-6 step off TotalsBar */
 .view__header {
   display: flex;
   flex-direction: column;

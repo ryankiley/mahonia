@@ -76,15 +76,15 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
     // below handles the editor shell explicitly instead.
     navigateFallback: "",
     runtimeCaching: [
-      // the app's own pages — /e and /e/{shareCode}, /gear, /account, and the static
-      // /help, /about and /legal. Online it is always the network: the bare /e and the
-      // static pages are prerendered, the rest rendered per request. Offline, every one
-      // of them gets the precached client-only /_shell (nuxt.config routeRules), never
-      // a copy of the page itself. Only /e had this at first, so an installed app that
-      // reopened on /gear, or a reload there, was the browser's error page while every
-      // chunk the page needed sat in the precache (2026-11-09). The static pages'
-      // payloads are precached by the glob, so the shell renders them whole. /s has its
-      // own rules below; /authorize and /auth/callback need the network.
+      // the app's own pages — /e and /e/{shareCode}, a share link (/s/{code}), /gear,
+      // /account, and the static /help, /about and /legal. Online it is always the
+      // network: the bare /e and the static pages are prerendered, the rest rendered per
+      // request. Offline, every one of them gets the precached client-only /_shell
+      // (nuxt.config routeRules), never a copy of the page itself. Only /e had this at
+      // first, so an installed app that reopened on /gear, or a reload there, was the
+      // browser's error page while every chunk the page needed sat in the precache
+      // (2026-11-09). The static pages' payloads are precached by the glob, so the shell
+      // renders them whole. /authorize and /auth/callback need the network.
       //
       // It used to be a runtime cache of each page (NetworkFirst, 16 entries, a
       // week), and that copy was broken offline after any deploy: its HTML names the
@@ -95,45 +95,27 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
       // its list from the #token fragment (or the account) and the copy in IndexedDB,
       // so nothing on /e/{shareCode} offline needs that route's own HTML; /gear draws
       // the account's gear from this device's copy (app/composables/useVaultList.ts).
+      //
+      // A share link is server-rendered with its list inside the HTML, so the browser
+      // never asks for the list and this worker never sees it; the shell alone would
+      // have nothing to show. The page keeps the list it was given on the device and
+      // reads it back when the server can't be reached (app/utils/sharedListCopy.ts).
+      // The worker keeps no copy of a list, as a page or as data: it couldn't say that
+      // an answer was a copy or how old, and it would go on holding a list the server
+      // has since answered 404 for.
       {
         // Navigations only, matched on the path: /api/s/e or /e/_payload.json must
-        // never be answered with app HTML. The pattern is written inline because
-        // Workbox copies this function's source into sw.js, where nothing outside it
-        // exists.
+        // never be answered with app HTML, and neither must /s/{code}.md, the page's
+        // Markdown twin (a share code has no dot in it). The pattern is written inline
+        // because Workbox copies this function's source into sw.js, where nothing
+        // outside it exists.
         urlPattern: ({ request, url }) =>
           request.mode === "navigate" &&
-          /^\/(?:e(?:\/[^/]+)?|gear|account|help|about|legal)\/?$/.test(url.pathname),
+          /^\/(?:e(?:\/[^/]+)?|s\/[^/.]+|gear|account|help|about|legal)\/?$/.test(url.pathname),
         handler: "NetworkOnly",
         // No networkTimeoutSeconds: Workbox accepts it only on NetworkFirst, which
         // would store the page — the copy this rule exists not to keep.
         options: { precacheFallback: { fallbackURL: "/_shell" } },
-      },
-      // the shared read view (/s) — cached so a previously-opened list still
-      // renders offline; its API also feeds the /e/{shareCode} SSR head. (The
-      // public /l pages these rules also covered were retired with publishing.)
-      // The DATA is stale-while-revalidate (JSON references no hashed
-      // assets, so staleness is only content-lag); the page HTML is NetworkFirst
-      // like the /e shell — SWR-serving week-old HTML can reference hashed
-      // /_nuxt assets that no longer exist after a redeploy (once the SW has
-      // updated and purged the old precache), leaving an unstyled, unhydrated
-      // page for an ONLINE user. NetworkFirst costs one network round-trip when
-      // online and still falls back to cache offline.
-      {
-        urlPattern: /\/api\/s\/.*/,
-        handler: "StaleWhileRevalidate",
-        options: {
-          cacheName: "mahonia-list-data",
-          expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
-        },
-      },
-      {
-        urlPattern: /\/s\/[^/]+$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "mahonia-list-pages",
-          networkTimeoutSeconds: 3,
-          expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
-        },
       },
       // NO RULE FOR /api/edit/mutate, and no worker-side queue of writes. The editor
       // already keeps every edit the server hasn't acknowledged in IndexedDB and sends
