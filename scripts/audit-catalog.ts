@@ -12,7 +12,7 @@
 
 import { readFileSync } from "node:fs";
 import { csvToCatalogRows } from "./catalogCsv";
-import { runCatalogChecks, type Finding } from "./catalogChecks";
+import { findingText, runCatalogChecks, type Finding } from "./catalogChecks";
 import { runResearchChecks } from "./researchChecks";
 import { CATALOG_CSV, COMMON_NAMES_JSON, RESEARCH_DIR } from "./paths";
 import { loadCommonNames, readResearchFiles } from "./research";
@@ -21,7 +21,7 @@ function main() {
   const errors: Finding[] = [];
   const warns: Finding[] = [];
   const bucket = (f: Finding) => (f.level === "error" ? errors : warns).push(f);
-  const line = (f: Finding) => `[${f.code}] ${f.message}`;
+  const line = (f: Finding) => `[${f.code}] ${findingText(f)}`;
 
   const files = readResearchFiles(RESEARCH_DIR);
   const researchRows = files.reduce((n, f) => n + f.rows.length, 0);
@@ -31,7 +31,7 @@ function main() {
   try {
     commonNames = loadCommonNames(COMMON_NAMES_JSON);
   } catch (e) {
-    errors.push({ level: "error", code: "json", message: (e as Error).message });
+    errors.push({ level: "error", code: "json", message: (e as Error).message, key: "json|common-names" });
   }
   for (const f of runResearchChecks(files, commonNames)) bucket(f);
 
@@ -45,7 +45,7 @@ function main() {
     csvChecked = csvRows.length;
     for (const f of runCatalogChecks(csvRows)) bucket(f);
   } catch (e) {
-    errors.push({ level: "error", code: "csv", message: `could not load seed/catalog.csv (run catalog:build first?): ${(e as Error).message}` });
+    errors.push({ level: "error", code: "csv", key: "csv", message: `could not load seed/catalog.csv (run catalog:build first?): ${(e as Error).message}` });
   }
 
   console.log(`\n=== Catalog accuracy audit (stage 1) ===`);

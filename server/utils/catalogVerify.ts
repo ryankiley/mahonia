@@ -30,6 +30,7 @@
 // Every verification records what it replaced in catalog_edits.undo, so revert_catalog_edit
 // puts the row back as it was (its name too, or retires a product the verification added),
 // and the corrections path leaves a verified-in-app row's weight alone (proposeCorrection).
+// A suggested fix still waiting on the row when it is verified is closed as superseded.
 // So what the person should hear, but what one call undoes, is written and named in the
 // answer's warnings rather than refused: a scale weight that replaced the maker's published
 // one, and a scale weight of gear sold by size that names no size.
@@ -40,7 +41,7 @@ import { normalizeGearType } from "../../scripts/gearTypes";
 import { researchStamp } from "../../scripts/graduate";
 import { buildSearchTerms } from "../../scripts/searchTerms";
 import { soldByOf } from "../../shared/catalogAxes";
-import { CATALOG_CATEGORIES, categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged, tidyQuote } from "../../shared/catalogQuality";
+import { CATALOG_CATEGORIES, catalogCategories, categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged, tidyQuote } from "../../shared/catalogQuality";
 import { isCatalogId, MAX_BRAND_LEN, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { foldApostrophes, tidyText } from "../../shared/tidyText";
 import { displayHost, MAX_URL_LEN, safeUrl } from "../../shared/trailLink";
@@ -110,7 +111,7 @@ const gearTypeKey = (label: string) => normKey(label).replace(/s$/, "");
  *  catalog, not one product: one spelling per brand and per variant token, one category
  *  per gear type. Read against the product's rows alone, a chat's "stainless steel" passed
  *  here beside a Garmin's "Stainless Steel" and stopped the graduate run (2026-11-25). */
-async function comparedRows(db: Db, brand: string | null, name: string, exceptId: number | undefined): Promise<RuleRow[]> {
+async function comparedRows(db: Db, brand: string | null, name: string, exceptId: number | undefined): Promise<CatalogRow[]> {
   const rows = await db
     .select()
     .from(catalogItems)
@@ -235,12 +236,15 @@ export async function verifyCatalogItem(
     }
   }
   const display = itemDisplayName(identity.brand, identity.name, identity.variant);
+  // the rows the house style compares this one with, every live verified row among them
+  const compared = await comparedRows(db, identity.brand, identity.name, current?.id);
   // what the call would make of the row's gear type and kind: the gear type given, or the
   // row's own (either joins the suggestions once verified), and the category given, else
-  // the one a given gear type names
+  // the one a given gear type names: where the verified rows of that gear type are filed,
+  // which the audit holds a new one to, or for a gear type none has, what its words say
   const typedLabel = gearType || current?.commonName?.trim() || "";
   const askedLabel = typedLabel ? spelledAs(typedLabel, gearTypes, gearTypeKey) : null;
-  const askedKind = category ?? categoryForGearType(gearType);
+  const askedKind = category ?? categoryForGearType(gearType, catalogCategories(compared.filter((r) => r.verified)));
   const refused = precheck?.({ ...identity, commonName: gearType || current?.commonName || null, categoryHint: askedKind ?? current?.categoryHint ?? null });
   if (refused) return refused;
 
@@ -333,13 +337,14 @@ export async function verifyCatalogItem(
   // ---- the house style: what the build would refuse in this row ----
   const ruleRow: RuleRow = { ...identity, commonName: label, categoryHint: kind, weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote };
   // a research row graduates back into its own research file, not verified-in-app.json
-  const problems = houseRuleProblems(ruleRow, await comparedRows(db, identity.brand, identity.name, current?.id), research ? "research" : undefined, current?.status === "active" ? current : undefined);
+  const problems = houseRuleProblems(ruleRow, compared, research ? "research" : undefined, current?.status === "active" ? current : undefined);
   if (problems.length) {
+    // category is named too: a row filed apart from its gear type's siblings is put right by it
     const fix = research
       ? "check source_url is the maker's own page and quote its line that states the weight"
       : args.catalog_id != null
-        ? "pass brand, name, variant, or gear_type beside the catalog_id to put the row right"
-        : "change the brand, name, variant, or gear type";
+        ? "pass brand, name, variant, gear_type, or category beside the catalog_id to put the row right"
+        : "change the brand, name, variant, gear type, or category";
     return `The catalog's house style refuses ${display}: ${problems.join(" ")} To fix it, ${fix}, and send it again.`;
   }
 
@@ -412,9 +417,20 @@ export async function verifyCatalogItem(
   const edit = db.$with("edit").as(
     db.insert(catalogEdits).values(editRow(row.id, Number(row.weightMg), weightMg, sourceUrl, reason, undo)).returning({ id: catalogEdits.id }),
   );
+  // A suggested fix still waiting on the row is answered by this verification, which set the
+  // weight from the admin's own evidence: closed in the same statement, so the edit list
+  // stops holding fixes nobody has left to review. An undo of the verification leaves them
+  // closed; the verification was the review.
+  const closed = db.$with("closed").as(
+    db
+      .update(catalogEdits)
+      .set({ status: "superseded" })
+      .where(and(eq(catalogEdits.catalogItemId, row.id), eq(catalogEdits.status, "proposed")))
+      .returning({ id: catalogEdits.id }),
+  );
   try {
     const [written] = await db
-      .with(edit)
+      .with(edit, closed)
       .update(catalogItems)
       .set({
         ...verified,
@@ -463,8 +479,7 @@ export async function undoCatalogEdit(db: Db, editId: unknown): Promise<{ row: C
   if (!edit) return `No catalog edit has id ${editId}.`;
   const rowId = Number(edit.catalogItemId);
   if (edit.status === "reverted") return `Edit ${editId} is already undone.`;
-  if (edit.status === "rejected") return `Edit ${editId} is already turned down.`;
-  if (edit.status === "proposed") return rejectProposal(db, editId, rowId);
+  if (edit.status === "rejected") return `Edit ${editId} is already turned down.`;  if (edit.status === "proposed") return rejectProposal(db, editId, rowId);
   // only applied edits moved a weight
   if (edit.status !== "applied") return `Edit ${editId} is ${edit.status} and never moved the weight; there is nothing to undo.`;
   // only the most recent applied edit: undoing an older one would throw the newer away unseen

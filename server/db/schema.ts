@@ -203,7 +203,8 @@ export const catalogEdits = pgTable(
     newWeightMg: bigint("new_weight_mg", { mode: "number" }).notNull(),
     sourceUrl: text("source_url"), // citation; validated against a domain allowlist for auto-promote
     reason: text("reason"),
-    status: text("status").notNull().default("applied"), // applied|proposed|reverted|rejected
+    // applied|proposed|reverted|rejected|superseded (a proposed fix closed by a verification of its row)
+    status: text("status").notNull().default("applied"),
     // set on an in-app verification only: the row's fields before it (CatalogEditUndo)
     undo: jsonb("undo").$type<CatalogEditUndo>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
