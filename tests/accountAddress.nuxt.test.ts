@@ -6,7 +6,7 @@
 // sign-in card over the page the link was asked from.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, mountSuspended, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, flushPromises } from "@vue/test-utils";
@@ -294,6 +294,51 @@ describe("the dialog a sign-in link asks in", () => {
     expect(failed.classes()).toEqual(expect.arrayContaining(["errtip", "errtip--nopoint"]));
     expect(failed.text()).toMatch(/^Couldn’t add (it|them)\. Try again\.$/);
     s.addFailed = false;
+  });
+
+  // The title is also the card's accessible name, so it has to count the way the body and
+  // the button do.
+  it("says list or lists in the title, the body and the button alike", async () => {
+    const made = (n: number) => ({
+      editToken: `tok${n}`,
+      shareCode: `C0DE0000000${n}`,
+      slug: `s${n}`,
+      title: `L${n}`,
+      totalMg: 0,
+      version: 1,
+      lastOpened: n,
+      origin: "created" as const,
+    });
+    // device lists would turn the next test's sign-in into the lists question
+    onTestFinished(() => void (useMyLists().entries.value = []));
+    const w = await asked({ fails: true });
+    const s = useSignInLink().state;
+    s.asking = { email: "a@example.com", asked: true };
+    s.question = "lists";
+    const read = () => ({
+      title: w.get(".signin__head h2").text(),
+      name: w.get('[role="dialog"]').attributes("aria-label"),
+      body: w.get(".signin__body p").text(),
+      button: w.get(".signin__actions .btn--primary").text(),
+    });
+
+    useMyLists().entries.value = [made(1)];
+    await nextTick();
+    expect(read()).toEqual({
+      title: "Add this browser’s list to your account?",
+      name: "Add this browser’s list to your account?",
+      body: "It’ll open anywhere you sign in as a@example.com.",
+      button: "Add list",
+    });
+
+    useMyLists().entries.value = [made(1), made(2)];
+    await nextTick();
+    expect(read()).toEqual({
+      title: "Add this browser’s lists to your account?",
+      name: "Add this browser’s lists to your account?",
+      body: "They’ll open anywhere you sign in as a@example.com.",
+      button: "Add lists",
+    });
   });
 
   it("signs in on a retry that works, and stays on the page it was asked over", async () => {

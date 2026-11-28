@@ -3,7 +3,6 @@ import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconChev
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
-import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import type { VaultOpResult } from "~/composables/useVaultList";
 import { gearFamilyLabel, type GearGlyph } from "~~/shared/gearGlyph";
@@ -451,20 +450,11 @@ function onItemSaved(item: VaultEntry) {
 
 // ---- units ---------------------------------------------------------------
 // The vault has no list to inherit a unit from, so it takes its default from the
-// most recent list on this device (whatever you already work in), or from a choice
-// made on this page before its unit picker went (it sat on the weight total, which
-// went for answering no question). Each row picks its own unit as well.
-const UNIT_KEY = "gear.gear.unit.v1";
+// most recent list on this device (whatever you already work in), and there is no
+// page-wide picker to override it: each row picks its own unit. It inherits that
+// list's UNIT, not just its system, so a list kept in kg opens the vault in kg.
 const unit = ref<Unit>("g");
 onMounted(() => {
-  const saved = recall(UNIT_KEY);
-  if (saved && (UNITS as string[]).includes(saved)) {
-    unit.value = saved as Unit;
-    return;
-  }
-  // No stored choice: inherit the most recent list on this device — and inherit its
-  // UNIT, not just its system. The old code flattened kg to "metric" and handed the
-  // magnitude promoter a coin toss; a list kept in kg now opens the vault in kg.
   const recent = [...useMyLists().entries.value].sort((a, b) => b.lastOpened - a.lastOpened)[0];
   unit.value = recent?.displayUnit ?? "g";
 });
@@ -722,7 +712,7 @@ async function exportGear(kind: string) {
               <!-- No weight total: it added up everything you own, which nobody carries
                    at once, so it answered no question (it went 2026-11-08, with the unit
                    picker it doubled as; each row has its own, and the page opens in your
-                   last choice or your most recent list's unit). What it cost stays: that
+                   most recent list's unit). What it cost stays: that
                    one is a real question about a closet, and the reason a price is worth
                    recording at all. -->
               <template v-if="totalPrice">

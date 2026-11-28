@@ -14,17 +14,18 @@ import { onBeforeUnmount, ref, type Ref } from "vue";
  * unmount, so a menu that closes mid-toast doesn't leave a timer writing to a ref
  * nobody is rendering.
  *
- * 2s: long enough to read four words, short enough that it is gone before it
- * becomes something to dismiss.
+ * 2s by default: long enough to read four words, short enough that it is gone before
+ * it becomes something to dismiss. A line that is the only word on something that
+ * can't be undone may ask to stay longer.
  */
-export function useToast(): { toast: Ref<string | null>; flash: (msg: string) => void } {
+export function useToast(): { toast: Ref<string | null>; flash: (msg: string, ms?: number) => void } {
   const toast = ref<string | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  function flash(msg: string) {
+  function flash(msg: string, ms = 2000) {
     toast.value = msg;
     clearTimeout(timer);
-    timer = setTimeout(() => (toast.value = null), 2000);
+    timer = setTimeout(() => (toast.value = null), ms);
   }
 
   onBeforeUnmount(() => clearTimeout(timer));
