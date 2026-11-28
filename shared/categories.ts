@@ -27,14 +27,14 @@ export const STARTER_FOLDERS: FolderPreset[] = [
 const CATEGORY_HUE = {
   shelter: 132, // green
   sleep: 350, // pink
-  water: 232, // blue
+  water: 225, // blue
   pack: 50, // orange
-  clothing: 300, // violet
-  consumable: 175, // teal
+  clothing: 291, // violet
+  consumable: 167, // teal
   firstaid: 22, // red
-  electronics: 266, // indigo
+  electronics: 257, // indigo
   worn: 95, // yellow
-  kitchen: 328, // magenta
+  kitchen: 318, // magenta
   other: 250,
 };
 
