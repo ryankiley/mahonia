@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-28",
+  "fixed": [
+    "On an iPhone, a route file (GPX, TCX, FIT and the rest) can now be picked for a trip or a route video; many were greyed out."
+  ]
+}
