@@ -214,6 +214,20 @@ registerEndpoint("/api/edit/rotate", {
   },
 });
 
+// Put back to a recovery point. Records what it was sent, and when, against the
+// mutates: what restore promises is that nothing queued is sent after it.
+let restoreCalls: { snapshotId: unknown; auth: string | undefined; mutatesBefore: number }[] = [];
+let restoreFails = false;
+registerEndpoint("/api/edit/restore", {
+  method: "POST",
+  handler: async (event) => {
+    const body = await readBody<{ snapshotId?: unknown }>(event);
+    restoreCalls.push({ snapshotId: body?.snapshotId, auth: event.headers.get("authorization") ?? undefined, mutatesBefore: mutateCalls });
+    if (restoreFails) throw createError({ statusCode: 404 });
+    return { snapshot: snapshotFor("Restored", 9) };
+  },
+});
+
 // The mutate is left hanging until the test settles it by hand — that pending window
 // IS the bug's window, and controlling it is the whole point.
 let mutateCalls = 0;
@@ -284,6 +298,8 @@ beforeEach(() => {
   captureBodies = [];
   beacons.length = 0;
   beaconWorks = true;
+  restoreCalls = [];
+  restoreFails = false;
   heldGear = []; // the vault's answer is not module-scoped — it lives on the open list
   amongCalls = 0;
   amongFails = false;
@@ -457,6 +473,55 @@ describe("useGearList — a batch still out when the editor moved on", () => {
     await awaitMutateInFlight();
     settleMutate.reject(createError({ statusCode: 404 }));
     await vi.waitFor(() => expect(c.status.value).toBe("missing"));
+  });
+});
+
+describe("useGearList — restoring a recovery point", () => {
+  beforeEach(() => {
+    listResponse = snapshotFor("Original");
+  });
+
+  it("asks under the list's link and shows the list it gets back", async () => {
+    const c = await opened();
+    expect(await c.restore(7)).toBe(true);
+    expect(restoreCalls).toEqual([{ snapshotId: 7, auth: `Bearer ${TOKEN}`, mutatesBefore: 0 }]);
+    expect(c.snapshot.value).toMatchObject({ title: "Restored", version: 9 });
+    await vi.waitFor(() => expect(records.get(localKey(TOKEN))?.snapshot.title).toBe("Restored"));
+  });
+
+  // Sent after, a queued edit would land on top of the restored list and bring back
+  // part of what the restore undid.
+  it("sends what is still queued first, and restores only once it has landed", async () => {
+    const c = await opened();
+    c.setMeta({ title: "Typed just before" });
+    await awaitMutateInFlight();
+    const restoring = c.restore(7);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(restoreCalls).toHaveLength(0);
+
+    settleMutate.resolve({ snapshot: snapshotFor("Typed just before", 2) });
+    expect(await restoring).toBe(true);
+    expect(restoreCalls).toMatchObject([{ snapshotId: 7, mutatesBefore: 1 }]);
+    expect(c.snapshot.value?.title).toBe("Restored");
+  });
+
+  it("restores nothing while a queued edit isn't landing, and leaves the list alone", async () => {
+    const c = await opened();
+    c.setMeta({ title: "Typed just before" });
+    await awaitMutateInFlight();
+    const restoring = c.restore(7);
+    settleMutate.reject(createError({ statusCode: 500 }));
+    expect(await restoring).toBe(false);
+    expect(restoreCalls).toHaveLength(0);
+    expect(c.snapshot.value?.title).toBe("Typed just before");
+  });
+
+  it("changes nothing when the server refuses", async () => {
+    restoreFails = true;
+    const c = await opened();
+    expect(await c.restore(7)).toBe(false);
+    expect(restoreCalls).toHaveLength(1);
+    expect(c.snapshot.value).toMatchObject({ title: "Original", version: 1 });
   });
 });
 

@@ -77,8 +77,9 @@ useHead({
         <h3>Undo, history, and deleting</h3>
         <p>
           Removing an item or folder can be undone for a few seconds. “Recent changes” in the Share tab
-          lists each change with its time and who made it. Mahonia keeps the last few versions of
-          every list, so if something is lost past undo, email me.
+          lists each change with its time and who made it, and Restore beside one puts the list back
+          to how it was before that change, for everyone with the link. Only the last few are kept,
+          so if something older is lost, email me.
         </p>
         <p>
           “Delete this list” removes it for everyone and can’t be undone in the app. Only a list with

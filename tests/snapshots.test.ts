@@ -153,6 +153,20 @@ describe("snapshots — vandalism recovery", () => {
     expect(after!.some((s) => s.reason === "before restore")).toBe(true);
   });
 
+  // What the editor's Restore dialog promises: the list as it was before a restore is
+  // a point of its own, and restoring that one undoes the restore.
+  it("undoes a restore by restoring the point it left", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent"), item("i2", "Quilt")] });
+    await applyOpsByEditToken(editToken, [{ t: "removeItem", id: "i2" }], db);
+    const [original] = (await listSnapshotsByEditToken(editToken, db))!;
+    await restoreSnapshotByEditToken(editToken, original!.id, db);
+    const [left] = (await listSnapshotsByEditToken(editToken, db))!;
+    expect(left!.reason).toBe("before restore");
+    const undone = await restoreSnapshotByEditToken(editToken, left!.id, db);
+    expect(undone!.items.map((i) => i.id)).toEqual(["i1"]);
+  });
+
   it("reconstructs old points across a reverse-delta chain (storage = 1 base + N diffs)", async () => {
     const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken, row } = await seedList(db, { folders: [folder], items: [item("i1", "Tent"), item("i2", "Quilt")] });

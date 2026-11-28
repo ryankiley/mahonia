@@ -1134,6 +1134,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
                 :share-url="readUrl"
+                :restore="c.restore"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"
