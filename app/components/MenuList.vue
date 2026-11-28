@@ -12,7 +12,12 @@
 // was right for a toolbar at the top of the page, where all four sit, and would have
 // been wrong the day one of them moved. The props are useMenuPlacement's options.
 //
-// Classes, the aria-label and anything else land on the list itself (attribute
+// AND HOW WIDE IT IS. A card of words is pulled in to its longest line when it opens and
+// whenever its contents change (hugText, app/utils), so text that wraps doesn't leave the
+// card padded on one side; a card of rows is left alone, its rows already reaching the edge.
+// It sizes before it places: placement reads the card's width.
+//
+// Classes, the aria-label, a role and anything else land on the list itself (attribute
 // fallthrough), so `editor__actions` and the rest still read on the element they
 // always did.
 const {
@@ -37,7 +42,13 @@ const {
 
 const listRef = useTemplateRef<HTMLElement>("listRef");
 const { atStart, centered, above, shift, maxHeight, place } = useMenuPlacement(listRef, { fit, within, side });
-onMounted(place);
+onMounted(() => {
+  hugText(listRef.value!);
+  place();
+});
+onUpdated(() => {
+  if (listRef.value) hugText(listRef.value);
+});
 
 const placed = computed(() => ({
   "menu__list--start": atStart.value,

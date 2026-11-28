@@ -1,7 +1,7 @@
 import { ref, watch, type Ref } from "vue";
 import { profileToString } from "~~/shared/profile";
 import { cumulativeM, decodePolyline, nearestAlongM, routeGeometryFromPoints } from "~~/shared/polyline";
-import type { FilePin, TrackPoint } from "~~/shared/gpx";
+import type { FilePin } from "~~/shared/gpx";
 import { MAX_LABEL_LEN, MAX_WAYPOINTS, type Op } from "~~/shared/ops";
 import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 
@@ -168,60 +168,17 @@ export function useGpxImport(c: GpxTarget) {
       // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
       // first load of every packing list. `gpxBusy` is already true, so the fetch shows
       // as "Reading…" like the parse it precedes.
-      const { MAX_GPX_BYTES, filePins, fitRoute, geoJsonPoints, gpxPoints, gpxStats, isFit, pinKind, zipMember } =
-        await import("~~/shared/gpx");
+      const { pinKind, readRouteFile } = await import("~~/shared/gpx");
       if (!current()) return;
-      // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
-      // seconds; declining is cheaper than a worker, and honest. (After the import rather
-      // than before it only because the limit lives with the reader — a chunk fetch is
-      // not the expensive part, the parse is.)
-      if (file.size > MAX_GPX_BYTES) {
-        gpxError.value = "That file is too big to read here.";
+      const read = await readRouteFile(file);
+      // the reads inside are where a navigation slips in; everything past here is sync
+      if (!current()) return;
+      if (read === "too-big") {
+        gpxError.value = ROUTE_FILE_TOO_BIG;
         return;
       }
-      // Sniffed by CONTENT, never by name — a file saved as .txt or renamed by a share
-      // sheet is still the route it was. Twelve bytes are enough to tell the two binary
-      // shapes apart: "PK" is a zip (a KMZ, or the FIT-in-a-zip Garmin Connect's "Export
-      // Original" hands out), ".FIT" at byte 8 is a watch's file as it was written.
-      const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-      let fit: Uint8Array | null = isFit(head) ? new Uint8Array(await file.arrayBuffer()) : null;
-      let text = "";
-      if (!fit && head[0] === 0x50 && head[1] === 0x4b) {
-        const member = await zipMember(await file.arrayBuffer(), (name) => /\.(kml|fit)$/i.test(name));
-        if (member && isFit(member.bytes)) fit = member.bytes;
-        else if (member) text = new TextDecoder().decode(member.bytes);
-      } else if (!fit) {
-        text = await file.text();
-      }
-      // the reads above are where a navigation slips in; everything past here is sync
-      if (!current()) return;
-      let points: TrackPoint[];
-      let pins: FilePin[] = [];
-      if (fit) {
-        // binary end to end: no text, no DOM, and the course's placed points come out of
-        // the same pass as its track (offered, not applied — see confirmPins)
-        ({ points, pins } = fitRoute(fit));
-      } else {
-        if (!text) throw new Error("empty");
-        // JSON or XML, decided by the first non-space character, which tells us which
-        // family the text belongs to more reliably than a name would
-        const first = text.trimStart()[0];
-        if (first === "{" || first === "[") {
-          points = geoJsonPoints(JSON.parse(text));
-        } else {
-          const doc = new DOMParser().parseFromString(text, "application/xml");
-          if (doc.querySelector("parsererror")) throw new Error("not xml");
-          // gpxPoints reads GPX, KML and TCX — same track, different dialects
-          points = gpxPoints(doc);
-          // The pins the file carried, read SEPARATELY from the track and deliberately not
-          // applied yet — see confirmPins. gpxPoints never touches <wpt>, and that
-          // separation is load-bearing: a KML's marker placemarks once inflated a 39.8-mile
-          // trail to 58.5.
-          pins = filePins(doc);
-        }
-      }
-      const stats = gpxStats(points);
-      if (!stats) throw new Error("no track");
+      // The pins the file carried are offered, not applied: see confirmPins.
+      const { points, pins, stats } = read;
       const geometry = routeGeometryFromPoints(points) ?? "";
       // read before the write below: a distance with no file behind it is one somebody typed
       const before = c.snapshot.value;
@@ -253,7 +210,7 @@ export function useGpxImport(c: GpxTarget) {
       if (typedM && nowM && Math.abs(nowM - typedM) > Math.max(REPLACED_MIN_M, typedM * REPLACED_MIN_SHARE))
         replaced.value = { wasM: typedM, nowM, epoch };
     } catch {
-      if (current()) gpxError.value = "Couldn’t read a route out of that file.";
+      if (current()) gpxError.value = ROUTE_FILE_UNREADABLE;
     } finally {
       if (mine === reads) gpxBusy.value = false;
     }

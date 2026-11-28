@@ -41,3 +41,5 @@ export { FuelCanGlyph } from "./FuelCanGlyph";
 export { WaterBottleGlyph } from "./WaterBottleGlyph";
 export { CanisterGlyph } from "./CanisterGlyph";
 export { UnsetRingGlyph } from "./UnsetRingGlyph";
+export { FrameSquareGlyph, FrameVerticalGlyph, FrameWideGlyph } from "./FrameGlyphs";
+export { SaveGlyph } from "./SaveGlyph";

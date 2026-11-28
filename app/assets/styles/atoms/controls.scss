@@ -686,6 +686,9 @@ input[type="search"]::-webkit-search-decoration {
 // trailing gutter going spare.
 // Hidden, not transparent: aria-hidden keeps it out of the accessibility tree either
 // way, and aria-current on the row is what actually says which one you're in.
+// The tick is the leading icons' size (md, 20px), not the sm step chevrons take: beside a
+// 20px glyph on the row before it, a 14px tick read as a smaller kind of mark (Ryan,
+// 2026-11-27, "match sizes"). It keeps the tertiary ink, which is what says it is state.
 .menu__check {
   flex: none;
   margin-left: auto;

@@ -41,7 +41,12 @@ describe("robots.txt", () => {
   it("…and a sitemap that lists no list, only the pages meant to be found", () => {
     const body = String(sitemap(makeEvent("/sitemap.xml")));
     const locs = [...body.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
-    expect(locs).toEqual(["http://mahonia.test/", "http://mahonia.test/about", "http://mahonia.test/help"]);
+    expect(locs).toEqual([
+      "http://mahonia.test/",
+      "http://mahonia.test/about",
+      "http://mahonia.test/help",
+      "http://mahonia.test/trail-spin",
+    ]);
   });
 });
 

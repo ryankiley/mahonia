@@ -26,6 +26,24 @@
 export const PROFILE_SAMPLES = 240;
 
 /**
+ * Every point's altitude, in order — with a gap carried from the nearest earlier
+ * reading, and a leading gap from the first later one. Empty when no point has one.
+ *
+ * A watch often has a fix a few seconds before its barometer has settled, and a TCX
+ * or GPX writer leaves the tag out of those samples (a FIT writes the format's
+ * INVALID value, which fitRoute reads the same way). Read strictly, a handful of such
+ * seconds would drop the whole profile and the climb with it — and read as sea level,
+ * which is what an absent tag once became, they invented a descent to the coast. The
+ * carried reading is what the device's own screen showed in those seconds.
+ */
+export function filledElevations(points: readonly { ele?: number }[]): number[] {
+  const first = points.find((p) => typeof p.ele === "number" && Number.isFinite(p.ele));
+  if (!first) return [];
+  let last = first.ele!;
+  return points.map((p) => (typeof p.ele === "number" && Number.isFinite(p.ele) ? (last = p.ele) : last));
+}
+
+/**
  * Getting the ascent right is the whole difficulty of this file, and it takes TWO steps,
  * not one. This is the number people reach for first and it is not sufficient alone.
  *

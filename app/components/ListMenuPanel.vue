@@ -75,7 +75,6 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
           :icon="IconCheckmark1Medium"
           class="menu__check"
           :class="{ 'is-on': isCurrent(e) }"
-          size="sm"
           aria-hidden="true"
         />
       </NuxtLink>
