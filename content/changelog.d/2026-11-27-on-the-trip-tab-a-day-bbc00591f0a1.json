@@ -1,6 +1,7 @@
 {
   "date": "2026-11-27",
   "changed": [
-    "On the Trip tab, a day's facts are one short line each, and its estimates explain themselves when hovered or focused."
+    "On the Trip tab, a day's facts are one short line each, and its estimates explain themselves when hovered or focused.",
+    "The Trip tab calls the climb your days add up to Planned climb beside a route's own, and Total climb without one."
   ]
 }
