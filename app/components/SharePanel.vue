@@ -281,7 +281,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
        menu: it holds tabs, a card of prose and rows that aren't all menuitems. -->
   <div
     ref="listRef"
-    class="popover menu__list share"
+    class="popover menu__list menu__panel share"
     :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
     role="dialog"
     aria-label="Sharing"
@@ -316,20 +316,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
         <!-- the read-only link, and the edit link where there is one to copy or to make
              (linkRows) -->
         <li v-for="r in linkRows" :key="r.key">
-          <button
-            type="button"
-            data-row
-            class="menu__item share__row"
-            :aria-label="r.label"
-            :aria-describedby="`${uid}-hint-${r.key}`"
-            @click="act(r.run)"
-          >
-            <SvgIcon :icon="r.icon" aria-hidden="true" />
-            <span class="share__text">
-              <span class="share__name">{{ r.label }}</span>
-              <span :id="`${uid}-hint-${r.key}`" class="share__hint">{{ r.hint }}</span>
-            </span>
-          </button>
+          <ShareRow :icon="r.icon" :label="r.label" :hint="r.hint" @click="act(r.run)" />
         </li>
 
         <!-- RECENT CHANGES folds out: the same MenuSection the read views' ⋯ uses, with
@@ -395,20 +382,9 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
       </div>
       <ul class="share__rows">
         <li v-for="item in exportItems" :key="item.key">
-          <button
-            type="button"
-            data-row
-            class="menu__item share__row"
-            :aria-label="item.label"
-            :aria-describedby="`${uid}-hint-${item.key}`"
-            @click="act(item.run)"
-          >
-            <SvgIcon :icon="item.icon" aria-hidden="true" />
-            <span class="share__text">
-              <span class="share__name">{{ item.format }}</span>
-              <span :id="`${uid}-hint-${item.key}`" class="share__hint">{{ item.hint }}</span>
-            </span>
-          </button>
+          <ShareRow :icon="item.icon" :label="item.label" :hint="item.hint" @click="act(item.run)">
+            {{ item.format }}
+          </ShareRow>
         </li>
       </ul>
     </div>
@@ -420,28 +396,9 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
      rule is just silently dropped. -->
 <style scoped lang="scss">
 /* The card, the anchor under the trigger, the plate and the row atoms are the menu's
-   (atoms/controls.scss). What a menu doesn't have is styled here: a fixed width (a
-   menu sizes to its longest label; a panel with prose in it has to choose), the tabs,
-   a row's second line, and the card on the Export tab. */
-.share {
-  width: 22.5rem;
-  max-height: calc(100svh - var(--space-8));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-/* On a phone the editor drops this panel's wrapper out of the positioning chain (see
-   .editor__sharemenu), so `right` measures from the bar rather than from the trigger.
-   It sits at the page gutter under the trigger's end of the bar and keeps its own
-   width, giving way only where that doesn't fit. It used to take the gutter on BOTH
-   sides, which is the same thing on a 375px phone and a 688px-wide menu on anything
-   between that and the breakpoint. */
-@media (max-width: $bp-stack) {
-  .share {
-    left: auto;
-    right: var(--space-4);
-    width: min(22.5rem, calc(100% - 2 * var(--space-4)));
-  }
-}
+   (atoms/controls.scss), its panel width and phone inset are .menu__panel there, and a
+   row with a second line is ShareRow. What's left is this panel's own: the tabs and the
+   card on the Export tab. */
 
 /* ---- the tabs: the mode bar's own chip (.modebar__opt, atoms/modebar.scss), not a
    segmented track ----
@@ -464,30 +421,6 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   /* the panel's concentric corner, like the rows under it, and the strong weight */
   border-radius: var(--popover-item-radius);
   font-weight: var(--font-weight-semibold);
-}
-
-/* ---- rows ---- */
-/* A menu row with a second line, glyph · label over hint. Its inset,
-   gap and glyph are .menu__item's; it only wraps (a menu row doesn't, but the hint is
-   prose in a panel of fixed width) and hangs its glyph on the LABEL's line rather than
-   the middle of the pair, so the mark stays with the word it marks. */
-.share__row {
-  align-items: start;
-  white-space: normal;
-}
-.share__row > svg {
-  margin-block: calc((1lh - var(--icon)) / 2);
-}
-.share__text {
-  display: grid;
-  flex: 1 1 auto;
-}
-.share__name {
-  color: var(--foreground-primary);
-}
-.share__hint {
-  color: var(--foreground-secondary);
-  font-size: var(--text-chrome);
 }
 
 /* ---- the Export tab's card: should this be a link instead? ----

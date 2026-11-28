@@ -279,7 +279,7 @@ describe("SharePanel — the tabs", () => {
   it("closes first, and the export's toast still lands once the panel is gone", async () => {
     const w = mountPanel();
     await tabs(w)[1]!.trigger("click");
-    await w.findAll(".share__row")[2]!.trigger("click");
+    await w.findAll(".share-row")[2]!.trigger("click");
     expect(w.emitted().close).toHaveLength(1);
     expect(ran).toEqual(["csv"]);
     // what the editor does on close: the panel is v-if'd away before the export
@@ -308,8 +308,8 @@ describe("SharePanel — a list that isn't saved yet", () => {
 
   it("asks the editor for the link exactly as a saved list does", async () => {
     const w = draft();
-    await w.findAll(".share__row")[0]!.trigger("click");
-    await w.findAll(".share__row")[1]!.trigger("click");
+    await w.findAll(".share-row")[0]!.trigger("click");
+    await w.findAll(".share-row")[1]!.trigger("click");
     expect(w.emitted().copyRead).toHaveLength(1);
     expect(w.emitted().copyEdit).toHaveLength(1);
   });

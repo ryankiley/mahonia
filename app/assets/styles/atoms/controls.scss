@@ -1,3 +1,4 @@
+@use "../foundations/tokens" as t;
 // Controls — de-outlined + monochrome. Whitespace + type carry the UI; borders
 // are rare. No colour in chrome (see tokens.scss): the primary action is inverted
 // foreground, state reads as foreground/weight, and colour lives only on the data viz.
@@ -709,6 +710,26 @@ input[type="search"]::-webkit-search-decoration {
 // instead", the account card's "you're offline". Laid out on the rows' columns: its mark
 // in the glyph column (the callout's inset is a row's), its words where a row's label
 // starts, so it reads as part of the same list rather than a box dropped on top of it.
+// A MENU CARD WIDENED TO A PANEL: the sharing panels (the list's, My Gear's). A menu
+// sizes to its longest label; a panel with prose in its rows has to choose a width.
+// Lifted from SharePanel on the second consumer. On a phone the page drops the panel's
+// wrapper out of the positioning chain (`position: static` on it), so `right` measures
+// from the bar, and the card sits at the page gutter under the trigger's end of it,
+// keeping its own width and giving way only where that doesn't fit.
+.menu__panel {
+  width: 22.5rem;
+  max-height: calc(100svh - var(--space-8));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: t.$bp-stack) {
+  .menu__panel {
+    left: auto;
+    right: var(--space-4);
+    width: min(22.5rem, calc(100% - 2 * var(--space-4)));
+  }
+}
+
 // Shaped like the plate (the item radius), since it sits where a row would.
 // Its ground is AN AMOUNT OF FOREGROUND, the well's (.well, in this file, has the
 // measurements: 1.17:1 on the light popover, 1.23 on the dark), because a menu is a
