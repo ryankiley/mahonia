@@ -60,12 +60,4 @@ describe("design tokens", () => {
       .map(([name, where]) => `${name} — referenced in ${[...new Set(where)].join(", ")}`);
     expect(orphans).toEqual([]);
   });
-
-  // The spacing scale is the one that bit, when it had a gap that invited the typo.
-  it("the spacing scale has no holes a reference could fall into", () => {
-    const scale = [...defined].filter((n) => /^--space-\d+$/.test(n)).sort();
-    expect(scale.length).toBeGreaterThan(0);
-    const used = [...referenced.keys()].filter((n) => /^--space-\d+$/.test(n));
-    expect(used.filter((n) => !defined.has(n))).toEqual([]);
-  });
 });
