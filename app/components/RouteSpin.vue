@@ -11,8 +11,10 @@
 // The stage fills the ROOM the page gives it (the page's stage, between its bars) and turns
 // the route about the middle of the SCREEN, which that room needn't be centred on: as big a
 // turn as fits round the screen's middle without reaching the room's nearer edge, so it is
-// centred on the screen and still clear of the bars above and below it. It draws in the
-// colours the video will have, with the same function. The video's SHAPE is not shown here:
+// centred on the screen and still clear of the bars above and below it. It draws the line
+// with the video's own function and ink, on a transparent canvas over the page, whose
+// background is the video's ground: the same picture without repainting the ground every
+// frame (see SpinFrame.ground). The video's SHAPE is not shown here:
 // vertical, wide or square is a choice about the file Save makes, and the preview is the
 // route, not a mock-up of a frame. Its TIME is: the stage plays the video's length over and
 // over, so a line that draws itself on draws again each time round, as the saved file will
@@ -32,7 +34,8 @@ import {
 const props = defineProps<{
   model: SpinModel;
   label: string;
-  /** the line's colour and the ground's, as CSS colours */
+  /** the line's colour, which the stage draws, and the ground's, which the page paints behind
+   *  it and the saved video fills its frames with; CSS colours */
   ink: string;
   ground: string;
   /** the video's: how the line appears, and how many turns long it is */
@@ -72,7 +75,9 @@ let reduce: MediaQueryList | null = null;
 /** set while Save makes its video: the stage holds still and leaves the frames to the
  *  encoder, and leaving the page aborts it */
 let saveAbort: AbortController | null = null;
-/** opaque: every pixel is painted each frame, and an opaque layer is cheaper to composite */
+/** Transparent, and cleared each frame rather than filled: the page shows through as the
+ *  ground. An opaque canvas (`alpha: false`) forced a full-canvas fill every frame, which at a
+ *  5K size was most of the GPU's work, and composited no cheaper (measured 2026-11-28). */
 let ctx: CanvasRenderingContext2D | null = null;
 /** where the screen's middle falls in the room, and the box the turn fits round it, in CSS
  *  pixels: measured when the room changes size, not each frame */
@@ -101,7 +106,6 @@ function paint() {
     width: w,
     height: h,
     ink: props.ink,
-    ground: props.ground,
     minLine: MIN_LINE_PX * ratio,
     fit: { width: place.width * ratio, height: place.height * ratio },
     middleY: place.middleY * ratio,
@@ -160,7 +164,7 @@ const onMotionPref = () => {
   schedule();
 };
 onMounted(() => {
-  ctx = canvasRef.value!.getContext("2d", { alpha: false });
+  ctx = canvasRef.value!.getContext("2d");
   reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
   reduce.addEventListener("change", onMotionPref);
   resize = new ResizeObserver(() => {
@@ -199,10 +203,11 @@ watch(
   () => props.turns,
   () => (clock %= loopMs()),
 );
-// a still stage (reduced motion, held, saving) has no next frame to show a new colour in;
-// a spinning one does, and a second paint per picker step would only repeat it
+// a still stage (reduced motion, held, saving) has no next frame to show a new ink in; a
+// spinning one does, and a second paint per picker step would only repeat it. (A new ground
+// is the page's to show: the canvas doesn't paint one.)
 watch(
-  () => [props.ink, props.ground],
+  () => props.ink,
   () => {
     if (!raf) paint();
   },

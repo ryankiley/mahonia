@@ -411,9 +411,11 @@ export interface SpinFrame {
   width: number;
   height: number;
   ink: string;
-  /** The colour of the whole frame behind the line. The stage and the video draw the same
-   *  one, so the preview is the video. */
-  ground: string;
+  /** The colour of the whole frame behind the line, painted first. The video's frames need
+   *  it; the stage leaves it out and clears to transparent, because the page behind it is
+   *  already that colour, and filling a full-screen canvas every frame was most of what the
+   *  GPU did to draw the stage (3.3 of 3.6 ms a frame at a 5K size in Chrome, 2026-11-28). */
+  ground?: string;
   /** The thinnest the line may get, in device pixels. A small stage would otherwise draw
    *  the video's weight scaled down to a hairline. */
   minLine?: number;
@@ -441,8 +443,12 @@ export function drawSpin(
   { width, height, ink, ground, minLine = 1, fit, middleY = height / 2, drawn = 1 }: SpinFrame,
   scratch?: Float64Array,
 ): Float64Array {
-  ctx.fillStyle = ground;
-  ctx.fillRect(0, 0, width, height);
+  if (ground) {
+    ctx.fillStyle = ground;
+    ctx.fillRect(0, 0, width, height);
+  } else {
+    ctx.clearRect(0, 0, width, height);
+  }
   const box = fit ?? { width: width * (width > height ? FILL_ACROSS_WIDE : FILL_ACROSS_NARROW), height: height * FILL_DOWN };
   const scale = spinScale(m, box);
   const xy = projectSpin(m, angle, pitchFor(m), scratch);

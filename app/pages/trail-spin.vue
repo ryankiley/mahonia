@@ -310,6 +310,21 @@ const recording = ref<number | null>(null);
 // read on the client only: the prerendered page has no encoder to ask
 const canRecord = ref(false);
 onMounted(() => (canRecord.value = canSaveVideo()));
+
+// `?fps` on the address lays a frame-time graph over the page (app/utils/frameMeter.ts): a way
+// to check the stage on a real screen, a 5K display or a phone, with no console to paste into.
+// Loaded only then, so the page carries none of it otherwise.
+let stopMeter: (() => void) | undefined;
+let leaving = false;
+onMounted(async () => {
+  if (!new URLSearchParams(location.search).has("fps")) return;
+  const { showFrameMeter } = await import("~/utils/frameMeter");
+  if (!leaving) stopMeter = showFrameMeter();
+});
+onBeforeUnmount(() => {
+  leaving = true;
+  stopMeter?.();
+});
 async function save() {
   const stage = stageRef.value;
   const s = spun.value;

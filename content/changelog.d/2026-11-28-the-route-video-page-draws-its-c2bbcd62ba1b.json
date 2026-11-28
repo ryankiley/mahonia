@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-28",
+  "changed": [
+    "The route video page draws its spinning line with less GPU work each frame, which helps big and high-refresh screens."
+  ]
+}
