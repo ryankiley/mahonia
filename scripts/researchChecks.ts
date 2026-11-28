@@ -13,9 +13,9 @@ import { isAttributeKey, validateAttributes } from "./catalogAttributes";
 import type { Finding } from "./catalogChecks";
 import { gearLabel } from "./catalogChecks";
 import { identityKey, isCitationUrl, isWeightSource, specToMg } from "./catalogCsv";
-import { GRADUATED_FILE_NAME, researchGearType, type ResearchFile } from "./research";
+import { researchGearType, type ResearchFile } from "./research";
 import { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
-import { gramsInQuote, quoteTolerance, RANGE_G, tidyQuote, weightsInQuote } from "../shared/catalogQuality";
+import { nearestQuoteFigure, quoteBacksWeight, RANGE_G, tidyQuote, weightsInQuote } from "../shared/catalogQuality";
 import type { Unit } from "../shared/types";
 
 const WORD_NUMBER: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
@@ -189,20 +189,24 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
         warn("range", `${where}: ${g.toFixed(0)} g outside ${r.category_hint} range ${range[0]}–${range[1]} g | ${r.weight_value}${r.weight_unit}`);
       }
 
-      // QUOTE CROSS-CHECK against the gram figure CLOSEST to the computed value, so
-      // a legit secondary figure (packed weight, another size) doesn't false-positive
-      // while a real transcription error (no nearby figure) still trips. A row graduated
-      // from the app is read as verify_catalog_item read it, ounces and pounds too, so it
-      // is held to the rule it was taken on. The hand research keeps the metric read:
-      // its ounce-only quotes include lists and ranges ("13/19 oz", "36 to 39 oz") that
-      // a single-figure read would flag.
-      const grams = (file === GRADUATED_FILE_NAME ? weightsInQuote : gramsInQuote)(r.quote ?? "");
-      if (grams.length) {
-        const nearest = grams.reduce((a, b) => (Math.abs(b - g) < Math.abs(a - g) ? b : a));
-        const diff = Math.abs(g - nearest);
-        if (diff > quoteTolerance(nearest)) {
-          err("quote", `${where}: computed ${g.toFixed(0)} g, nearest quote figure ${nearest.toFixed(0)} g (Δ${diff.toFixed(0)} g) | grams in quote: ${grams.map((n) => n.toFixed(0)).join(", ")} | "${(r.quote ?? "").slice(0, 90)}"`);
-        }
+      // QUOTE CROSS-CHECK: some figure in the quote within tolerance of the computed
+      // value, so a legit secondary figure (packed weight, another size) doesn't
+      // false-positive while a real transcription error (no nearby figure) still trips.
+      // Every file is held to the rule verify_catalog_item holds a quote to
+      // (quoteBacksWeight). A row whose quote that reader can't hold it to carries
+      // quote_unchecked with the reason, and stays on the to-do list; once the quote does
+      // back the weight, the marker has outlived it.
+      const quote = r.quote ?? "";
+      const nearest = nearestQuoteFigure(quote, g);
+      const backed = quoteBacksWeight(quote, g);
+      if (r.quote_unchecked != null) {
+        const reason = r.quote_unchecked.trim();
+        if (!reason) err("quote-unchecked", `${where}: quote_unchecked needs its reason ("table lists the unit before the figures")`);
+        else if (backed) err("quote-unchecked", `${where}: the quote backs ${g.toFixed(0)} g — drop quote_unchecked`);
+        else warn("quote-unchecked", `${where}: weight not held to its quote (${reason}) | "${quote.slice(0, 90)}"`);
+      } else if (nearest != null && !backed) {
+        const figures = weightsInQuote(quote);
+        err("quote", `${where}: computed ${g.toFixed(0)} g, nearest quote figure ${nearest.toFixed(0)} g (Δ${Math.abs(g - nearest).toFixed(0)} g) | grams in quote: ${figures.map((n) => n.toFixed(0)).join(", ")} | "${quote.slice(0, 90)}"`);
       }
 
       // the same identity cited twice with a different weight

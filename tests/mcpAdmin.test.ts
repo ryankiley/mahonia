@@ -275,11 +275,8 @@ describe("what it refuses", () => {
     const montbell = "https://www.montbell.com/us/en/products/detail/2301381";
     const built = buildSearchTerms("Plasma 1000 Down Jacket", "clothing", "Down jacket");
     const row = await seedCatalogRow(db, { brand: "Montbell", name: "Plasma 1000 Down Jacket", variant: "Men's Medium", commonName: "Down jacket", categoryHint: "clothing", searchTerms: built, weightMg: 136_078, weightSource: "manufacturer", sourceUrl: montbell, verified: true });
-    // it graduates back into its own research file, where the audit reads the quote's grams
-    // alone: an ounce figure doesn't carry it past a gram figure that disagrees
-    const ounces = await refusal({ catalog_id: row.id, weight_g: 139, source_url: montbell, quote: "Average Weight 4.9 oz, fill weight 50 g" });
-    expect(ounces).toContain("nearest quote figure 50 g");
-    expect(ounces).toContain("quote its line");
+    // its quote is held to the one rule every quote is: a weight it doesn't state is refused
+    expect(await refusal({ catalog_id: row.id, weight_g: 139, source_url: montbell, quote: "Average Weight 4.4 oz, fill weight 50 g" })).toContain("doesn't state 139 g");
     const first = await verify({ catalog_id: row.id, weight_g: 138, source_url: montbell, quote: "Average Weight 138g" });
     expect(first.refused, first.text).toBe(false);
     // stamped like any verification; the gear type, kind and search terms stay the build's
@@ -289,10 +286,9 @@ describe("what it refuses", () => {
     expect(await refusal({ ...cite, name: "Plasma 1000 Down Parka" })).toContain("seed/_research");
     expect(await refusal({ ...cite, gear_type: "Insulated jacket" })).toContain("seed/_research");
     expect(await refusal({ catalog_id: row.id, weight_g: 141, weight_source: "measured" })).toContain("edit_my_gear's weight_g");
-    // and its quote is still read as its research file reads it, with nothing else changing
-    expect(await refusal({ catalog_id: row.id, weight_g: 139, source_url: montbell, quote: "Average Weight 4.9 oz, fill weight 50 g" })).toContain("nearest quote figure 50 g");
-    // a second correction naming the row's own gear type leaves it, and the search terms, be
-    const second = await verify({ ...cite, gear_type: "down jacket", weight_g: 139, quote: "Average Weight 139g" });
+    // a second correction naming the row's own gear type leaves it, and the search terms, be;
+    // its ounce figure backs it, as it would any row's (the research files read ounces too)
+    const second = await verify({ ...cite, gear_type: "down jacket", weight_g: 139, quote: "Average Weight 4.9 oz, fill weight 50 g" });
     expect(second.refused, second.text).toBe(false);
     expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 139_000, commonName: "Down jacket", searchTerms: built });
     // undone, newest first, it is the research's again with the research's weight

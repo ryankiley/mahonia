@@ -185,6 +185,41 @@ describe("weightsInQuote — the figures verify_catalog_item holds a quote to", 
     expect(read("36 oz/1022 g")).toEqual([1022, 1021]);
     expect(quoteBacksWeight("Fabric: DCF 1.0 oz/yd²", 28)).toBe(false);
   });
+
+  it.each([
+    ["a comma list before one unit", "hemp weight : xs-xl: 8.3, 8.8, 9.3, 10.3, 11.4 oz", [235, 249, 264, 292, 323]],
+    ["slash lists in two units", "13/19 Oz. | 368/538 Grams (weight will vary)", [368, 538, 369, 539]],
+    ["a comma list of grams with thousands", "Weights 1,790, 1,850, 1,920 g", [1790, 1850, 1920]],
+    ["a range written with to", "claimed weight: 36 to 39 oz depending on options", [1021, 1106]],
+    ["a range written with a hyphen", "36-39 oz", [1021, 1106]],
+    ["a range written with an en dash, in kilograms", "1.2–1.4 kg", [1200, 1400]],
+  ])("reads every figure of %s", (_, quote, grams) => {
+    expect(read(quote)).toEqual(grams);
+  });
+
+  it("backs a weight anywhere inside a stated range, and not one outside it", () => {
+    expect(quoteBacksWeight("36 to 39 oz", 1060)).toBe(true);
+    expect(quoteBacksWeight("36-39 oz", 1021)).toBe(true);
+    // either end keeps its own 5%: 1106 g backs up to 1161, 1021 down to 970
+    expect(quoteBacksWeight("36-39 oz", 1180)).toBe(false);
+    expect(quoteBacksWeight("36-39 oz", 940)).toBe(false);
+    // every size in a list, not only the last
+    expect(quoteBacksWeight("xs-xl: 8.3, 8.8, 9.3, 10.3, 11.4 oz", 249)).toBe(true);
+    expect(quoteBacksWeight("13/19 Oz.", 369)).toBe(true);
+  });
+
+  it.each([
+    ["a size and a weight in one sentence", "Size 10, 11.5 oz", [326]],
+    ["a size and a weight across a spaced dash", "Size 9 - 12 oz", [340]],
+    ["a pound-and-ounce figure", "Weight: 2 lb 3 oz", [992]],
+    ["a model number before a weight, spaced", "Flash 22 / 10.6 oz", [301]],
+    ["a model number glued to a weight", "Sawyer SP129/85 g", [85]],
+    ["a model number and a weight after a comma", "Exos 58, 2.91 lbs", [1320]],
+    ["two figures that fall rather than rise", "Weight 2024-12 g", [12]],
+    ["a decimal comma", "Gewicht: 1,2 kg", []],
+  ])("does not read %s as a list", (_, quote, grams) => {
+    expect(read(quote)).toEqual(grams);
+  });
 });
 
 describe("categoryForGearType and catalogCategories: the catalog first, the hand table after", () => {

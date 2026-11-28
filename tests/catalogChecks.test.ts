@@ -296,6 +296,36 @@ describe("research-level quote hygiene", () => {
   });
 });
 
+describe("research-level quote cross-check", () => {
+  const shorts = (weight_value: number, quote: string, extra: Record<string, unknown> = {}, file = "synthetic.json"): ResearchFile => ({
+    file,
+    rows: [{ brand: "Acme", name: "Trail Shorts", variant: "Men's Small", common_name: "shorts", category_hint: "clothing", weight_value, weight_unit: "oz", weight_source: "manufacturer", source_url: "https://acme.example/shorts", quote, ...extra }],
+  });
+  const found = (f: ResearchFile, level: "error" | "warning") => runResearchChecks([f]).filter((x) => x.level === level).map((x) => x.code);
+
+  it("reads every research file's quote the same way, ounces and lists included", () => {
+    // an ounce-only quote that disagrees is caught in a hand file as in verified-in-app.json
+    for (const file of ["synthetic.json", "verified-in-app.json"]) {
+      expect(found(shorts(8.8, "Weight: 11.4 oz", {}, file), "error")).toContain("quote");
+      expect(found(shorts(8.8, "Weight: xs-xl: 8.3, 8.8, 9.3 oz", {}, file), "error")).toEqual([]);
+      expect(found(shorts(37, "claimed weight: 36 to 39 oz", {}, file), "error")).toEqual([]);
+    }
+  });
+
+  it("quote_unchecked skips the cross-check and stays on the to-do list", () => {
+    const table = "SPECS S/M L/XL ... Pounds 2.84 2.94 Kilograms 1.29 1.33";
+    expect(found(shorts(45.4, table), "error")).toContain("quote");
+    const marked = shorts(45.4, table, { quote_unchecked: "table lists the unit before the figures" });
+    expect(found(marked, "error")).toEqual([]);
+    expect(found(marked, "warning")).toContain("quote-unchecked");
+  });
+
+  it("quote_unchecked is an error once the quote backs the weight, or with no reason", () => {
+    expect(found(shorts(8.8, "Weight: 8.8 oz", { quote_unchecked: "quoted per gaiter, stored as the pair" }), "error")).toContain("quote-unchecked");
+    expect(found(shorts(8.8, "Weight: 11.4 oz", { quote_unchecked: " " }), "error")).toContain("quote-unchecked");
+  });
+});
+
 describe("research-level tent weight basis", () => {
   const tent = (variant: string, weight_value: number, quote: string): ResearchFile => ({
     file: "synthetic.json",

@@ -13,7 +13,8 @@
       "weight_secondary": "1.29 kg",
       "weight_source": "manufacturer",
       "source_url": "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf",
-      "quote": "EXOS 48 MEN'S SPECS S/M L/XL ... Pounds 2.84 2.94 Kilograms 1.29 1.33"
+      "quote": "EXOS 48 MEN'S SPECS S/M L/XL ... Pounds 2.84 2.94 Kilograms 1.29 1.33",
+      "quote_unchecked": "table lists the unit before the figures"
     },
     {
       "brand": "Osprey",
@@ -28,7 +29,8 @@
       "weight_secondary": "1.33 kg",
       "weight_source": "manufacturer",
       "source_url": "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf",
-      "quote": "EXOS 48 MEN'S SPECS S/M L/XL ... Pounds 2.84 2.94 Kilograms 1.29 1.33"
+      "quote": "EXOS 48 MEN'S SPECS S/M L/XL ... Pounds 2.84 2.94 Kilograms 1.29 1.33",
+      "quote_unchecked": "table lists the unit before the figures"
     },
     {
       "brand": "Osprey",
@@ -43,7 +45,8 @@
       "weight_secondary": "1.32 kg",
       "weight_source": "manufacturer",
       "source_url": "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf",
-      "quote": "EXOS 58 MEN'S SPECS S/M L/XL ... Pounds 2.91 3.00 Kilograms 1.32 1.36"
+      "quote": "EXOS 58 MEN'S SPECS S/M L/XL ... Pounds 2.91 3.00 Kilograms 1.32 1.36",
+      "quote_unchecked": "table lists the unit before the figures"
     },
     {
       "brand": "Osprey",
@@ -58,7 +61,8 @@
       "weight_secondary": "1.36 kg",
       "weight_source": "manufacturer",
       "source_url": "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf",
-      "quote": "EXOS 58 MEN'S SPECS S/M L/XL ... Pounds 2.91 3.00 Kilograms 1.32 1.36"
+      "quote": "EXOS 58 MEN'S SPECS S/M L/XL ... Pounds 2.91 3.00 Kilograms 1.32 1.36",
+      "quote_unchecked": "table lists the unit before the figures"
     },
     {
       "brand": "Osprey",
@@ -73,7 +77,8 @@
       "weight_secondary": "1.25 kg",
       "weight_source": "manufacturer",
       "source_url": "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf",
-      "quote": "EJA 48 WOMEN'S SPECS WXS/S WM/L ... Pounds 2.75 2.84 Kilograms 1.25 1.29"
+      "quote": "EJA 48 WOMEN'S SPECS WXS/S WM/L ... Pounds 2.75 2.84 Kilograms 1.25 1.29",
+      "quote_unchecked": "table lists the unit before the figures"
     },
     {
       "brand": "Osprey",
@@ -88,7 +93,8 @@
       "weight_secondary": "1.29 kg",
       "weight_source": "manufacturer",
       "source_url": "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf",
-      "quote": "EJA 48 WOMEN'S SPECS WXS/S WM/L ... Pounds 2.75 2.84 Kilograms 1.25 1.29"
+      "quote": "EJA 48 WOMEN'S SPECS WXS/S WM/L ... Pounds 2.75 2.84 Kilograms 1.25 1.29",
+      "quote_unchecked": "table lists the unit before the figures"
     },
     {
       "brand": "Osprey",
@@ -103,7 +109,8 @@
       "weight_secondary": "1.27 kg",
       "weight_source": "manufacturer",
       "source_url": "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf",
-      "quote": "EJA 58 WOMEN'S SPECS WXS/S WM/L ... Pounds 2.81 2.90 Kilograms 1.27 1.32"
+      "quote": "EJA 58 WOMEN'S SPECS WXS/S WM/L ... Pounds 2.81 2.90 Kilograms 1.27 1.32",
+      "quote_unchecked": "table lists the unit before the figures"
     },
     {
       "brand": "Osprey",
@@ -118,7 +125,8 @@
       "weight_secondary": "1.32 kg",
       "weight_source": "manufacturer",
       "source_url": "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf",
-      "quote": "EJA 58 WOMEN'S SPECS WXS/S WM/L ... Pounds 2.81 2.90 Kilograms 1.27 1.32"
+      "quote": "EJA 58 WOMEN'S SPECS WXS/S WM/L ... Pounds 2.81 2.90 Kilograms 1.27 1.32",
+      "quote_unchecked": "table lists the unit before the figures"
     },
     {
       "brand": "Osprey",

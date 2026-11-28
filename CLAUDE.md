@@ -85,8 +85,13 @@ built CSV and `scripts/researchChecks.ts` over the research rows, and CI runs `n
 PR. Read the rules on `ResearchRow` in `scripts/research.ts`; `npm run catalog:audit` prints the
 same findings with the row named. The only warnings are to-do lists for a human (weight
 plausibility, pouch meals still at net weight, tents still at trail weight, food rows without kcal,
-rows missing an axis their gear type is sold by). `catalog:build` also fails on a
-`seed/common-names.json` entry that matches no row.
+rows missing an axis their gear type is sold by, rows marked `quote_unchecked`). `catalog:build`
+also fails on a `seed/common-names.json` entry that matches no row.
+
+Every research file's quote is read by one reader (`quoteWeights` in `shared/catalogQuality.ts`:
+grams, kilograms, ounces, pounds, lists and ranges), the one `verify_catalog_item` uses. A row
+whose quote it can't back as written keeps the quote verbatim and says why in `quote_unchecked`
+("table lists the unit before the figures"); a marker on a row whose quote does back it is an error.
 
 A tent row stores the maker's packaged weight (stakes and bags included), never the trail or
 minimum figure; a row that could only be sourced at trail weight says `trail weight` in its variant.
