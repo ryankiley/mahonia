@@ -19,6 +19,12 @@ export const VAULT_DDL: string[] = [
   // one vault per account — also the conflict target that makes lazy minting safe
   // against two concurrent captures (see mintVault in vaultAuth.ts)
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_user ON vaults (user_id)`,
+  // share_code — the read-only link to this vault's gear (/g/{code}); null while the
+  // owner hasn't turned one on, and set back to null to turn it off, so a link stops
+  // working the moment it's off (shared/vaultShare.ts). New 2026-11-27; folds into the
+  // CREATE once it has deployed (CLAUDE.md).
+  `ALTER TABLE vaults ADD COLUMN IF NOT EXISTS share_code text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_share_code ON vaults (share_code) WHERE share_code IS NOT NULL`,
 
   // classification is a closed set; a check keeps a bad write out of the table
   // rather than relying on every caller.

@@ -67,6 +67,11 @@ useHead({
           gear reaches it when you add something to a list yourself, or import or copy a list. A
           list someone else made asks before any of its gear goes into yours.
         </p>
+        <p>
+          My Gear is private unless you turn on its <strong>read-only link</strong>. Anyone with that
+          link sees your gear and kits, with their weights and specs, but never prices or food, and
+          your name only if you’ve set one. Turning it off stops the link at once.
+        </p>
 
         <h3>What Mahonia collects in the background</h3>
         <ul>
@@ -210,8 +215,8 @@ useHead({
           You keep ownership of the lists you create. Making or sharing one gives me permission to
           store it and show it to whoever has its links, so the feature works, and that permission
           ends when you remove the content. You’re responsible for what you put in your lists and
-          for having the right to share it. A read-only link works for anyone who has it, and links get
-          passed on, so don’t put anything in a list you wouldn’t want seen.
+          for having the right to share it. A read-only link, to a list or to your gear, works for
+          anyone who has it, and links get passed on, so don’t share anything you wouldn’t want seen.
         </p>
 
         <h3>Fair use of Mahonia</h3>

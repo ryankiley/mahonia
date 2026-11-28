@@ -307,6 +307,9 @@ export const vaults = pgTable(
     // link-owned era and is unreachable by design.
     userId: integer("user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // The read-only link to this vault's gear (/g/{code}), or null when it is off:
+    // turning it off clears it, turning it on mints a new one (server/utils/vaultShare).
+    shareCode: text("share_code"),
   }
 );
 
