@@ -123,6 +123,18 @@
 .page--alone > .prose {
   align-items: center;
 }
+/* ...and the mark over its message, the one an empty state wears (My Gear's
+   .vault__midmark): 40px, the height of the button under it, in the lesser foreground,
+   with the stroke left to scale. It says what kind of page this is before the words do,
+   and gives a centred block something to hang from (Ryan, 2026-11-27: "all pages like
+   this COULD use an icon like we do for empty states"). */
+.page__mark {
+  display: block;
+  margin-inline: auto;
+  width: var(--control-h);
+  height: var(--control-h);
+  color: var(--foreground-tertiary);
+}
 .shell__main:has(.page--alone),
 .shell__main > div:has(> .page--alone) {
   display: flex;

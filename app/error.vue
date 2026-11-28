@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { NuxtError } from "#app";
+import { IconDirection1, IconExclamationTriangle } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // Site-styled error page. Its other job is weight: providing app/error.vue
 // keeps Nuxt's stock error-404/error-500 templates (+ their Tailwind-flavored
@@ -29,6 +31,8 @@ const dev = import.meta.dev;
 
     <main id="main-content" tabindex="-1" class="wrap page page--alone">
       <div class="prose">
+        <!-- a signpost for a wrong turn, a warning for a fault -->
+        <SvgIcon :icon="notFound ? IconDirection1 : IconExclamationTriangle" size="xl" class="page__mark" aria-hidden="true" />
         <h1 class="t-title">
           {{ notFound ? "This page doesn’t exist." : "Something went wrong." }}
         </h1>
