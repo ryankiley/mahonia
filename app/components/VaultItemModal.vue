@@ -532,10 +532,14 @@ async function add(p: VaultItemPatch) {
         </div>
       </div>
 
-      <!-- How many you own, beside the calories: both are counts about the piece itself,
-           and a pair keeps the dialog's two columns. Calories on food, or once it IS
-           consumable, and not on fuel that has none to show (see kcalOffered). -->
-      <div class="vitem__pair">
+      <!-- How many you own, the calories, what it cost and where it came from: one grid
+           on the dialog's two columns, so the fields flow into pairs whether or not the
+           calories are there. With them, owned beside kcal and price beside the link;
+           without, owned beside price and the link across both columns (the rule on
+           .vitem__rest), where a fixed owned/kcal pair left owned alone on its row.
+           Calories on food, or once it IS consumable, and not on fuel that has none to
+           show (see kcalOffered). -->
+      <div class="vitem__pair vitem__rest">
         <label class="dlg__field">
           <!-- "Number owned", not "How many" or "Quantity": either reads as how many a
                trip takes, which is the list row's qty (and a kit's count), never this.
@@ -547,12 +551,8 @@ async function add(p: VaultItemPatch) {
           <span class="t-muted">kcal each</span>
           <input v-model="form.kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
         </label>
-      </div>
-
-      <!-- what it cost and where it came from, read together, on the same two columns as
-           every pair above: a narrower price track started the link's column 66px left
-           of every other second column in the dialog -->
-      <div class="vitem__pair">
+        <!-- the price on the same two columns as every pair above: a narrower price track
+             started the link's column 66px left of every other second column -->
         <label class="dlg__field">
           <span class="t-muted">Price</span>
           <!-- inputmode text, not decimal: a currency symbol is part of what this
@@ -621,19 +621,28 @@ async function add(p: VaultItemPatch) {
   gap: var(--space-3);
 }
 /* The dialog's own width decides its columns, not the window's: a 30rem dialog has
-   room for two fields side by side in a narrow pane as much as on a wide screen, and
-   only a phone-narrow dialog stacks them. .vitem is the container the pairs ask, and
-   the column the fields stand in. */
+   room for two fields side by side in a narrow pane as much as on a wide screen.
+   Every pair holds short values (a brand, a size, a weight, a count, a price), so a
+   phone keeps them two-up as well: stacked from 22rem down, which is every phone, the
+   Add dialog ran to ten rows and scrolled before you reached Add. Only a dialog too
+   narrow for two of them, the 320px phone's, stacks. A URL in a half-width field
+   scrolls inside it, as any long value does. .vitem is the container the pairs ask,
+   and the column the fields stand in. */
 .vitem {
   container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
-@container (max-width: 22rem) {
+@container (max-width: 15rem) {
   .vitem__pair {
     grid-template-columns: 1fr;
   }
+}
+/* An odd field out, the link when there are no calories, takes the whole row rather
+   than half of it beside a hole: the one field here whose value is long. */
+.vitem__rest > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 /* the picker wears the field's own box, so it sits level with the weight input
    beside it rather than reading as a different kind of control */
