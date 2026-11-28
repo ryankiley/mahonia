@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, MAX_GPX_BYTES, readRouteFile, zipMember, type TrackPoint } from "../shared/gpx";
+import { fileRouteName, filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, MAX_GPX_BYTES, readRouteFile, zipMember, type TrackPoint } from "../shared/gpx";
 import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, filledElevations, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs, smooth } from "../shared/profile";
 import { zipEntries } from "./helpers/zip";
 
@@ -729,5 +729,18 @@ describe("readRouteFile", () => {
 
   it("throws on an empty file", async () => {
     await expect(withParser(() => readRouteFile(new Blob([""])))).rejects.toThrow();
+  });
+});
+
+describe("fileRouteName", () => {
+  it("names a route from its file: no extension, underscores read as spaces", () => {
+    expect(fileRouteName("Timberline_Trail_600.gpx")).toBe("Timberline Trail 600");
+    expect(fileRouteName("South Sister Climber Trail.gpx")).toBe("South Sister Climber Trail");
+    expect(fileRouteName("Keoneheʻeheʻe__Sliding_Sands.kmz")).toBe("Keoneheʻeheʻe Sliding Sands");
+  });
+
+  it("gives no name for a file named by number, as a watch names its own", () => {
+    expect(fileRouteName("17345678901.fit")).toBeUndefined();
+    expect(fileRouteName("2026-11-28_0715.tcx")).toBeUndefined();
   });
 });

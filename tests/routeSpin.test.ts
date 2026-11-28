@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TrackPoint } from "../shared/gpx";
-import { pitchFor, projectSpin, retraces, SPIN_PERIOD_MS, spinAngle, spinModel } from "../shared/routeSpin";
+import { DRAW_ON_MS, drawnAt, drawSpin, pitchFor, projectSpin, retraces, SPIN_PERIOD_MS, spinAngle, spinModel } from "../shared/routeSpin";
 
 // A loop about 4.4 km across, highest at its north end and lowest at its south.
 const loop = (relief: number | null, n = 400): TrackPoint[] =>
@@ -215,7 +215,7 @@ describe("spinModel on an out-and-back", () => {
 describe("the way it turns", () => {
   it("turns clockwise seen from above: the far side travels right, the near side left", () => {
     // one point due north (the far side, at angle 0) and one due south (the near side)
-    const m = { e: Float64Array.of(0, 0), n: Float64Array.of(1, -1), u: Float64Array.of(0, 0), halfHeight: 0, exaggeration: 0, starts: Uint8Array.of(1, 0) };
+    const m = { e: Float64Array.of(0, 0), n: Float64Array.of(1, -1), u: Float64Array.of(0, 0), halfHeight: 0, exaggeration: 0, starts: Uint8Array.of(1, 0), along: Float64Array.of(0, 1) };
     const now = projectSpin(m, 0, 0.07);
     const later = projectSpin(m, 0.1, 0.07);
     expect(later[0]! - now[0]!).toBeGreaterThan(0); // far side, rightward
@@ -237,5 +237,85 @@ describe("retraces, on a way back that wanders", () => {
     const runs = retraces(all.map((p) => p[0]), all.map((p) => p[1]), all.map((p) => p[2]));
     expect(runs).toHaveLength(1);
     expect(runs[0]![1]).toBe(all.length - 1);
+  });
+});
+
+describe("drawing the line on", () => {
+  it("draws none of it at the start, all of it after DRAW_ON_MS, and more each moment between", () => {
+    expect(drawnAt("draw", 0)).toBe(0);
+    expect(drawnAt("draw", DRAW_ON_MS / 2)).toBeCloseTo(0.5, 9);
+    expect(drawnAt("draw", DRAW_ON_MS)).toBe(1);
+    expect(drawnAt("draw", 25_000)).toBe(1);
+    let before = 0;
+    for (let ms = 100; ms <= DRAW_ON_MS; ms += 100) {
+      const now = drawnAt("draw", ms);
+      expect(now).toBeGreaterThan(before);
+      before = now;
+    }
+    // easing: slower at the ends than through the middle
+    expect(drawnAt("draw", DRAW_ON_MS * 0.1)).toBeLessThan(0.1);
+  });
+
+  it("draws the whole line from the first frame when it appears whole", () => {
+    expect(drawnAt("whole", 0)).toBe(1);
+    expect(drawnAt("whole", 1234)).toBe(1);
+  });
+
+  it("measures the way along from 0 to 1, adding nothing where the line lifts", () => {
+    const way: TrackPoint[] = Array.from({ length: 200 }, (_, i) => ({
+      lat: 44.1 + i * 0.0002,
+      lon: -121.77 + 0.0001 * Math.sin(i / 5),
+      ele: 1700 + i * 4,
+    }));
+    const m = spinModel([...way, ...way.slice(0, -1).reverse()])!;
+    expect(m.along[0]).toBe(0);
+    expect(m.along[m.along.length - 1]).toBe(1);
+    for (let i = 1; i < m.along.length; i++) {
+      expect(m.along[i]!).toBeGreaterThanOrEqual(m.along[i - 1]!);
+      if (m.starts[i]) expect(m.along[i]).toBe(m.along[i - 1]);
+    }
+  });
+
+  // the calls drawSpin makes on its canvas, the points in order
+  const recorder = () => {
+    const path: { op: "move" | "line"; x: number; y: number }[] = [];
+    let stroked = 0;
+    const ctx = {
+      fillRect() {},
+      beginPath() {},
+      moveTo: (x: number, y: number) => path.push({ op: "move", x, y }),
+      lineTo: (x: number, y: number) => path.push({ op: "line", x, y }),
+      stroke: () => stroked++,
+    } as unknown as CanvasRenderingContext2D;
+    return { ctx, path, strokes: () => stroked };
+  };
+  // three points due east, evenly spaced, the camera's angle 0 looking north at them
+  const straight = {
+    e: Float64Array.of(-1, 0, 1),
+    n: Float64Array.of(0, 0, 0),
+    u: Float64Array.of(0, 0, 0),
+    halfHeight: 0,
+    exaggeration: 0,
+    starts: Uint8Array.of(1, 0, 0),
+    along: Float64Array.of(0, 0.5, 1),
+  };
+  const frame = { width: 200, height: 200, ink: "#fff", ground: "#000", fit: { width: 200, height: 200 } };
+
+  it("ends the line part way between two points, where the pen has got to", () => {
+    const { ctx, path } = recorder();
+    drawSpin(ctx, straight, 0, { ...frame, drawn: 0.75 });
+    expect(path.map((p) => p.op)).toEqual(["move", "line", "line"]);
+    // from x 0 (the left end) through 100 (the middle), and stopping half way to 200
+    expect(path.map((p) => Math.round(p.x))).toEqual([0, 100, 150]);
+  });
+
+  it("draws nothing at all before the pen sets off, and every point once it has finished", () => {
+    const none = recorder();
+    drawSpin(none.ctx, straight, 0, { ...frame, drawn: 0 });
+    expect(none.path).toHaveLength(0);
+    expect(none.strokes()).toBe(0);
+    const all = recorder();
+    drawSpin(all.ctx, straight, 0, frame);
+    expect(all.path.map((p) => Math.round(p.x))).toEqual([0, 100, 200]);
   });
 });

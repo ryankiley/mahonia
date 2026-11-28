@@ -8,19 +8,21 @@
 // anywhere; the CSP's `connect-src 'self'` makes that a fact, as it does for the Trip tab.
 import {
   isSpinFormat,
+  isSpinReveal,
   isVideoTurns,
   spinModel,
   videoSeconds,
   VIDEO_TURN_CHOICES,
   type SpinFormat,
   type SpinModel,
+  type SpinReveal,
   type VideoTurns,
 } from "~~/shared/routeSpin";
 import { formatDistance, heightWithUnit, resolveDistanceUnit } from "~~/shared/trailDistance";
 import { contrast, mix, readableShare, rgbOf, luminance, type Rgb } from "~~/shared/contrast";
 import RouteSpin from "~/components/RouteSpin.vue";
 import { spinExampleTrack } from "~/data/spinExample";
-import { IconChevronDownMedium, IconCircleInfo, IconMap } from "~/icons/central";
+import { IconChevronDownMedium, IconCircleInfo, IconMap, IconWave, IconWriting } from "~/icons/central";
 import { FrameSquareGlyph, FrameVerticalGlyph, FrameWideGlyph, SaveGlyph } from "~/icons/mahonia";
 import { SvgIcon } from "~/utils/icon";
 import { SAVE_PROGRESS_MS } from "~/utils/spinVideo";
@@ -46,9 +48,9 @@ const PRIVACY = "Your route is read on this device and never uploaded.";
 
 const inputRef = useTemplateRef<HTMLInputElement>("inputRef");
 
-// The route button's popover (the map, at the dock's leading end): the route's name and
-// numbers, and the way to a different one. Closed by a tap outside it or Escape, as the
-// app's menus are.
+// The route button's popover (the map, in the top corner beside the (i), once there's a route
+// of your own): the route's name and numbers, and the way to a different one. Closed by a tap
+// outside it or Escape, as the app's menus are.
 const infoOpen = ref(false);
 const infoRef = useTemplateRef<HTMLElement>("infoRef");
 useMenuDismiss(infoOpen, infoRef);
@@ -65,7 +67,9 @@ const stageRef = useTemplateRef<InstanceType<typeof RouteSpin>>("stageRef");
 // THE EXAMPLE. A first visit sees the tool working before it has a file to give it, so the
 // page opens on the Timberline Trail (app/data/spinExample.ts) until a route of the visitor's
 // own takes its place. It isn't labelled as an example: the bar under it offers one thing,
-// Upload a route, until there is one, which says enough. Built on mount, not on the server: the stage
+// Upload a route, until there is one, which says enough. Whatever was picked last time, it
+// draws itself on, once, and then turns whole (Ryan, 2026-11-28): the first thing a visitor
+// sees is what the tool does, and it doesn't go on doing it at them. Built on mount, not on the server: the stage
 // is a canvas, and a prerendered page has nothing to draw it with.
 onMounted(() => (example.value = spinModel(spinExampleTrack())));
 
@@ -92,7 +96,7 @@ async function open(file: File) {
   error.value = "";
   busy.value = true;
   try {
-    const { readRouteFile } = await loadReader();
+    const { readRouteFile, fileRouteName } = await loadReader();
     const read = await readRouteFile(file);
     if (mine !== reads) return;
     if (read === "too-big") {
@@ -103,7 +107,8 @@ async function open(file: File) {
     if (!model) throw new Error("no line");
     spun.value = {
       model,
-      name: read.name || file.name.replace(/\.[^.]+$/, ""),
+      // the file's own name for its route, else one from the file's name, else a plain one
+      name: read.name || fileRouteName(file.name) || "Your route",
       distanceM: read.stats.distanceM,
       ascentM: read.stats.ascentM,
     };
@@ -146,31 +151,44 @@ useWindowEvent("dragover", onDragOver);
 useWindowEvent("dragleave", onDragLeave);
 useWindowEvent("drop", onDrop);
 
-// ---- The video's shape and length (remembered), and its colours (not) ----
-// Shape and length are each one menu (OptionMenu, the app's own picker): the dock shows the
-// choice made (the shape as its glyph alone, the word is in the list and the spoken name),
-// and the list of the rest opens on a press. Both are choices about the saved
-// file only: the stage stays full screen whatever shape the video will be. The shapes are
-// drawn as their own frames, in the trigger and in the list.
+// ---- The video's shape, length and reveal (remembered), and its colours (not) ----
+// Shape, length and reveal are each one menu (OptionMenu, the app's own picker): the dock shows
+// the choice made (the shape and the reveal as their glyphs alone, the words are in the list
+// and the spoken name), and the list of the rest opens on a press. The shape is a choice about
+// the saved file only: the stage stays full screen whatever shape the video will be. The
+// length and the reveal show on the stage too, which plays the video's time over and over
+// (RouteSpin). The shapes are drawn as their own frames, in the trigger and in the list.
 const FORMATS = [
   { key: "vertical", label: "Vertical", icon: FrameVerticalGlyph },
   { key: "wide", label: "Wide", icon: FrameWideGlyph },
   { key: "square", label: "Square", icon: FrameSquareGlyph },
 ];
 const LENGTHS = VIDEO_TURN_CHOICES.map((t) => ({ key: String(t), label: `${videoSeconds(t)} seconds` }));
+// Drawn on first, and the default: the look the page was modelled on, a trail drawing itself
+// while it turns. Central's line with a pen at its end, and the same kind of line without
+// one (Ryan's pick of IconWriting, 2026-11-28).
+const REVEALS = [
+  { key: "draw", label: "Draw on", icon: IconWriting },
+  { key: "whole", label: "All at once", icon: IconWave },
+];
 const FORMAT_KEY = "gear.spin.format.v1";
 const TURNS_KEY = "gear.spin.turns.v1";
+const REVEAL_KEY = "gear.spin.reveal.v1";
 // Vertical first: most of these are made to post from a phone, where it fills the screen. Once
 // picked, a shape is remembered (below), so the default only decides a first save.
 const format = ref<SpinFormat>("vertical");
 const formatLabel = computed(() => FORMATS.find((f) => f.key === format.value)?.label ?? "");
 const turns = ref<VideoTurns>(1);
+const reveal = ref<SpinReveal>("draw");
+const revealLabel = computed(() => REVEALS.find((r) => r.key === reveal.value)?.label ?? "");
 const ink = ref("#ffffff");
 const ground = ref("#000000");
 onMounted(() => {
   const f = recall(FORMAT_KEY);
   if (isSpinFormat(f)) format.value = f;
   turns.value = recallJson(TURNS_KEY, isVideoTurns, turns.value);
+  const r = recall(REVEAL_KEY);
+  if (isSpinReveal(r)) reveal.value = r;
 });
 function pickFormat(key: string) {
   if (isSpinFormat(key)) format.value = key;
@@ -179,12 +197,16 @@ function pickLength(key: string) {
   const t = Number(key);
   if (isVideoTurns(t)) turns.value = t;
 }
-// The video's shape and length are remembered, whichever control set them: they're how you
-// export, and a second visit means the same again. The colours are not: they're one route's
+function pickReveal(key: string) {
+  if (isSpinReveal(key)) reveal.value = key;
+}
+// The video's shape, length and reveal are remembered, whichever control set them: they're how
+// you export, and a second visit means the same again. The colours are not: they're one route's
 // look, and a page that opened in last week's colours read as broken. (Their inputs say
 // autocomplete="off" too, so a browser restoring a reloaded form can't put one back.)
 watch(format, (v) => remember(FORMAT_KEY, v));
 watch(turns, (v) => remember(TURNS_KEY, String(v)));
+watch(reveal, (v) => remember(REVEAL_KEY, v));
 
 // THE WHOLE PAGE IS THE GROUND. The picked background runs edge to edge, the stage draws
 // the same colour and so has no edge of its own, and the line floats on the page itself.
@@ -294,7 +316,7 @@ async function save() {
   recording.value = 0;
   error.value = "";
   try {
-    const blob = await stage.record(format.value, turns.value, (share) => (recording.value = share));
+    const blob = await stage.record(format.value, (share) => (recording.value = share));
     const ext = blob.type === "video/mp4" ? "mp4" : "webm";
     downloadBlob(`${listFileBase(s.name, "route")}-spin-${format.value}.${ext}`, blob);
   } catch (e) {
@@ -311,13 +333,41 @@ const saveLabel = computed(() =>
 </script>
 
 <template>
-  <!-- ONE SCREEN, top to bottom: the (i); the stage, taking every pixel left over; and the
-       dock, everything about the video you're making, with whose tool it is under it. No
-       footer: the page is marked bare (see useHead above). -->
+  <!-- ONE SCREEN, top to bottom: the (i), and the route's map once there's a route of your
+       own; the stage, taking every pixel left over; and the dock, everything about the video
+       you're making, with whose tool it is under it. No footer: the page is marked bare (see
+       useHead above). -->
   <div class="spin-screen" :style="inks">
-    <!-- Only what the page is, in the corner: no mark, no section name, no account. The page
-         is one tool, and its way home is the name in the line under the dock. -->
+    <!-- What the page is and what it's showing, in the corner: no mark, no section name, no
+         account. The page is one tool, and its way home is the name in the line under the
+         dock. -->
     <header class="wrap spin-screen__top">
+      <!-- the map opens your route's details: the route is what the page shows, not a setting
+           of the video, so it sits up here with the (i) and leaves the dock to the video -->
+      <div v-if="spun" ref="infoRef" class="menu">
+        <button
+          type="button"
+          class="btn btn--icon btn--ghost spin-round"
+          aria-label="Route info"
+          aria-haspopup="dialog"
+          :aria-expanded="infoOpen"
+          @click="infoOpen = !infoOpen"
+        >
+          <!-- the map, as the Trip tab marks a route -->
+          <SvgIcon :icon="IconMap" />
+        </button>
+        <!-- the app's popover (MenuList, drawn as a card): a dialog, since it holds the
+             route's details rather than a list of choices -->
+        <Transition name="menu">
+          <MenuList v-if="infoOpen" tag="div" role="dialog" aria-label="Route" class="spin-info">
+            <p class="spin-info__name">{{ spun.name }}</p>
+            <p class="t-muted">{{ facts }}</p>
+            <button class="btn btn--soft spin-info__change" type="button" :disabled="busy" @click="changeRoute">
+              {{ busy ? "Reading…" : "Change route" }}
+            </button>
+          </MenuList>
+        </Transition>
+      </div>
       <div ref="aboutRef" class="menu spin-screen__about">
         <button
           type="button"
@@ -359,6 +409,9 @@ const saveLabel = computed(() =>
           :label="spun ? `${spun.name}, turning in 3D` : 'An example route, turning in 3D'"
           :ink="ink"
           :ground="ground"
+          :reveal="spun ? reveal : 'draw'"
+          :turns="turns"
+          :once="!spun"
         />
         <p v-if="dropping" class="t-label spin-screen__drop">Drop to use this route</p>
       </div>
@@ -372,31 +425,6 @@ const saveLabel = computed(() =>
           {{ busy ? "Reading…" : "Upload a route" }}
         </button>
         <div v-else class="spin-dock" role="group" aria-label="Video">
-          <!-- the map at the leading end opens your route's details -->
-          <div ref="infoRef" class="menu">
-            <button
-              type="button"
-              class="btn btn--icon btn--ghost spin-round"
-              aria-label="Route info"
-              aria-haspopup="dialog"
-              :aria-expanded="infoOpen"
-              @click="infoOpen = !infoOpen"
-            >
-              <!-- the map, as the Trip tab marks a route: the (i) is the page's, up top -->
-              <SvgIcon :icon="IconMap" />
-            </button>
-            <!-- the app's popover (MenuList, drawn as a card): a dialog, since it holds
-                 the route's details rather than a list of choices -->
-            <Transition name="menu">
-              <MenuList v-if="infoOpen" tag="div" side="start" role="dialog" aria-label="Route" class="spin-info">
-                <p class="spin-info__name">{{ spun?.name }}</p>
-                <p class="t-muted">{{ facts }}</p>
-                <button class="btn btn--soft spin-info__change" type="button" :disabled="busy" @click="changeRoute">
-                  {{ busy ? "Reading…" : "Change route…" }}
-                </button>
-              </MenuList>
-            </Transition>
-          </div>
           <OptionMenu
             :options="FORMATS"
             :current="format"
@@ -420,6 +448,19 @@ const saveLabel = computed(() =>
           >
             <template #trigger="{ open }">
               <span class="t-num">{{ videoSeconds(turns) }} s</span>
+              <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
+            </template>
+          </OptionMenu>
+          <OptionMenu
+            :options="REVEALS"
+            :current="reveal"
+            label="How the line appears"
+            :trigger-label="`How the line appears: ${revealLabel}`"
+            trigger-class="spin-menu"
+            @pick="pickReveal"
+          >
+            <template #trigger="{ active, open }">
+              <SvgIcon v-if="active?.icon" :icon="active.icon" aria-hidden="true" />
               <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
             </template>
           </OptionMenu>
@@ -480,7 +521,7 @@ const saveLabel = computed(() =>
 /* EXACTLY a screen, and nothing scrolls: the stage takes whatever the top bar and the dock
    leave, down to nothing on a short screen, rather than pushing the page past the window.
    The body is held still too (useHead above), as the editor holds its page.
-   The dock's control size lives here, not on the dock: the top bar's (i) is one too. */
+   The dock's control size lives here, not on the dock: the top bar's two buttons are it too. */
 .spin-screen {
   --dock-control: var(--field-h);
   --dock-pad: var(--space-2);
@@ -489,11 +530,12 @@ const saveLabel = computed(() =>
   height: 100svh;
   overflow: hidden;
 }
-/* the (i), at the trailing edge */
+/* the route's map and the (i), at the trailing edge, the dock's step between them */
 .spin-screen__top {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: var(--space-1);
   /* the window's full width, not the page column's: the (i) belongs in the corner at every
      size. .wrap still gives it the gutter, safe-area insets and all. */
   max-width: none;
@@ -540,8 +582,8 @@ const saveLabel = computed(() =>
   pointer-events: none;
 }
 
-/* THE DOCK (and the line under it): the video, in one plate. The route's map at the leading
-   end, its shape and length (each a menu showing the choice made), its colors, and Save.
+/* THE DOCK (and the line under it): the video, in one plate. Its shape, length and reveal
+   (each a menu showing the choice made), its colors, and Save.
    Sized and rounded like the portfolio's nav island (ExpandableTabs there): 36px controls
    (--field-h, set on .spin-screen as --dock-control) on 8px of padding, a 52px bar, 4px
    between controls, every control a pill and the plate's corner its padding plus theirs
@@ -593,6 +635,13 @@ const saveLabel = computed(() =>
 .spin-dock :deep(.spin-menu[aria-expanded="true"]) {
   background: var(--background-selected);
 }
+/* Under an iPhone's 375px (the 360px most Android phones are), three menus left the bar 6px
+   too wide for the screen and squeezed Save: each trigger gives up 8px of its padding. */
+@media (max-width: 23.4rem) {
+  .spin-dock :deep(.spin-menu) {
+    padding-inline: var(--space-2) var(--space-1);
+  }
+}
 .spin-dock__rule {
   flex: none;
   align-self: stretch;
@@ -641,8 +690,8 @@ const saveLabel = computed(() =>
   min-height: var(--control-compact);
   padding-inline: var(--space-3);
 }
-/* The round buttons: the page's (i), the route's map, and Save. Each the dock's control size;
-   .btn makes them pills. */
+/* The round buttons: the page's (i) and the route's map up top, and Save. Each the dock's
+   control size; .btn makes them pills. */
 .spin-round,
 .spin-dock__save {
   flex: none;

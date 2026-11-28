@@ -622,6 +622,18 @@ function parseRoute(fit: Uint8Array | null, text: string): Omit<RouteFile, "stat
   return { points: gpxPoints(doc), pins: filePins(doc), name: routeName(doc) };
 }
 
+/**
+ * A name for a route from its FILE's name, for a file that gives none of its own (a FIT, a
+ * GeoJSON, a TCX activity, a GPX without one): the name less its extension, with underscores
+ * read as the spaces they stand for ("Timberline_Trail_600.gpx" is "Timberline Trail 600").
+ * Undefined when what's left has no letter in it: a watch names its files by number
+ * ("17345678901.fit"), and a number isn't a name.
+ */
+export function fileRouteName(fileName: string): string | undefined {
+  const name = fileName.replace(/\.[^.]+$/, "").replace(/_+/g, " ").replace(/\s+/g, " ").trim();
+  return /\p{L}/u.test(name) ? name : undefined;
+}
+
 /** The route's own name: a GPX's metadata, track or route; a KML's document; a TCX course. */
 function routeName(doc: Document): string | undefined {
   for (const holder of ["metadata", "trk", "rte", "Document", "Course"]) {

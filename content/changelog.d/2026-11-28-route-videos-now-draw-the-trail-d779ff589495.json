@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-28",
+  "added": [
+    "Route videos now draw the trail on as it turns, or show it all at once; the page's example draws itself on too."
+  ],
+  "changed": [
+    "On the route video page, the route's details moved from the bar to the top corner, beside the info button."
+  ]
+}
