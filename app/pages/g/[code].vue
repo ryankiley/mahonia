@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { IconBackpack, IconSafeSimple, IconToolbox } from "~/icons/central";
 import type { Unit } from "~~/shared/types";
-import type { VaultEntry } from "~~/shared/vault";
-import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "~~/shared/ogCard";
+import type { VaultKitPart, VaultRowView } from "~~/shared/vault";
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH, ogCardAlt } from "~~/shared/ogCard";
+import { gearCardModel } from "~~/shared/ogGearCard";
 import { counted } from "~~/shared/tidyText";
-import { sharedGearSummary, sharedGearTitle, type SharedGear } from "~~/shared/vaultShare";
+import { sharedGearSummary, sharedGearTitle, type SharedGear, type SharedPiece } from "~~/shared/vaultShare";
 import { vaultSections } from "~~/shared/vaultView";
 
 // Someone's My Gear, through the read-only link they turned on (/g/{code}). What it may
 // show is decided server-side (shared/vaultShare.ts): Gear and Kits, no prices, the
 // owner's name only if they set one. This page draws it with My Gear's own sections and
-// rows, bare: nothing on it can be changed, and nothing about the reader is kept.
+// rows, bare: nothing on it can be changed, and nothing about the reader is kept (the
+// sections get no collapse key, so a section folded here is not remembered).
 const route = useRoute();
 const code = computed(() => String(route.params.code || ""));
 // computed URL, as the list share page does, so a /g/a → /g/b navigation refetches
@@ -22,7 +24,7 @@ useResponseHeader("Cache-Control").value = "private, no-store";
 if (import.meta.server && !data.value)
   setResponseStatus(useRequestEvent()!, 404);
 
-const items = computed<VaultEntry[]>(() => data.value?.items ?? []);
+const items = computed<SharedPiece[]>(() => data.value?.items ?? []);
 const pieces = computed(() => items.value.filter((e) => e.kind !== "kit"));
 const kits = computed(() => items.value.filter((e) => e.kind === "kit"));
 
@@ -36,25 +38,18 @@ const tabs = computed(() => [
 ]);
 const sections = computed(() => vaultSections(pieces.value, false));
 const kitNames = computed(() => new Map(kits.value.map((k) => [k.id, k.name])));
-const inKits = (e: VaultEntry) =>
+const inKits = (e: SharedPiece) =>
   e.inKits
     ?.map((id) => kitNames.value.get(id))
     .filter(Boolean)
     .join(", ") || undefined;
 // a kit's part as a row: the part carries its own name and weight (the piece may not be
-// on the page at all, a bar in a snack kit), shaped the way the row reads gear
-const partEntry = (
-  p: NonNullable<VaultEntry["parts"]>[number],
-): VaultEntry => ({
-  id: p.id,
-  normKey: "",
+// on the page at all, a bar in a snack kit), and that is all the row is given
+const partEntry = (p: VaultKitPart): VaultRowView => ({
   brand: p.brand,
   name: p.name,
   variant: p.variant,
   weightMg: p.weightMg,
-  timesSeen: 0,
-  lastUsedAt: "",
-  createdAt: "",
 });
 // grams, and each piece in the unit its owner picked for it; the reader's choice isn't
 // kept, as on a shared list
@@ -70,7 +65,9 @@ useHead({
 // THE PREVIEW a pasted link unfurls into (iMessage, Slack): the page's own title, its
 // counts as a sentence, and the card /og/g draws. Noindex still keeps the page out of
 // search; these tags only feed previews. While the link is off, every getter is empty and
-// the app's static site card stands, so a turned-off link advertises nothing.
+// the app's static site card stands, so a turned-off link advertises nothing. The image's
+// alt is the card's own model read as a sentence (ogCardAlt, as a list's is), so it says
+// what the card shows.
 const origin = useSiteOrigin();
 const description = computed(() => (data.value ? `${title.value} on Mahonia: ${summary.value}.` : undefined));
 useSeoMeta({
@@ -79,7 +76,7 @@ useSeoMeta({
   ogDescription: () => description.value,
   ogType: "website",
   ogImage: () => (data.value ? `${origin}/og/g/${code.value}` : undefined),
-  ogImageAlt: () => (data.value ? `${title.value}: ${summary.value}. On Mahonia.` : undefined),
+  ogImageAlt: () => (data.value ? ogCardAlt(gearCardModel(data.value)) : undefined),
   ogImageWidth: OG_IMAGE_WIDTH,
   ogImageHeight: OG_IMAGE_HEIGHT,
   ogImageType: () => (data.value ? "image/png" : undefined),
@@ -116,7 +113,6 @@ useSeoMeta({
           v-for="section in sections"
           :key="section.key"
           :label="section.label"
-          :collapse-key="`shared-${section.key}`"
         >
           <VaultGearRow
             v-for="entry in section.entries"
@@ -137,7 +133,6 @@ useSeoMeta({
           v-for="kit in kits"
           :key="kit.id"
           :label="kit.name"
-          :collapse-key="`shared-kit-${kit.id}`"
         >
           <VaultGearRow
             v-for="part in kit.parts ?? []"

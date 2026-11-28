@@ -529,6 +529,28 @@ describe("a kit on /gear", () => {
     expect(kitParts[0]).toEqual([1, 2, second]);
   });
 
+  // An input method's Enter confirms the word being composed (in Japanese, say), and is
+  // no pick: a list's add row leaves it to the input method (ItemInput), and so does a
+  // kit's.
+  it("leaves an Enter that confirms a composition to the input method", async () => {
+    const lamp = entry(5, "Lamp");
+    listRows = [stove, pot, kit, lamp];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+
+    const add = w.get<HTMLInputElement>('[data-kit-add="3"]');
+    add.element.focus();
+    await add.setValue("La");
+    await vi.waitFor(() => expect(w.findAll('.kitsec__menu [role="option"]')).toHaveLength(1));
+    await add.trigger("keydown", { key: "Enter", isComposing: true });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(kitParts).toEqual([]);
+    // the choice is still there to take once the word is in
+    await add.trigger("keydown", { key: "Enter" });
+    await vi.waitFor(() => expect(kitParts).toEqual([[1, 2, lamp.id]]));
+  });
+
   // Spaces alone are no search: the kits all still list, so the way to make another
   // stays at their foot. It went, where every other gate on the page trims the query.
   it("keeps New kit under the kits when the search holds only spaces", async () => {

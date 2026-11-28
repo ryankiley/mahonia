@@ -218,11 +218,14 @@ registerEndpoint("/api/edit/rotate", {
 // mutates: what restore promises is that nothing queued is sent after it.
 let restoreCalls: { snapshotId: unknown; auth: string | undefined; mutatesBefore: number }[] = [];
 let restoreFails = false;
+// holds the answer back until the case opens it, as rotateGate does
+let restoreGate: Promise<void> | null = null;
 registerEndpoint("/api/edit/restore", {
   method: "POST",
   handler: async (event) => {
     const body = await readBody<{ snapshotId?: unknown }>(event);
     restoreCalls.push({ snapshotId: body?.snapshotId, auth: event.headers.get("authorization") ?? undefined, mutatesBefore: mutateCalls });
+    if (restoreGate) await restoreGate;
     if (restoreFails) throw createError({ statusCode: 404 });
     return { snapshot: snapshotFor("Restored", 9) };
   },
@@ -300,6 +303,7 @@ beforeEach(() => {
   beaconWorks = true;
   restoreCalls = [];
   restoreFails = false;
+  restoreGate = null;
   heldGear = []; // the vault's answer is not module-scoped — it lives on the open list
   amongCalls = 0;
   amongFails = false;
@@ -514,6 +518,27 @@ describe("useGearList — restoring a recovery point", () => {
     expect(await restoring).toBe(false);
     expect(restoreCalls).toHaveLength(0);
     expect(c.snapshot.value?.title).toBe("Typed just before");
+  });
+
+  // Sent alongside the restore, an edit could reach the server first and be undone by
+  // it, then leave the queue on the flush's answer with nothing left to put back. So it
+  // waits for the restore's answer, and goes on top of the list that answer brings.
+  it("holds an edit typed while the restore is out, then sends it on top", async () => {
+    let answer!: () => void;
+    restoreGate = new Promise<void>((r) => (answer = r));
+    const c = await opened();
+    const restoring = c.restore(7);
+    await vi.waitFor(() => expect(restoreCalls).toHaveLength(1));
+    c.setMeta({ title: "Typed during the restore" });
+    // past the flush debounce: nothing may leave while the restore is out
+    await new Promise((r) => setTimeout(r, 100));
+    expect(mutateCalls).toBe(0);
+
+    answer();
+    expect(await restoring).toBe(true);
+    expect(c.snapshot.value).toMatchObject({ title: "Typed during the restore", version: 9 });
+    await awaitMutateInFlight();
+    expect(mutates[0]!.ops).toEqual([{ t: "setMeta", patch: { title: "Typed during the restore" } }]);
   });
 
   it("changes nothing when the server refuses", async () => {

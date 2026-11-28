@@ -267,10 +267,6 @@ function whoLabel(by: ChangeAuthor | null): string | null {
   if (by.kind === "you") return "You";
   return by.name;
 }
-// Only when more than one hand shows up in the log. A list only you have touched,
-// or only an assistant, would say so on every line and tell nobody anything. An
-// unnamed change counts as a hand of its own: beside an assistant's, it's the
-// difference worth seeing.
 // RESTORE: each entry is the list as it stood just before that change, so pressing it
 // undoes the change and everything since. The server keeps the list as it is now as a
 // point of its own first ("Restored an earlier version"), which is what the dialog's
@@ -295,6 +291,10 @@ function restoreTo(s: SnapshotMeta, i: number) {
   });
 }
 
+// Only when more than one hand shows up in the log. A list only you have touched,
+// or only an assistant, would say so on every line and tell nobody anything. An
+// unnamed change counts as a hand of its own: beside an assistant's, it's the
+// difference worth seeing.
 const whoKey = (by: ChangeAuthor | null) => (!by ? "" : by.kind === "named" ? `named:${by.name}` : by.kind);
 const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).size > 1);
 </script>

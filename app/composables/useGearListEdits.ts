@@ -2,7 +2,7 @@ import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
 import { MAX_ITEMS } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
-import { pickFromCatalog } from "~~/shared/catalogMatch";
+import { keptGearType, pickFromCatalog } from "~~/shared/catalogMatch";
 import { splitWeightTail } from "~~/shared/pasteList";
 import { counted, formatCount, tidyText } from "~~/shared/tidyText";
 import { isWaterName, waterMgFromMl, waterPhrase } from "~~/shared/water";
@@ -383,15 +383,11 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
           // ride onto the new product marked as a disagreement, with the "suggest a
           // fix" nudge then offering the wrong product's figure to everyone.
           const keeps = !!live.weightOverridden && live.unitWeightMg > 0;
-          // a gear type already on the row stays, and so does one the person cleared;
-          // a kept weight keeps its calories
+          // a gear type the person typed or emptied stays theirs, as a pick leaves it
+          // (keptGearType), and a kept weight keeps its calories
           const pick = pickFromCatalog(
             row,
-            {
-              weightMg: keeps ? live.unitWeightMg : undefined,
-              commonName: live.commonNameOverridden ? (live.commonName ?? "") : live.commonName,
-              kcal: keeps ? live.kcal : undefined,
-            },
+            { weightMg: keeps ? live.unitWeightMg : undefined, commonName: keptGearType(live), kcal: keeps ? live.kcal : undefined },
             { folderId: live.folderId, folders: snapshot.value!.folders },
           );
           dispatch({ t: "updateItem", id: live.id, patch: pick });

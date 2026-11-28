@@ -16,8 +16,10 @@ import { UNSPACED_NUMBER as NUM } from "./typedNumber";
 import { UNIT_ALIASES } from "./weights";
 
 // The unit words the weight field itself reads (shared/weights, the one vocabulary), and
-// its number token, imported (".9 oz" is a weight there, so it is one here). Longest alias first,
-// so "grams" is not read as "g" + "rams".
+// a typed number by the rule that field reads it by (shared/typedNumber), so ".9 oz" is a
+// weight here as it is there. Never space-grouped: the words before a trailing weight can
+// end in a number of their own ("iPhone 15 171 g"). Longest alias first, so "grams" is
+// not read as "g" + "rams".
 const UNIT_WORDS = Object.keys(UNIT_ALIASES).sort((a, b) => b.length - a.length).join("|");
 // one figure with its unit, and any compounds after it ("2 lb 3 oz" is one weight; the
 // field parser sums it, so the tail must hand all of it on)

@@ -639,20 +639,23 @@ export function formatKcal(kcal: number): string {
   return groupedTo(0).format(Math.round(kcal));
 }
 
-// The whole of a calories field: one typed number and nothing else.
-const KCAL_FIELD = new RegExp(String.raw`^[-+]?${TYPED_NUMBER}$`);
+// What may follow the figure in a calories field: nothing, or the unit ("kcal", "Cal",
+// "calories").
+const KCAL_UNIT = /^\s*(?:k?cal(?:orie)?s?\.?)?\s*$/i;
 
 /**
  * A calorie count as typed, or null for nothing typed and for anything that isn't a
  * number. The other way round from formatKcal: the line beside the field prints
- * "2,700 kcal", so a number typed back the way the app wrote it reads as that number
- * rather than as not a number, which cleared the calories. Read by the rule every typed
- * number is (shared/typedNumber) and rounded to a whole one, as a stored count is, so
- * "1,5" is 2. Sign and the ceiling are whoever stores it (kcalOf).
+ * "2,700 kcal", so a number typed back the way the app wrote it, unit and all, reads as
+ * that number rather than as not a number, which cleared the calories. The leading
+ * figure is read as a number cell's is (parseDecimal), by the rule every typed number
+ * is (shared/typedNumber), and rounded to a whole one, as a stored count is, so "1,5"
+ * is 2. Sign and the ceiling are whoever stores it (kcalOf).
  */
 export function parseKcal(raw: string): number | null {
-  const typed = raw.trim();
-  const n = KCAL_FIELD.test(typed) ? parseNumberToken(typed, { whole: true }) : Number.NaN;
+  const figure = LEADING_NUMBER.exec(raw);
+  if (!figure || !KCAL_UNIT.test(raw.slice(figure[0].length))) return null;
+  const n = parseNumberToken(figure[1]!, { whole: true });
   return Number.isFinite(n) ? n : null;
 }
 

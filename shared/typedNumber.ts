@@ -24,7 +24,9 @@ export interface NumberRule {
    *  For prices: nobody quotes one to a tenth of a cent, and "1.299" is how half of
    *  Europe writes thirteen hundred. */
   dotThousands?: boolean;
-  /** Round to a whole number. For calories, which are stored whole. */
+  /** Round to a whole number. For calories, which are stored whole. Its lone dot with
+   *  three digits behind groups thousands, as a price's does: a whole number has no
+   *  decimals to mean, so "2.700" is 2700, never 2.7 rounded to 3. */
   whole?: boolean;
 }
 
@@ -68,15 +70,16 @@ export function parseNumberToken(token: string, rule: NumberRule = {}): number {
   const t = m[2]!;
 
   // The last separator is the decimal point unless it groups. A space always groups, and
-  // so does a separator that comes twice; a comma (or a price's dot) that comes once
-  // groups with exactly three digits behind it and a group's head before it. Whatever
-  // groups must group in threes (WHOLE_PART), or the token is not one number.
+  // so does a separator that comes twice; a comma (or the dot of a price or a whole
+  // number) that comes once groups with exactly three digits behind it and a group's head
+  // before it. Whatever groups must group in threes (WHOLE_PART), or the token is not one
+  // number.
   const at = Math.max(t.lastIndexOf(","), t.lastIndexOf("."), t.lastIndexOf(" "));
   const last = t[at];
   let decimal = false;
   if (last && last !== " " && t.indexOf(last) === at) {
     const groups = t.length - at - 1 === 3 && GROUP_HEAD.test(t.slice(0, at));
-    decimal = last === "," ? !groups : !(groups && rule.dotThousands);
+    decimal = last === "," ? !groups : !(groups && (rule.dotThousands || rule.whole));
   }
 
   const whole = decimal ? t.slice(0, at) : t;

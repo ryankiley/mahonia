@@ -2,8 +2,9 @@
 // What the link shows is decided in shared/vaultShare.ts (sharedGear); this module only
 // finds the vault and its owner's name.
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
-import { users, vaults } from "../db/schema";
+import { vaults } from "../db/schema";
 import { isUniqueViolation, type Db } from "./db";
+import { chosenName } from "./listRepo";
 import { listVaultItems } from "./vaultRepo";
 import { randomShareCode } from "./tokens";
 import { normalizeShareCode } from "../../shared/links";
@@ -70,9 +71,6 @@ export async function sharedGearByCode(
     .from(vaults)
     .where(and(eq(vaults.shareCode, code), isNotNull(vaults.userId)));
   if (!vault) return null;
-  const [owner] = await db
-    .select({ name: users.displayName })
-    .from(users)
-    .where(eq(users.id, vault.userId!));
-  return sharedGear(await listVaultItems(db, vault.id), owner?.name);
+  // the name the owner chose, on the rule a list's byline follows (listRepo's chosenNames)
+  return sharedGear(await listVaultItems(db, vault.id), await chosenName(db, vault.userId!));
 }

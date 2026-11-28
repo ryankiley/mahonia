@@ -56,12 +56,11 @@ describe("sharedGear: what the link shows", () => {
     ],
   });
 
-  it("builds each piece from the fields allowed out: no price, link, catalog id, pins, counts or dates", () => {
-    const { items } = sharedGear([tent, kit], null);
+  it("builds each piece from the fields allowed out: no price, link, catalog id, key, pins, counts or dates", () => {
+    const { items } = sharedGear([tent, kit], undefined);
     const shown = items.find((i) => i.name === "X-Mid 2")!;
     expect(shown).toEqual({
       id: 1,
-      normKey: "",
       brand: "Durston",
       name: "X-Mid 2",
       commonName: "Tent",
@@ -70,16 +69,13 @@ describe("sharedGear: what the link shows", () => {
       owned: 2,
       classification: "worn",
       weightMg: 539_000,
-      timesSeen: 0,
-      lastUsedAt: "",
-      createdAt: "",
       inKits: [2],
       specs: "persons=2",
     });
   });
 
   it("leaves food off the page, but keeps it as a part where a kit holds it", () => {
-    const { items } = sharedGear([tent, bar, kit], null);
+    const { items } = sharedGear([tent, bar, kit], undefined);
     expect(items.map((i) => i.name)).toEqual(["X-Mid 2", "Shelter kit"]);
     const k = items.find((i) => i.kind === "kit")!;
     expect(k.parts!.map((p) => [p.name, p.qty])).toEqual([
@@ -89,7 +85,7 @@ describe("sharedGear: what the link shows", () => {
   });
 
   it("renumbers every id and keeps the references between pieces pointing at the same things", () => {
-    const { items } = sharedGear([tent, bar, kit], null);
+    const { items } = sharedGear([tent, bar, kit], undefined);
     const ids = items.map((i) => i.id);
     expect(ids).toEqual([1, 2]);
     const k = items.find((i) => i.kind === "kit")!;
@@ -106,10 +102,18 @@ describe("sharedGear: what the link shows", () => {
     expect(refs.every((n) => n >= 1 && n <= 3)).toBe(true);
   });
 
-  it("names the owner only by the name they set, trimmed, and otherwise not at all", () => {
-    expect(sharedGear([tent], " Ryan ").owner).toBe("Ryan");
-    expect("owner" in sharedGear([tent], "   ")).toBe(false);
-    expect("owner" in sharedGear([tent], null)).toBe(false);
+  // The owner's own page lists a put-away part as "removed" and leaves it out of the
+  // kit's weight; a reader's page drew it as one of the kit's items.
+  it("leaves out a part the owner has put away", () => {
+    const stakes = { id: 503, qty: 6, name: "Old stakes", weightMg: 9_000, removed: true };
+    const withStakes = { ...kit, parts: [...kit.parts!, stakes] };
+    const k = sharedGear([tent, withStakes], undefined).items.find((i) => i.kind === "kit")!;
+    expect(k.parts!.map((p) => p.name)).toEqual(["X-Mid 2", "Clif Bar"]);
+  });
+
+  it("names the owner by the name they chose, and otherwise not at all", () => {
+    expect(sharedGear([tent], "Ryan").owner).toBe("Ryan");
+    expect("owner" in sharedGear([tent], undefined)).toBe(false);
   });
 });
 
@@ -149,6 +153,16 @@ describe("the link, on PGlite", () => {
     const gear = (await sharedGearByCode(db, code.toLowerCase()))!;
     expect(gear.owner).toBe("Sam");
     expect(gear.items.map((i) => i.name)).toEqual(["Duplex"]);
+  });
+
+  it("names the owner only by a name they set, trimmed, as a list's byline does", async () => {
+    const code = (await setVaultShare(db, vaultId, true))!;
+    await db.update(users).set({ displayName: "  Sam  " });
+    expect((await sharedGearByCode(db, code))!.owner).toBe("Sam");
+    await db.update(users).set({ displayName: "   " });
+    expect("owner" in (await sharedGearByCode(db, code))!).toBe(false);
+    await db.update(users).set({ displayName: null });
+    expect("owner" in (await sharedGearByCode(db, code))!).toBe(false);
   });
 
   it("answers nothing for a mistyped code, or a vault no account owns", async () => {

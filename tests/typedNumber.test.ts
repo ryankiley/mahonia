@@ -92,8 +92,8 @@ const TABLE: Row[] = [
   ["0,750", 0.75, { kcal: 1, csvKcal: 1 }],
   ["1234,567", 1234.567, { price: 1234.57, kcal: 1235, csvKcal: 1235 }],
 
-  // ---- a lone dot is the decimal point, except in a price ----
-  ["1.234", 1.234, { price: 1234, kcal: 1, csvKcal: 1 }],
+  // ---- a lone dot is the decimal point, except in a price or a whole number ----
+  ["1.234", 1.234, { price: 1234, kcal: 1234, csvKcal: 1234 }],
   ["0.250", 0.25, { kcal: 0, csvKcal: NO }],
 
   // ---- two numbers stay two ----
@@ -288,6 +288,13 @@ describe("parseNumberToken — the rule itself", () => {
     expect(parseNumberToken("1,5", { whole: true })).toBe(2);
     expect(parseNumberToken("-1,5", { whole: true })).toBe(-2);
     expect(parseNumberToken("2,700", { whole: true })).toBe(2700);
+  });
+
+  it("reads a whole-number field's lone dot with three digits behind it as thousands", () => {
+    // nobody means 2.7 calories: "2.700" is how half of Europe writes 2,700
+    expect(parseNumberToken("2.700", { whole: true })).toBe(2700);
+    expect(parseNumberToken("2.7", { whole: true })).toBe(3);
+    expect(parseNumberToken("0.700", { whole: true })).toBe(1);
   });
 
   it("keeps a sign, drops a trailing separator, and refuses what isn't one number", () => {

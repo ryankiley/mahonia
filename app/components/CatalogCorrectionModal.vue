@@ -8,6 +8,9 @@ const weight = ref("");
 const sourceUrl = ref("");
 const reason = ref("");
 const edited = ref(false); // did the user touch the weight field?
+// why a typed figure wasn't sent, shown under the field until it is typed again
+const error = ref("");
+const errorId = useId();
 const weightField = useTemplateRef<HTMLInputElement>("weightField");
 
 // prefill the user's current weight as the suggestion whenever the dialog opens —
@@ -21,6 +24,7 @@ watch(
       sourceUrl.value = "";
       reason.value = "";
       edited.value = false;
+      error.value = "";
     }
   },
   { immediate: true },
@@ -41,19 +45,31 @@ watch(
   { flush: "post" },
 );
 
+function onWeightInput() {
+  edited.value = true;
+  error.value = "";
+}
+
 async function onSubmit() {
   // if the field is untouched, send the EXACT integer mg (formatWeight→parse is
   // lossy and locale-dependent); only parse the string when the user edited it.
   // Parsed HERE, in the unit the card is showing, the way a row's weight field reads a
-  // bare number in its row's unit. The server only ever sees the text, and reads a
-  // figure with no unit as grams: on a list in ounces, "30" over "31.3 oz" proposed
-  // thirty grams for everyone. A figure this can't read still goes as typed, so the
-  // server's refusal is the answer.
+  // bare number in its row's unit, and sent as milligrams: on a list in ounces, "30"
+  // over "31.3 oz" is thirty ounces. A figure that doesn't read as a weight is refused
+  // here, with the reason under the field, rather than sent for the server to refuse.
   const asked = target.value;
-  const typedMg = edited.value && asked ? parseWeightInput(weight.value, asked.displayUnit) : null;
+  if (!asked) return;
+  let weightMg = asked.suggestedMg;
+  if (edited.value) {
+    const typedMg = parseWeightInput(weight.value, asked.displayUnit);
+    if (typedMg == null || typedMg <= 0) {
+      error.value = "That isn’t a weight. Try “540 g” or “1.2 kg”.";
+      return;
+    }
+    weightMg = typedMg;
+  }
   const res = await submit({
-    weight: edited.value && typedMg === null ? weight.value : undefined,
-    weightMg: edited.value ? (typedMg ?? undefined) : target.value?.suggestedMg,
+    weightMg,
     sourceUrl: sourceUrl.value.trim() || undefined,
     reason: reason.value.trim() || undefined,
   });
@@ -76,8 +92,21 @@ async function onSubmit() {
 
       <label class="dlg__field">
         <span class="t-muted">Correct weight</span>
-        <input ref="weightField" v-model="weight" class="field" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" @input="edited = true" @keydown.enter="onSubmit" />
+        <input
+          ref="weightField"
+          v-model="weight"
+          class="field"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          :aria-invalid="error ? true : undefined"
+          :aria-describedby="error ? errorId : undefined"
+          @input="onWeightInput"
+          @keydown.enter="onSubmit"
+        />
       </label>
+      <p v-if="error" :id="errorId" role="alert">{{ error }}</p>
       <label class="dlg__field">
         <span class="t-muted">Source link <em>(a maker’s or shop’s page applies it right away)</em></span>
         <input v-model="sourceUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
