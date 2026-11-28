@@ -115,7 +115,7 @@ const MENU_ACTIONS = [
            row-specific state: Duplicate is a navigation, and a second press mid-copy
            would mint a second list. -->
       <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
-        <button type="button" data-row role="menuitem" class="menu__item" :disabled="a.busy?.value" @click="close(); a.run()">
+        <button type="button" role="menuitem" class="menu__item" :disabled="a.busy?.value" @click="close(); a.run()">
           <SvgIcon :icon="a.icon" aria-hidden="true" />
           {{ a.label }}
         </button>
@@ -144,7 +144,7 @@ const MENU_ACTIONS = [
              more here than anywhere else in the menu: reporting is the one row a reader
              should recognise without reading, and the one they should never hit by
              mistake reaching for the row above. -->
-        <button type="button" data-row role="menuitem" class="menu__item" @click="close(); reportThis()">
+        <button type="button" role="menuitem" class="menu__item" @click="close(); reportThis()">
           <SvgIcon :icon="IconFlag1" aria-hidden="true" />
           Report this list
         </button>

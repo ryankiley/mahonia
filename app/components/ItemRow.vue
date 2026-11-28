@@ -1595,19 +1595,19 @@ function dismissFix() {
                  "Dismiss" left to be guessed (Ryan, 2026-11-27: "is this the copy you'd
                  use?"). The glyphs say the same three things: swap, tick, pencil. -->
             <li role="none">
-              <button type="button" data-row role="menuitem" class="menu__item item__fixuse" @click="menu.close(); useCatalogWeight()">
+              <button type="button" role="menuitem" class="menu__item item__fixuse" @click="menu.close(); useCatalogWeight()">
                 <SvgIcon :icon="IconArrowsRepeatCircle" aria-hidden="true" />
                 Use {{ catalogShown }} from the catalog
               </button>
             </li>
             <li role="none">
-              <button type="button" data-row role="menuitem" class="menu__item item__fixdismiss" @click="menu.close(); dismissFix()">
+              <button type="button" role="menuitem" class="menu__item item__fixdismiss" @click="menu.close(); dismissFix()">
                 <SvgIcon :icon="IconCheckmark1Medium" aria-hidden="true" />
                 Keep {{ formatWeight(item.unitWeightMg, rowUnit) }}
               </button>
             </li>
             <li role="none" class="menu__foot">
-              <button type="button" data-row role="menuitem" class="menu__item item__fixsuggest" @click="menu.close(); openFix()">
+              <button type="button" role="menuitem" class="menu__item item__fixsuggest" @click="menu.close(); openFix()">
                 <SvgIcon :icon="IconPencil2" aria-hidden="true" />
                 Suggest a catalog fix…
               </button>
@@ -1948,7 +1948,7 @@ function dismissFix() {
               tooltip
             >
               <li v-for="a in nestActions" :key="a.label" role="none">
-                <button type="button" data-row role="menuitem" class="menu__item" @click="menu.close(); a.run()">
+                <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
                   <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
                 </button>
@@ -1982,7 +1982,6 @@ function dismissFix() {
                 <button
                   type="button"
                   role="menuitemradio"
-                  data-row
                   class="menu__item item__personpick"
                   :class="{ 'is-active': e.active }"
                   :aria-checked="e.active"
@@ -2052,7 +2051,7 @@ function dismissFix() {
                 role="none"
                 :class="{ item__nestact: a.nest, menu__foot: i === overflowActions.length - 1 }"
               >
-                <button type="button" data-row role="menuitem" class="menu__item" @click="menu.close(); a.run()">
+                <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
                   <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
                 </button>

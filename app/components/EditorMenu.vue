@@ -140,7 +140,7 @@ function act(event: MenuEvent | FootEvent) {
     <MenuList v-if="open" class="editor__actions" aria-label="More actions">
       <!-- Close BEFORE the action runs, matching the old dispatch order. -->
       <li v-for="a in menuActions" :key="a.label" role="none">
-        <button type="button" data-row role="menuitem" class="menu__item" @click="act(a.event)">
+        <button type="button" role="menuitem" class="menu__item" @click="act(a.event)">
           <SvgIcon :icon="a.icon" aria-hidden="true" />
           {{ a.label }}
         </button>
@@ -153,7 +153,6 @@ function act(event: MenuEvent | FootEvent) {
           v-for="a in siteActions"
           :key="a.label"
           type="button"
-          data-row
           role="menuitem"
           class="menu__item"
           @click="act(a.event)"
@@ -161,7 +160,7 @@ function act(event: MenuEvent | FootEvent) {
           <SvgIcon :icon="a.icon" aria-hidden="true" />
           {{ a.label }}
         </button>
-        <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" data-row role="menuitem" class="menu__item" @click="emit('close')">
+        <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" role="menuitem" class="menu__item" @click="emit('close')">
           <SvgIcon :icon="l.icon" aria-hidden="true" />
           {{ l.label }}
         </NuxtLink>
@@ -185,7 +184,6 @@ function act(event: MenuEvent | FootEvent) {
         <button
           v-if="!openedByCode"
           type="button"
-          data-row
           role="menuitem"
           class="menu__item"
           @click="act('forget')"
@@ -195,8 +193,6 @@ function act(event: MenuEvent | FootEvent) {
         </button>
         <button
           type="button"
-          data-row
-          data-row-hue
           role="menuitem"
           class="menu__item editor__delete"
           @click="act('delete')"
@@ -217,7 +213,7 @@ function act(event: MenuEvent | FootEvent) {
   overscroll-behavior: contain;
 }
 /* The shared .menu__foot (controls.scss) separates list, site, and destructive
-   actions. Its rule spans the same width as the travelling plate. */
+   actions. Its rule spans the same width as a row's hover. */
 /* THE ONE COLOURED ROW IN THE CHROME. It was --foreground-tertiary with the trash glyph
    doing the distinguishing, on the monochrome rule in tokens.scss; it now spends
    --danger, and the token's comment has been widened to say so rather than left asserting
@@ -225,9 +221,8 @@ function act(event: MenuEvent | FootEvent) {
    The colour is here to be read BEFORE you touch it — a row that only turns red once
    you're on it has already let you arrive. That is the design system's argument for
    .ds-menu__item--danger, and this is its port.
-   [data-row-hue] in the markup is what opts this row into the plate washing it in
-   its OWN hue rather than the neutral one (useMenuPlate reads the colour straight
-   off this declaration), so every other menu in the app is untouched.
+   Its hover and focus wash is mixed from its own red rather than the neutral foreground
+   (below), so a grey fill under red text can't say "a row like the others".
    No hover deepen. The wash is the state — moving the foreground as well would say two
    things about one event, and there is nowhere darker for red to go that doesn't
    read as a different colour. */
@@ -236,5 +231,18 @@ function act(event: MenuEvent | FootEvent) {
    red is what this menu reserves for that. */
 .editor__delete {
   color: var(--danger);
+  /* --background-hover's amounts, mixed from this row's own colour (currentColor) */
+  --delete-wash: light-dark(
+    color-mix(in oklab, currentColor var(--background-hover-opacity), transparent),
+    color-mix(in oklab, currentColor var(--background-hover-opacity-dark), transparent)
+  );
+}
+.editor__delete:focus-visible {
+  background: var(--delete-wash);
+}
+@media (hover: hover) and (pointer: fine) {
+  .editor__delete:hover {
+    background: var(--delete-wash);
+  }
 }
 </style>

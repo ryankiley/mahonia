@@ -6,7 +6,7 @@ import { SITE_LINKS } from "~/utils/siteLinks";
 // carry, in the one place that didn't have one.
 //
 // A COMPONENT rather than markup inside gear.vue, matching ListMenu and
-// ReadonlyMenu, and only its ROWS: the popover, the travelling plate and the dismiss
+// ReadonlyMenu, and only its ROWS: the popover and the dismiss
 // rules are KebabMenu's, so they can't behave differently here from any other menu
 // on the site, and the page is long enough already. It holds no logic of its own on
 // purpose — the actions are the page's, and it only says which one you picked.
@@ -47,7 +47,7 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
       <!-- the way out to a blank list: a checklist with a plus, the one glyph here that
            isn't about this page's gear -->
       <li role="none">
-        <NuxtLink to="/e" data-row role="menuitem" class="menu__item" @click="close()">
+        <NuxtLink to="/e" role="menuitem" class="menu__item" @click="close()">
           <SvgIcon :icon="IconSquareChecklist" aria-hidden="true" />
           Create a list
         </NuxtLink>
@@ -58,7 +58,7 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
            deliberate act — the downloads below it are the ones you reach for without
            thinking. -->
       <li v-if="signedIn" role="none" class="menu__foot">
-        <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'import')">
+        <button type="button" role="menuitem" class="menu__item" @click="close(); emit('pick', 'import')">
           <!-- the marks the editor's Import row and the list exports wear, so one act
                keeps one picture wherever you meet it -->
           <SvgIcon :icon="IconFileArrowLeftIn" aria-hidden="true" />
@@ -67,11 +67,11 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
         <!-- the same two words the editor's and the read views' export rows use, so
              one action keeps one name wherever you meet it -->
         <template v-if="canExport">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'csv')">
+          <button type="button" role="menuitem" class="menu__item" @click="close(); emit('pick', 'csv')">
             <SvgIcon :icon="IconFileExcel" aria-hidden="true" />
             Download CSV
           </button>
-          <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'json')">
+          <button type="button" role="menuitem" class="menu__item" @click="close(); emit('pick', 'json')">
             <SvgIcon :icon="IconBrackets1" aria-hidden="true" />
             Download JSON
           </button>
@@ -80,11 +80,11 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
       <!-- the site foot, ruled off from this page's own rows: for everyone, signed in or
            not, since it is now the only way from here to these three -->
       <li role="none" class="menu__foot">
-        <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'feedback')">
+        <button type="button" role="menuitem" class="menu__item" @click="close(); emit('pick', 'feedback')">
           <SvgIcon :icon="IconBug" aria-hidden="true" />
           Send feedback…
         </button>
-        <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" data-row role="menuitem" class="menu__item" @click="close()">
+        <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" role="menuitem" class="menu__item" @click="close()">
           <SvgIcon :icon="l.icon" aria-hidden="true" />
           {{ l.label }}
         </NuxtLink>

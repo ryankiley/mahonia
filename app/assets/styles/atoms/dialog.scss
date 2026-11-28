@@ -47,8 +47,7 @@
    full-width controls — an email field, a submit — and at 30rem
    those stretch into bands. 26rem is the width the same markup capped itself at when
    it was a page of its own; the dialog is the measure now.
-   Opt-in via :has(), the same way .menu__plate attaches — no prop to thread through
-   BaseModal for one caller's width. */
+   Opt-in via :has() — no prop to thread through BaseModal for one caller's width. */
 .dlg:has(> .acct),
 .dlg:has(> .acctmodal__head) {
   max-width: var(--container-account);

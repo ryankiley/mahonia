@@ -452,7 +452,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --radius-5: calc(32 * var(--px));
   /* the corner of a row or a well sitting INSIDE a --radius-4 surface, one --space-2
      in from its edge: concentric with the card, so an inner curve is never rounder than
-     the box holding it. Read by the menu rows, the travelling plate and the typing well
+     the box holding it. Read by the menu rows and the typing well
      (atoms/controls.scss). Here rather than on .popover because the well is worn on the
      page and in dialogs as well as in popovers. */
   --popover-item-radius: calc(var(--radius-4) - var(--space-2));
@@ -481,10 +481,10 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
        --spring-pop   arrivals: a figure that changed, a menu or dialog coming in, the
                       folders cascading on load, the pane itself. The one visible
                       bounce. 380ms, bounce 0.2 (peaks about 1.5% past).
-       --spring-track an indicator chasing the pointer: the calendar's day pip, the
-                      menus' travelling plate. 140ms, no bounce, LAUNCHED — on the
-                      step spring the pip trailed the cursor by most of a beat and
-                      read as broken (Ryan, 2026-10-17). It follows a hand, so it has
+       --spring-track an indicator chasing the pointer: the switch's knob. 140ms,
+                      no bounce, LAUNCHED — on the step spring the calendar's old
+                      day pip trailed the cursor by most of a beat and read as
+                      broken (Ryan, 2026-10-17). It follows a hand, so it has
                       to be moving on the first frame and nearly there by the time
                       the hand has moved on.
      Exits keep their asymmetry by running on a fraction of the fade's beat, never on
@@ -574,7 +574,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      shadow draws that edge there. */
   --surface-2: light-dark(#ffffff, #2c2c2c);
   /* ---- the row wash on those surfaces: HOW MUCH FOREGROUND a row takes to show it's the one
-     you're on (a menu row under the pointer, the travelling plate, the open "Add to"),
+     you're on (a menu row under the pointer, the open "Add to"),
      as an AMOUNT rather than a colour — so something that isn't drawn in plain foreground can
      mix the same number with its own (the ⋯ menu's destructive row washes red from
      --background-hover-opacity). Lifted from the design system's --wash-* tokens, which

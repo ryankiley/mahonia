@@ -102,30 +102,6 @@ function pick(v: string) {
 const focused = ref<string>(props.start ?? props.end ?? today);
 const gridEl = useTemplateRef<HTMLElement>("gridEl");
 
-// ---- the tracking pip ----
-// One highlight that GLIDES to the day under the cursor, instead of every cell lighting
-// its own hover. Same device as the menus' travelling plate (.menu__plate, controls.scss):
-// a single absolutely-positioned box translated into place on the step spring, so the
-// cursor tracks rather than blinks.
-// It follows the POINTER while the pointer is in the grid and the KEYBOARD's day the
-// rest of the time — so the two ways of moving around this grid share one cursor
-// instead of each having its own, and arrowing after mousing picks up where you left
-// off rather than jumping back.
-const hovered = ref<string | null>(null);
-function onOver(e: MouseEvent) {
-  // Only days move it. Crossing a lead-in blank or the weekday letters leaves the pip
-  // where it was rather than snapping it home mid-sweep.
-  const day = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-iso]");
-  if (day) hovered.value = day.dataset.iso!;
-}
-
-/** Grid coordinates of the day the pip sits on, or null if that day isn't on screen. */
-const pip = computed(() => {
-  const i = cells.value.findIndex((c) => c?.iso === (hovered.value ?? focused.value));
-  // +1 row: the weekday letters are the grid's first row, and the pip shares the grid.
-  return i < 0 ? null : { col: i % 7, row: Math.floor(i / 7) + 1 };
-});
-
 /**
  * Move the roving tab stop AND the real DOM focus together.
  *
@@ -199,20 +175,7 @@ onMounted(() => {
       role="grid"
       :aria-label="monthLabel"
       @keydown="onKey"
-      @mouseover="onOver"
-      @mouseleave="hovered = null"
     >
-      <!-- The cursor, and purely decorative: it marks where you are, and both things it
-           tracks are already announced (the focused cell by focus, the range by
-           aria-selected). It leads the cells so it can't intercept their clicks. -->
-      <span
-        v-if="pip"
-        class="cal__pip"
-        aria-hidden="true"
-        :style="{
-          translate: `calc(var(--icon-btn) * ${pip.col}) calc((var(--icon-btn) + var(--space-half)) * ${pip.row})`,
-        }"
-      />
       <span v-for="(w, i) in WEEKDAYS" :key="i" class="t-muted cal__wd" aria-hidden="true">{{ w }}</span>
       <!-- keyed by DATE, not index: a month change must replace these nodes, not
            repaint them in place under whatever still holds focus -->
@@ -260,12 +223,12 @@ onMounted(() => {
      DARKER than the surface under it. The selected span read as a faint dent instead
      of a fill. Foreground over the surface holds in both schemes because
      --foreground-primary inverts with them, which is the same reason .popover mixes its
-     own hover. Mixed into --surface-1 rather than into `transparent`, so it is OPAQUE: the
-     pip tracks underneath these cells, and a translucent band would let it show
-     through as a travelling smudge. That ties the band to the surface the picker is
-     used on — it has only ever been opened inside that popover, and the pip's
-     containing grid is the same element, so the two can't be separated by accident. */
+     own hover. Mixed into --surface-1 rather than into `transparent`, so it is OPAQUE.
+     That ties the band to the surface the picker is used on — it has only ever been
+     opened inside that popover. */
   --cal-band: color-mix(in oklab, var(--foreground-primary) 14%, var(--surface-1));
+  /* a day under the pointer or the keyboard */
+  --cal-hover: color-mix(in oklab, var(--foreground-primary) 12%, transparent);
 }
 .cal__head {
   display: flex;
@@ -285,31 +248,6 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(7, var(--icon-btn));
   row-gap: var(--space-half);
-  /* the pip's containing block. `isolate` keeps its z-index:-1 inside this grid —
-     without a stacking context here that negative layer resolves against whatever
-     ancestor happens to make one, and the pip would hunt for a surface to hide behind. */
-  position: relative;
-  isolation: isolate;
-}
-/* The tracking cursor. Sits UNDER the cells (z-index below their in-flow backgrounds)
-   so the range paints over it — the pip slides behind the selected span and out the
-   other side instead of veiling the dates it passes. */
-.cal__pip {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: -1;
-  inline-size: var(--icon-btn);
-  block-size: var(--icon-btn);
-  border-radius: var(--radius-2);
-  background: color-mix(in oklab, var(--foreground-primary) 12%, transparent);
-  pointer-events: none;
-  /* the track spring — quick, never overshoots — same rule as the menus' plate: a cursor that
-     overshoots lands on the wrong day, however briefly. Under the POINTER only: walked by
-     the arrow keys it lands in one frame, like everything the keyboard moves
-     (atoms/modality.scss) */
-  transition: translate var(--spring-track-dur) var(--spring-track);
-  will-change: translate;
 }
 .cal__wd {
   display: grid;
@@ -332,21 +270,22 @@ onMounted(() => {
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
-/* no background here — the pip IS the hover, and a fill under it would double the mark
-   and kill the sense that one cursor is moving. Pointer-gated — it paints (see the note
-   on .btn:hover, controls.scss): a tapped day kept its hover foreground after the finger
-   left. */
+/* Each day lights its own hover. Pointer-gated — it paints (see the note on .btn:hover,
+   controls.scss): a tapped day kept its hover after the finger left. Before the range
+   rules below, same specificity, so a day in the range keeps its band. */
 @media (hover: hover) and (pointer: fine) {
   .cal__day:hover {
+    background: var(--cal-hover);
     color: var(--foreground-primary);
   }
 }
 /* The grid is one tab stop and the arrows walk it, so the focused day has to be
    visible — without a cue you are moving an invisible caret around a month. Only on
    :focus-visible, so a mouse click doesn't leave a ring behind. The ring is the reset's
-   own, drawn inward so it sits inside the cell; it follows the cell's corner, which the
-   rules around this one already set for every state. */
+   own, drawn inward so it sits inside the cell, over the hover's fill; it follows the
+   cell's corner, which the rules around this one already set for every state. */
 .cal__day:focus-visible {
+  background: var(--cal-hover);
   outline-offset: var(--focus-offset-inset);
 }
 /* today is MARKED, not selected — a ring rather than a fill, so it can't be mistaken
@@ -364,8 +303,7 @@ onMounted(() => {
   color: var(--foreground-primary);
   border-radius: 0;
 }
-/* The pip is masked while it's under the band, so an in-range day answers the pointer
-   itself — by DEEPENING. Lightening would read as leaving the range, the one direction
+/* An in-range day answers the pointer by DEEPENING its band. Lightening would read as leaving the range, the one direction
    that means the opposite of what hovering a selected day is doing. */
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). Position in
    the file is unchanged, so it still lands after .is-between and before the ends. */

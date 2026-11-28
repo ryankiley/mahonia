@@ -19,7 +19,7 @@ import { SvgIcon } from "~/utils/icon";
 defineProps<{ sharing: boolean | null }>();
 const emit = defineEmits<{ close: []; copy: []; stop: [] }>();
 
-const { plateRef, listRef, on } = useMenuPlate();
+const listRef = useTemplateRef<HTMLElement>("listRef");
 const { atStart, above, place } = useMenuPlacement(listRef);
 onMounted(place);
 
@@ -36,9 +36,7 @@ function act(run: () => void) {
     :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
     role="dialog"
     aria-label="Sharing"
-    v-on="on"
   >
-    <span ref="plateRef" class="menu__plate" aria-hidden="true" />
     <ul>
       <li>
         <ShareRow
@@ -49,7 +47,7 @@ function act(run: () => void) {
         />
       </li>
       <li v-if="sharing" class="menu__foot">
-        <button type="button" data-row class="menu__item" @click="act(() => emit('stop'))">
+        <button type="button" class="menu__item" @click="act(() => emit('stop'))">
           <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />
           Stop sharing
         </button>

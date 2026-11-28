@@ -18,8 +18,8 @@ import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 // the one beside the CSV. They are one question (how do I get this to someone), so
 // they are one panel.
 //
-// Both tabs draw their rows the menu's way: `.menu__item`, `[data-row]`, the
-// travelling plate, the glyph in the menu's one glyph column, plus a second line.
+// Both tabs draw their rows the menu's way: `.menu__item`, the glyph in the menu's
+// one glyph column, plus a second line.
 // On Share the label is the whole act ("Copy edit link") and the line is who that
 // hands the list to. Read one at a time that looks like it restates the name; read
 // as the pair it is, "see" against "change" is the plainest statement of how the two
@@ -62,7 +62,7 @@ const emit = defineEmits<{
 // reaches the editor.
 const flash = inject(ROW_FLASH, () => {});
 
-const { plateRef, listRef, rest, on } = useMenuPlate();
+const listRef = useTemplateRef<HTMLElement>("listRef");
 // Placed on the tick it mounts, which is every open, by the same rule as every menu
 // (MenuList does this for the ones built on it; this card is its own element). On a
 // phone the card measures from the bar, sitting --space-4 in from its end, an inset the
@@ -138,9 +138,6 @@ const { warmExporters, exportItems } = useListExports(
   () => props.shareUrl,
 );
 watch(tab, (t) => t === "export" && warmExporters());
-// The hover plate goes home with the rows it was lighting: left parked on an Export
-// row, it kept the shorter Share tab scrollable over nothing (useMenuPlate.rest).
-watch(tab, rest);
 
 // ---- the account ----
 // ONE ACTION, and only while pressing it would do something. Not a section, not a
@@ -304,7 +301,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 
 <template>
   <!-- The card is the menu's (.popover.menu__list: the anchor, the lift, the 8px inset
-       the travelling plate is measured against), widened to a panel. A dialog, not a
+       the rows sit in), widened to a panel. A dialog, not a
        menu: it holds tabs, a card of prose and rows that aren't all menuitems. -->
   <div
     ref="listRef"
@@ -312,9 +309,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
     :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
     role="dialog"
     aria-label="Sharing"
-    v-on="on"
   >
-    <span ref="plateRef" class="menu__plate" aria-hidden="true" />
 
     <div class="share__tabs" role="tablist" aria-label="Sharing" @keydown="onKey">
       <button
@@ -387,7 +382,6 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
           <button
             v-if="canAddToAccount"
             type="button"
-            data-row
             class="menu__item"
             :disabled="claim === 'claiming'"
             @click="addToAccount"
@@ -398,7 +392,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
           <p v-if="claim === 'failed'" role="alert" class="t-muted share__note">
             That didn’t save. Check your connection and try again.
           </p>
-          <button type="button" data-row class="menu__item" @click="act(() => emit('rotate'))">
+          <button type="button" class="menu__item" @click="act(() => emit('rotate'))">
             <SvgIcon :icon="IconArrowsRepeatCircle" aria-hidden="true" />
             {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
           </button>
@@ -434,7 +428,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
      plain CSS block `@media (max-width: $bp-stack)` is not reported as an error — the
      rule is just silently dropped. -->
 <style scoped lang="scss">
-/* The card, the anchor under the trigger, the plate and the row atoms are the menu's
+/* The card, the anchor under the trigger and the row atoms are the menu's
    (atoms/controls.scss), its panel width and phone inset are .menu__panel there, and a
    row with a second line is ShareRow. What's left is this panel's own: the tabs and the
    card on the Export tab. */
