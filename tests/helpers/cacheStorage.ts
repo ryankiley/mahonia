@@ -22,6 +22,7 @@ export function stubCacheStorage(): Map<string, Map<string, Response>> {
         keys: async () => [...store.keys()].map((url) => ({ url })),
       };
     },
+    delete: async (name: string) => stores.delete(name),
   });
   return stores;
 }

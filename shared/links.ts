@@ -59,6 +59,18 @@ export function normalizeShareCode(raw: string | null | undefined): string {
   return /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/.test(c) ? c : "";
 }
 
+/**
+ * The list a pasted Mahonia address names, or "": a share link (/s/CODE, or its .md
+ * twin) or an edit link, whose code is read from the path alone, never the token after
+ * the #. Anywhere in the text, so our own plain-text copy ("…, full list at
+ * https://mahonia.app/s/CODE") names its list: the import dialog brings in that list,
+ * whole, rather than the run of names in front of the link.
+ */
+export function shareCodeInText(text: string): string {
+  const m = /\bmahonia\.app\/[se]\/([0-9A-Za-z]{12})(?![0-9A-Za-z])/i.exec(text);
+  return m ? normalizeShareCode(m[1]) : "";
+}
+
 // Is this a path we're willing to send someone to after signing in?
 //
 // The SECURITY BOUNDARY for the return-to-where-you-were redirect (app/composables/

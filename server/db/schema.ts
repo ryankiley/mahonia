@@ -21,6 +21,7 @@
 import { bigint, boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
 import type { ListData } from "../../shared/types";
 import type { FullSnap, ListDiff } from "../../shared/snapshotDiff";
+import type { AppliedThrough } from "../../shared/opStamp";
 
 // A snapshot row's JSONB: a full payload (`kind:'base'`) or a reverse-delta (`kind:'diff'`).
 type SnapshotPayload = FullSnap | ListDiff;
@@ -76,6 +77,11 @@ export const lists = pgTable(
     // when this list was last auto-snapshotted (drives the snapshot throttle from
     // the in-hand row, so the hot mutate path needs no extra query)
     lastSnapshotAt: timestamp("last_snapshot_at", { withTimezone: true }),
+    // for each recent editing session, the last of its ops applied, so a copy the
+    // editor sends again (it never heard the answer) is skipped rather than undoing what
+    // happened since (shared/opStamp.ts). Null until a stamped op lands. Written in the
+    // same version-guarded update as the ops, so two copies racing can't both apply.
+    appliedThrough: jsonb("applied_through").$type<AppliedThrough>(),
     // optimistic concurrency + live-sync counter
     version: integer("version").notNull().default(1),
     status: text("status").notNull().default("active"), // active | hidden | removed

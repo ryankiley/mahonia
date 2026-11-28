@@ -584,10 +584,13 @@ async function exportGear(kind: string) {
   try {
     const { vaultToCsv, vaultToJson } = await exporter();
     const all = { items: gear.value };
+    // dated, like the account export beside it: the second download is otherwise
+    // "my-gear (1).csv", and the date is what tells two of them apart later
+    const base = `my-gear-${new Date().toISOString().slice(0, 10)}`;
     if (kind === "json") {
-      downloadFile("my-gear.json", vaultToJson(all), "application/json");
+      downloadFile(`${base}.json`, vaultToJson(all), "application/json");
     } else {
-      downloadFile("my-gear.csv", vaultToCsv(all, unit.value), "text/csv");
+      downloadFile(`${base}.csv`, vaultToCsv(all, unit.value), "text/csv");
     }
   } catch {
     // the chunk can fail to load (offline before the SW cached it) — the page's own

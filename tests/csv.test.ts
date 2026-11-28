@@ -166,8 +166,9 @@ describe("CSV: calories", () => {
     // the row as exported, and computeTotals wouldn't count it either
     const s = snap();
     s.items[0]!.kcal = 999;
-    const bodyRow = listToCsv(s).split("\n").find((r) => r.startsWith("Shelter"))!;
-    expect(bodyRow.endsWith(",")).toBe(true);
+    const [header, ...body] = parseCsv(listToCsv(s));
+    const row = body.find((r) => r[0] === "Shelter")!;
+    expect(row[header!.indexOf("Kcal")]).toBe("");
   });
 
   it("imports a CSV with no Kcal column at all (the LighterPack case)", () => {
@@ -313,5 +314,144 @@ describe("CSV import limits", () => {
     // Categories after the folder cap degrade to unfiled, exactly as createList's
     // bulk normalizer does for an item pointing at an omitted folder.
     expect(data.items.find((i) => i.name === `Item ${MAX_FOLDERS}`)?.folderId).toBeNull();
+  });
+});
+
+// What people actually paste into the import box, beyond our own CSV and LighterPack's:
+// cells copied out of a spreadsheet, a CSV saved by a European Excel, a hand-made sheet
+// whose weight header names its unit, and a list typed one item per line.
+describe("CSV import: the shapes a pasted list arrives in", () => {
+  const named = (text: string) =>
+    csvToListData(text).items.map((i) => [i.name, i.qty, i.unitWeightMg]);
+
+  it("reads cells copied out of a spreadsheet, which are tab-separated", () => {
+    const tsv = "Category\tItem Name\tQty\tWeight\tUnit\nShelter\tQuilt 25F, Large\t1\t510\tg\nSleep\tPad\t1\t12\toz";
+    const data = csvToListData(tsv);
+    expect(data.folders.map((f) => f.name)).toEqual(["Shelter", "Sleep"]);
+    expect(named(tsv)).toEqual([["Quilt 25F, Large", 1, 510_000], ["Pad", 1, toMg(12, "oz")]]);
+  });
+
+  it("reads a semicolon-separated CSV with decimal commas", () => {
+    expect(named("Category;Item Name;Qty;Weight;Unit\nShelter;Tent;1;1,2;kg\nSleep;Quilt;1;0,6;kg")).toEqual([
+      ["Tent", 1, 1_200_000],
+      ["Quilt", 1, 600_000],
+    ]);
+  });
+
+  it("takes a weight column's unit from its header when no Unit column says otherwise", () => {
+    expect(named("Item,Weight (oz)\nTent,38")).toEqual([["Tent", 1, toMg(38, "oz")]]);
+    expect(named("Item,weight_g\nTent,1080")).toEqual([["Tent", 1, 1_080_000]]);
+    expect(named("Item,Grams\nTent,1080")).toEqual([["Tent", 1, 1_080_000]]);
+    // a Unit cell on the row wins over the header
+    expect(named("Item,Weight (oz),Unit\nTent,1080,g")).toEqual([["Tent", 1, 1_080_000]]);
+    // a total is not a row's weight
+    expect(named("Item,Total weight\nTent,1080")).toEqual([["Tent", 1, 0]]);
+  });
+
+  it("reads a weight cell that names its own unit", () => {
+    expect(named("Item,Weight\nTent,21 oz\nStakes,1 lb 3 oz")).toEqual([
+      ["Tent", 1, toMg(21, "oz")],
+      ["Stakes", 1, toMg(19, "oz")],
+    ]);
+  });
+
+  it("reads a list typed one item per line, first line included", () => {
+    const notes = ["# Shelter", "- Tent 540 g", "- [ ] Stakes (85 g)", "Sleep:", "• Quilt 20 oz", "Socks ×2", "Water 2 L", "Headlamp"].join("\n");
+    const data = csvToListData(notes);
+    expect(data.folders.map((f) => f.name)).toEqual(["Shelter", "Sleep"]);
+    expect(named(notes)).toEqual([
+      ["Tent", 1, 540_000],
+      ["Stakes", 1, 85_000],
+      ["Quilt", 1, toMg(20, "oz")],
+      ["Socks", 2, 0],
+      ["Water", 1, 2_000_000],
+      ["Headlamp", 1, 0],
+    ]);
+  });
+
+  it("files a typed list with no headings under Imported, as a file with no Category column", () => {
+    const data = csvToListData("Tent 540 g\nQuilt 20 oz");
+    expect(data.folders.map((f) => f.name)).toEqual(["Imported"]);
+    expect(data.items.every((i) => i.folderId === data.folders[0]!.id)).toBe(true);
+  });
+
+  it("reads a run of names on one line, as our plain-text copy and a typed comment write them", () => {
+    const text = "Zpacks Duplex tent, Quilt (20F, 600 g), Clif Bloks ×4, Water 3 L\n\nBase weight 3.16 kg, 7.65 kg total";
+    expect(named(text)).toEqual([
+      ["Zpacks Duplex tent", 1, 0],
+      ["Quilt (20F, 600 g)", 1, 0],
+      ["Clif Bloks", 4, 0],
+      ["Water", 1, 3_000_000],
+    ]);
+  });
+
+  it("still reads a comma-separated first row it doesn't know as a header", () => {
+    // "thing,stuff" is cells, not a typed item: the column names just aren't ours
+    expect(named("thing,stuff\nSpork,18")).toEqual([["Spork", 1, 0]]);
+    expect(csvToListData("not,a,list\n").items).toEqual([]);
+  });
+});
+
+describe("CSV round trip: what a flat file used to lose", () => {
+  it("puts a group's rows back inside it, telling two groups of one name apart by order", () => {
+    const s = snap();
+    s.items.push(
+      { id: "m1", folderId: "f1", name: "Monday", description: "Meals", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 5 },
+      { id: "m1a", folderId: "f1", parentId: "m1", name: "Risotto", unitWeightMg: 213_000, qty: 1, classification: null, sortOrder: 0 },
+      { id: "m2", folderId: "f1", name: "Monday", description: "Snacks", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 6 },
+      { id: "m2a", folderId: "f1", parentId: "m2", name: "Bloks", unitWeightMg: 60_000, qty: 1, classification: null, sortOrder: 0 },
+      { id: "m2b", folderId: "f1", parentId: "m2", name: "Bar", unitWeightMg: 68_000, qty: 1, classification: null, sortOrder: 1 },
+    );
+    const data = csvToListData(listToCsv(s));
+    const byId = new Map(data.items.map((i) => [i.id, i]));
+    const insideOf = (name: string) => byId.get(data.items.find((i) => i.name === name)!.parentId!)!;
+    expect(insideOf("Risotto").description).toBe("Meals");
+    expect(insideOf("Bloks").description).toBe("Snacks");
+    expect(insideOf("Bar").description).toBe("Snacks");
+    expect(insideOf("Bar").folderId).toBe(data.folders.find((f) => f.name === "Shelter")!.id);
+    expect(data.items.filter((i) => i.parentId).map((i) => i.sortOrder)).toEqual([0, 0, 1]);
+  });
+
+  it("brings a row in no folder back in no folder", () => {
+    const s = snap();
+    s.items.push({ id: "u", folderId: null, name: "Loose", unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0 });
+    const data = csvToListData(listToCsv(s));
+    expect(data.items.find((i) => i.name === "Loose")!.folderId).toBeNull();
+    expect(data.folders.map((f) => f.name)).not.toContain("Imported");
+  });
+
+  it("hands back the unit most rows were written in as the list's", () => {
+    const s = snap();
+    s.displayUnit = "lb";
+    s.items[0]!.entryUnit = "oz";
+    const data = csvToListData(listToCsv({ ...s, items: [...s.items, { id: "x", folderId: "f1", name: "Pad", unitWeightMg: 400_000, qty: 1, classification: null, sortOrder: 3 }] }));
+    expect(data.displayUnit).toBe("lb");
+    expect(data.items.find((i) => i.name === "Zpacks Duplex")!.entryUnit).toBe("oz");
+    expect(data.items.find((i) => i.name === "Pad")!.entryUnit).toBeUndefined();
+  });
+
+  it("writes each weight at the fewest decimals that read back to the same milligrams", () => {
+    const s = snap();
+    s.displayUnit = "lb";
+    s.items[0]!.unitWeightMg = 45_359; // 0.0999990 lb to six places
+    const [header, row] = parseCsv(listToCsv(s));
+    expect(row![header!.indexOf("Weight")]).toBe("0.1");
+    expect(csvToListData(listToCsv(s)).items[0]!.unitWeightMg).toBe(45_359);
+    for (const mg of [1, 45_359, 992_233, 1_587_573, 3_000_000]) {
+      for (const unit of ["g", "kg", "oz", "lb"] as const) {
+        const t = snap();
+        t.items = [{ ...t.items[0]!, unitWeightMg: mg, entryUnit: unit }];
+        expect(csvToListData(listToCsv(t)).items[0]!.unitWeightMg).toBe(mg);
+      }
+    }
+  });
+
+  it("adds a grams column a spreadsheet can sum, which the importer doesn't read", () => {
+    const s = snap();
+    s.items[0]!.entryUnit = "oz";
+    const [header, ...rows] = parseCsv(listToCsv(s));
+    expect(header!.at(-1)).toBe("Weight (g)");
+    expect(rows.map((r) => r.at(-1))).toEqual(["538", "300"]);
+    expect(csvToListData(listToCsv(s)).items[0]!.unitWeightMg).toBe(538_000);
   });
 });

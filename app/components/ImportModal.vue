@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { csvToListData } from "~~/shared/exporters/csv";
+import { csvToListData, type CsvListData } from "~~/shared/exporters/csv";
 import { jsonToListImport } from "~~/shared/exporters/json";
+import { EVERYTHING_FORMAT } from "~~/shared/exporters/everything";
+import { cloneListData } from "~~/shared/clone";
+import { isRecord } from "~~/shared/record";
 import { lighterpackId } from "~~/shared/lighterpack";
 import { linkImportedItems } from "~~/shared/catalogMatch";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
-import { editLinkPath } from "~~/shared/links";
-import type { ListData, ListMeta } from "~~/shared/types";
+import { editLinkPath, shareCodeInText } from "~~/shared/links";
+import { pickListMeta, type ListData, type ListMeta, type ListSnapshot } from "~~/shared/types";
 import { IconQuestionmarkCircle } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 
 // "Import a list" dialog — mint a NEW list from a LighterPack share link, a
-// pasted CSV, a JSON backup (the menus' "Download JSON"), or an uploaded file,
+// Mahonia link, a pasted CSV, spreadsheet cells, Markdown table or typed list
+// (csvToListData reads them all), a JSON backup (the menus' "Download JSON"), or an
+// uploaded file,
 // then navigate into it. Mounted once in the editor; opened from the menu.
 // LighterPack links are resolved + parsed server-side (/api/import —
 // host-allowlisted, no SSRF surface); CSV/TSV and JSON are parsed client-side.
@@ -37,7 +42,30 @@ let opening = 0;
 const BACKUP_FROM = "Make one from the Export tab in Sharing.";
 /** what the (?) beside "Choose a file…" says: the CSV's columns, and the other file it takes */
 const FORMATS =
-  "A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable. A file can also be a JSON backup from the Export tab in Sharing.";
+  "A CSV’s header row names its columns: Category, Item Name, Qty, Weight, Unit, Worn, Consumable. Without one, each line is an item. A file can also be a JSON backup from the Export tab in Sharing.";
+
+function parsesAsJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The account export (Account → Download everything) holds every list and My Gear in
+// one file. It isn't one list, so it can't become one; say what it is rather than "not
+// a list backup", which it plainly is the source of.
+function takeoutNote(raw: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed) || parsed.format !== EVERYTHING_FORMAT) return null;
+    const n = Array.isArray(parsed.lists) ? parsed.lists.length : 0;
+    return `That’s an account export, with ${n} list${n === 1 ? "" : "s"} in it. A list comes back from its own JSON; My Gear’s import reads the gear in this file.`;
+  } catch {
+    return null;
+  }
+}
 
 // fresh form each time the dialog is opened
 watch(
@@ -67,7 +95,7 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
   const mine = opening;
   // a folders-only JSON backup is still a real restore; an empty CSV is not
   if (!list.data.items.length && !list.data.folders.length) {
-    error.value = "No items found. Paste a CSV with a header row.";
+    error.value = "No items found in that.";
     importing.value = false;
     return;
   }
@@ -132,12 +160,12 @@ async function importFromText() {
     importing.value = true;
     error.value = "";
     try {
-      const { data } = await $fetch<{ data: ListData }>("/api/import", {
+      const { data } = await $fetch<{ data: CsvListData }>("/api/import", {
         method: "POST",
         body: { url: raw },
       });
       if (mine !== opening) return;
-      await createFrom({ data });
+      await fromCsv(data);
     } catch (e: unknown) {
       if (mine !== opening) return;
       const err = e as { data?: { statusMessage?: string; message?: string } };
@@ -151,11 +179,38 @@ async function importFromText() {
   if (raw.startsWith("{")) {
     const parsed = jsonToListImport(raw);
     if (parsed) return createFrom(parsed);
-    error.value = `That looks like JSON, but not a list backup. ${BACKUP_FROM}`;
+    error.value = takeoutNote(raw) ?? `That looks like JSON, but not a list backup. ${BACKUP_FROM}`;
     return;
   }
-  // otherwise treat the pasted text as CSV/TSV — parsed client-side
-  createFrom({ data: csvToListData(raw) });
+  // A Mahonia link, alone or in text around it (our plain-text copy ends with one):
+  // the list it names, whole, as a copy would make it. The text in front of a link is
+  // a summary of that list, names without weights, and reading it instead was the
+  // worse half of the same list.
+  const code = shareCodeInText(raw);
+  if (code) return importShared(code);
+  // otherwise a table, a CSV or a typed list (csvToListData tells them apart) — parsed client-side
+  void fromCsv(csvToListData(raw));
+}
+
+// A CSV's rows and, apart from them, the unit most of them were written in, which is
+// the list's: without it a pounds list arrived as a gram list.
+function fromCsv({ displayUnit, ...data }: CsvListData) {
+  return createFrom({ displayUnit, data });
+}
+
+async function importShared(code: string) {
+  const mine = opening;
+  importing.value = true;
+  error.value = "";
+  try {
+    const { snapshot } = await $fetch<{ snapshot: ListSnapshot }>(`/api/s/${code}`);
+    if (mine !== opening) return;
+    await createFrom({ ...pickListMeta(snapshot), data: cloneListData(snapshot) });
+  } catch {
+    if (mine !== opening) return;
+    error.value = "Couldn’t open that Mahonia link. Check it and try again.";
+    importing.value = false;
+  }
 }
 
 // a chosen file, already read (FilePickButton). A .json file is a "Download JSON"
@@ -168,12 +223,14 @@ function importFile(text: string, file: File) {
   if (isJson || text.trimStart().startsWith("{")) {
     const parsed = jsonToListImport(text);
     if (parsed) return void createFrom(parsed);
-    if (isJson) {
-      error.value = `Couldn’t read that file as a list backup. ${BACKUP_FROM}`;
+    // JSON that isn't a list is refused whatever the file is called: read as a CSV, a
+    // pretty-printed file made an item of every line
+    if (isJson || parsesAsJson(text)) {
+      error.value = takeoutNote(text) ?? `Couldn’t read that file as a list backup. ${BACKUP_FROM}`;
       return;
     }
   }
-  void createFrom({ data: csvToListData(text) });
+  void fromCsv(csvToListData(text));
 }
 </script>
 

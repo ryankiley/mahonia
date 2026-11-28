@@ -7,7 +7,7 @@
 // module-private until the gear exporter needed the same two.
 
 import type { Unit } from "../types";
-import { fromMg } from "../weights";
+import { fromMg, toMg } from "../weights";
 
 // A leading =, +, -, @, or a control char (tab/CR) makes a spreadsheet treat the
 // cell as a formula/command (CSV injection / DDE) when the export is opened in
@@ -38,8 +38,21 @@ export function csvCell(v: unknown): string {
 // weight still exports "1247", not "1247.000".
 const CSV_DECIMALS: Record<Unit, number> = { g: 3, kg: 6, oz: 6, lb: 6 };
 
-/** A weight cell in `unit`: the bare number, or blank for no weight. */
-export const csvWeight = (mg: number, unit: Unit): number | "" => (mg > 0 ? +fromMg(mg, unit).toFixed(CSV_DECIMALS[unit]) : "");
+/** A weight cell in `unit`: the bare number, or blank for no weight.
+ *
+ * The SHORTEST figure that reads back to the same milligrams, up to CSV_DECIMALS. A
+ * 45,359 mg row is 0.0999990 lb to six places, and the spreadsheet showed "0.099999";
+ * 0.1 lb is 45,359.237 mg, which toMg rounds to the same 45,359, so 0.1 loses nothing.
+ * 91 of a 98-row list's weights printed at six places before this. */
+export function csvWeight(mg: number, unit: Unit): number | "" {
+  if (!(mg > 0)) return "";
+  const exact = fromMg(mg, unit);
+  for (let d = 0; d < CSV_DECIMALS[unit]; d++) {
+    const short = +exact.toFixed(d);
+    if (short > 0 && toMg(short, unit) === Math.round(mg)) return short;
+  }
+  return +exact.toFixed(CSV_DECIMALS[unit]);
+}
 
 /** A price cell: the amount to the cent, or blank for none. */
 export const csvPrice = (cents: number | null | undefined): string => (cents != null ? (cents / 100).toFixed(2) : "");

@@ -162,6 +162,10 @@ export const LISTS_DDL: string[] = [
     end_date text,
     author_user_id integer
   )`,
+  // applied_through: for each recent editing session, the last of its ops applied, so
+  // a copy sent again is skipped (shared/opStamp.ts). New 2026-11-27; folds into the
+  // CREATE once it has deployed (CLAUDE.md).
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS applied_through jsonb`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,

@@ -25,6 +25,7 @@ import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import { DRAFT_KEY, localKey, type LocalListRecord } from "~~/shared/localList";
 import { tidyStoredList, type Op } from "~~/shared/ops";
+import type { StampedOp } from "~~/shared/opStamp";
 import { computeTotals } from "~~/shared/weights";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -351,9 +352,10 @@ describe("useGearList — a batch still out when the editor moved on", () => {
   });
 
   // The answer to a batch that lands after the editor left is never read, so the record
-  // cannot know it landed. It stays queued and goes again on the next open, which the
-  // server takes: an add is idempotent by id and an update sets an absolute value.
-  it("replays a batch that landed after the editor left on the next open", async () => {
+  // cannot know it landed. It stays queued and goes again on the next open, under the
+  // stamp it went with the first time, which is how the server knows it for a copy and
+  // skips it (shared/opStamp.ts) rather than undoing whatever happened in between.
+  it("sends a batch that landed after the editor left again on the next open, under the same stamp", async () => {
     const c = await opened();
     c.setMeta({ title: "Renamed while leaving" });
 
@@ -366,23 +368,49 @@ describe("useGearList — a batch still out when the editor moved on", () => {
     listResponse = snapshotFor("Renamed while leaving", 2);
     await c.load({ token: TOKEN });
     await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
-    expect(mutates[1]!.ops).toMatchObject([{ t: "setMeta", patch: { title: "Renamed while leaving" } }]);
+    const [sent, again] = [mutates[0]!.ops[0] as StampedOp, mutates[1]!.ops[0] as StampedOp];
+    expect(again).toMatchObject({ t: "setMeta", patch: { title: "Renamed while leaving" } });
+    expect(sent.from).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(sent.seq).toBe(1);
+    expect([again.from, again.seq]).toEqual([sent.from, sent.seq]);
   });
 
-  // An edit queued BEHIND the batch in flight. Leaving sends it on its own (the batch
-  // ahead of it is already out), and when both requests fail the record still holds
-  // both, in the order they were made.
-  it("keeps an edit queued behind the in-flight batch when both requests fail", async () => {
+  // Each op is stamped once, when it is queued: the session that queued it and its place
+  // in that session's queue. A new session (the next open) stamps its own from 1.
+  it("stamps each queued op with its session and its place in that session's queue", async () => {
+    const c = await opened();
+    c.setMeta({ title: "One" });
+    c.setMeta({ description: "Two" });
+    await awaitMutateInFlight();
+    const [a, b] = mutates[0]!.ops as StampedOp[];
+    expect([a!.seq, b!.seq]).toEqual([1, 2]);
+    expect(b!.from).toBe(a!.from);
+    settleMutate.resolve({ snapshot: snapshotFor("One", 2) });
+    await settled();
+
+    await c.load({ token: TOKEN });
+    c.setMeta({ title: "Three" });
+    await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
+    const [c3] = mutates[1]!.ops as StampedOp[];
+    expect(c3!.seq).toBe(1);
+    expect(c3!.from).not.toBe(a!.from);
+  });
+
+  // An edit queued BEHIND the batch in flight. Leaving sends nothing more while that
+  // batch is out: sent on its own, the later edit could land first, and the server,
+  // which skips an op at or below what its session already reached, would then take
+  // the earlier batch for a copy. It stays in the record behind the batch, in the order
+  // the two were made, and the next open sends both.
+  it("sends nothing more on leaving while a batch is out, and keeps both when it fails", async () => {
     const c = await opened();
     c.setMeta({ title: "T1" });
     await awaitMutateInFlight();
     c.setMeta({ description: "D2" });
 
     c.dispose();
-    await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
-    expect(mutates[1]!.ops).toMatchObject([{ t: "setMeta", patch: { description: "D2" } }]);
+    await settled();
+    expect(mutateCalls).toBe(1);
 
-    mutates[1]!.reject(failed());
     mutates[0]!.reject(failed());
     await settled();
     expect(queued()).toMatchObject([
@@ -538,7 +566,26 @@ describe("useGearList — restoring a recovery point", () => {
     expect(await restoring).toBe(true);
     expect(c.snapshot.value).toMatchObject({ title: "Typed during the restore", version: 9 });
     await awaitMutateInFlight();
-    expect(mutates[0]!.ops).toEqual([{ t: "setMeta", patch: { title: "Typed during the restore" } }]);
+    expect(mutates[0]!.ops).toMatchObject([{ t: "setMeta", patch: { title: "Typed during the restore" } }]);
+  });
+
+  // Leaving while the restore is out sends nothing either: what was typed meanwhile
+  // could reach the server first and be undone by the restore. It stays on the device
+  // and goes on top of the restored list from the next open.
+  it("sends nothing on leaving while the restore is out, and keeps what was typed", async () => {
+    let answer!: () => void;
+    restoreGate = new Promise<void>((r) => (answer = r));
+    const c = await opened();
+    const restoring = c.restore(7);
+    await vi.waitFor(() => expect(restoreCalls).toHaveLength(1));
+    c.setMeta({ title: "Typed during the restore" });
+
+    c.dispose();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(mutateCalls).toBe(0);
+    expect(records.get(localKey(TOKEN))?.pending).toMatchObject([{ t: "setMeta", patch: { title: "Typed during the restore" } }]);
+    answer();
+    await restoring;
   });
 
   it("changes nothing when the server refuses", async () => {

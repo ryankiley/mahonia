@@ -124,3 +124,54 @@ describe("listToMarkdown", () => {
     expect(md).toContain("| Tarp | 1 | 538 g |");
   });
 });
+
+describe("listToMarkdown: what the share page says that the table didn't", () => {
+  it("writes a row in the unit it reads in on screen, the totals in the list's", () => {
+    const s = snap();
+    s.displayUnit = "lb";
+    s.items[0]!.entryUnit = "oz";
+    const md = listToMarkdown(s);
+    expect(md).toContain("| Zpacks Duplex | 1 | 19 oz |");
+    expect(md).toContain("| Rain jacket | 1 | 0.66 lb |");
+    expect(md).toContain("**Total:** 1.85 lb");
+  });
+
+  it("carries the note after the gear type, in italics, as the read view's sub-line", () => {
+    const s = snap();
+    Object.assign(s.items[0]!, { commonName: "Tent", description: "Seam-sealed *twice*" });
+    Object.assign(s.items[1]!, { description: "Drinking" });
+    const md = listToMarkdown(s);
+    expect(md).toContain("| Zpacks Duplex — Tent · *Seam-sealed \\*twice\\** | 1 | 538 g |");
+    expect(md).toContain("| Rain jacket — *Drinking* | 1 | 300 g |");
+  });
+
+  it("names the gear type only when it adds something to the name", () => {
+    const s = snap();
+    Object.assign(s.items[0]!, { name: "Toothpaste", commonName: "Toothpaste" });
+    Object.assign(s.items[1]!, { name: "Moisturizer", commonName: "Face moisturizer" });
+    const md = listToMarkdown(s);
+    expect(md).toContain("| Toothpaste | 1 |");
+    expect(md).toContain("| Moisturizer | 1 |");
+  });
+
+  it("opens with the trail, the dates and the distance, then the read-only link", () => {
+    const s = snap();
+    Object.assign(s, { shareCode: "P3PWAH8RMCVR", trailLabel: "Timberline Trail #600", startDate: "2026-09-07", endDate: "2026-09-10", trailDistanceM: 64_042, displayUnit: "lb" });
+    const lines = listToMarkdown(s).split("\n");
+    expect(lines.slice(0, 6)).toEqual(["# Trip", "", "Timberline Trail #600 · September 7–10, 2026 · 39.8 mi", "", "https://mahonia.app/s/P3PWAH8RMCVR", ""]);
+    Object.assign(s, { startDate: "2026-08-30", endDate: "2026-09-02", trailDistanceM: undefined, trailLabel: undefined, displayUnit: "g" });
+    expect(listToMarkdown(s).split("\n")[2]).toBe("August 30 – September 2, 2026");
+  });
+
+  it("says nothing of a trip or a link a list doesn't have", () => {
+    const s = snap();
+    s.shareCode = "";
+    expect(listToMarkdown(s).split("\n").slice(0, 3)).toEqual(["# Trip", "", "## Shelter"]);
+  });
+
+  it("adds the calories under the totals", () => {
+    const s = snap();
+    s.items.push({ id: "f", folderId: "f1", name: "Bars", unitWeightMg: 68_000, qty: 4, kcal: 250, classification: "consumable", sortOrder: 2 });
+    expect(listToMarkdown(s).split("\n").at(-1)).toBe("- **Calories:** 1,000 kcal");
+  });
+});
