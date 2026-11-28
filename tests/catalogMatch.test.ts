@@ -91,7 +91,7 @@ describe("buildCatalogNameIndex / lookupImported", () => {
 
 describe("applyCatalogMatch", () => {
   it("links the row and keeps the import's own weight, marked overridden when it differs", () => {
-    const out = applyCatalogMatch(item({ unitWeightMg: 75_000 }), row());
+    const out = applyCatalogMatch(item({ unitWeightMg: 75_000 }), row(), []);
     expect(out).toMatchObject({
       brand: "MSR",
       name: "PocketRocket 2 Stove",
@@ -104,17 +104,17 @@ describe("applyCatalogMatch", () => {
     });
   });
   it("gives a weightless row the cited weight, not overridden", () => {
-    const out = applyCatalogMatch(item({ unitWeightMg: 0 }), row());
+    const out = applyCatalogMatch(item({ unitWeightMg: 0 }), row(), []);
     expect(out.unitWeightMg).toBe(73_000);
     expect(out.weightOverridden).toBe(false);
   });
   it("keeps an explicit gear type and calorie figure, fills them only when absent", () => {
     const food = row({ id: 9, brand: "Clif", name: "Bar", categoryHint: "consumable", kcal: 250, commonName: "Bar" });
-    expect(applyCatalogMatch(item({ commonName: "Snack", kcal: 240 }), food)).toMatchObject({ commonName: "Snack", kcal: 240, classification: "consumable" });
-    expect(applyCatalogMatch(item(), food)).toMatchObject({ commonName: "Bar", kcal: 250, classification: "consumable" });
+    expect(applyCatalogMatch(item({ commonName: "Snack", kcal: 240 }), food, [])).toMatchObject({ commonName: "Snack", kcal: 240, classification: "consumable" });
+    expect(applyCatalogMatch(item(), food, [])).toMatchObject({ commonName: "Bar", kcal: 250, classification: "consumable" });
   });
   it("leaves a non-consumable hint to the folder default", () => {
-    expect(applyCatalogMatch(item({ classification: null }), row()).classification).toBeNull();
+    expect(applyCatalogMatch(item({ classification: null }), row(), []).classification).toBeNull();
   });
 });
 
@@ -126,7 +126,7 @@ describe("linkImportedItems", () => {
       item({ id: "c", catalogItemId: 77, catalogWeightMgAtLink: 1 }),
       item({ id: "d", name: "   " }),
     ];
-    const { items: out, matched } = linkImportedItems(items, [row(), null, row({ id: 5 }), row({ id: 6 })]);
+    const { items: out, matched } = linkImportedItems(items, [row(), null, row({ id: 5 }), row({ id: 6 })], []);
     expect(matched).toBe(1);
     expect(out[0]!.catalogItemId).toBe(1);
     expect(out[1]!.catalogItemId).toBeUndefined();

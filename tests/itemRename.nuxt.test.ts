@@ -301,6 +301,20 @@ describe("renaming through the live autocomplete", () => {
     expect(row().catalogItemId).toBe(300);
   });
 
+  // ...and in a folder that is already food it stores no class of its own, so the row
+  // follows its folder if moved: the rule an import, a paste and the connector share
+  it("a consumable pick in a food folder follows the folder", async () => {
+    const food = { id: "f1", name: "Food", colorKey: "food", defaultClassification: "consumable" as const, sortOrder: 0 };
+    const w = mountRowOver(snapshot, [{ ...catalogPicked }], undefined, { folders: [food] });
+    catalogHits.push({
+      id: 303, brand: "Clif", name: "Energy Bar", variant: "single bar",
+      weightMg: 68_000, verified: true, categoryHint: "consumable",
+    });
+    await typeAndPick(w, "Energy");
+    expect(row().catalogItemId).toBe(303);
+    expect(row().classification).toBeNull();
+  });
+
   it("a food pick pre-fills the row's kcal from the catalog", async () => {
     const w = mountRow(catalogPicked);
     catalogHits.push({

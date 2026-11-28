@@ -778,7 +778,7 @@ describe("writing", () => {
     // no folder made: the straight apostrophe found the curly one
     expect(ops.map((o) => o.t)).toEqual(["addItem"]);
     expect(ops[0]!.item).toMatchObject({ folderId: "f1", name: "Duplex", brand: "Zpacks", commonName: "Tent", unitWeightMg: 538_000, catalogWeightMgAtLink: 538_000, weightOverridden: false, catalogItemId: 7 });
-    expect((ops[0]!.item as { nameOverridden?: boolean }).nameOverridden).toBeUndefined();
+    expect((ops[0]!.item as { nameOverridden?: boolean }).nameOverridden).toBeFalsy();
   });
 
   it("a row that is entirely worn is a worn row", async () => {

@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { readBody } from "h3";
 import ImportModal from "~/components/ImportModal.vue";
 import { snapshotFor } from "./helpers/list";
 
@@ -31,9 +32,13 @@ let createGate: ReturnType<typeof gate> | null = null;
 let importGate = gate();
 let failCreate = false;
 
+let createdBodies: { data?: { items?: Record<string, unknown>[] } }[] = [];
+let matchReply: unknown[] = [];
+
 registerEndpoint("/api/lists/create", {
   method: "POST",
-  handler: async () => {
+  handler: async (event) => {
+    createdBodies.push(await readBody(event));
     creates++;
     const n = creates;
     if (createGate) await createGate.held;
@@ -41,7 +46,7 @@ registerEndpoint("/api/lists/create", {
     return { editToken: `token-${n}`, snapshot: snapshotFor({ shareCode: `TESTC0DE000${n}`, slug: "s", title: "t" }) };
   },
 });
-registerEndpoint("/api/catalog/match", { method: "POST", handler: () => ({ matches: [] }) });
+registerEndpoint("/api/catalog/match", { method: "POST", handler: () => ({ matches: matchReply }) });
 registerEndpoint("/api/import", {
   method: "POST",
   handler: async () => {
@@ -79,6 +84,8 @@ describe("importing a list", () => {
     createGate = null;
     importGate = gate();
     failCreate = false;
+    createdBodies = [];
+    matchReply = [];
     push = vi.spyOn(useRouter(), "push").mockResolvedValue(undefined);
   });
   afterEach(() => vi.restoreAllMocks());
@@ -89,6 +96,20 @@ describe("importing a list", () => {
     await vi.waitFor(() => expect(push).toHaveBeenCalledOnce());
     expect(creates).toBe(1);
     expect(w.emitted("close")).toHaveLength(1);
+  });
+
+  // A row recognised as catalog food, in a folder that is already food, stores no class
+  // of its own, as the editor's pick stores it, so it follows the folder if moved.
+  it("links catalog food in a food folder without pinning its class", async () => {
+    matchReply = [{ id: 4, brand: "Clif", name: "Builders Bar", variant: null, weightMg: 68_000, weightSource: "manufacturer", verified: true, commonName: "Energy bar", categoryHint: "consumable", kcal: 290 }];
+    const backup = JSON.stringify({
+      folders: [{ id: "f", name: "Food", colorKey: "food", defaultClassification: "consumable", sortOrder: 0 }],
+      items: [{ id: "i", folderId: "f", name: "Clif Builders Bar", qty: 1, sortOrder: 0, unitWeightMg: 0, classification: null }],
+    });
+    const w = dialog();
+    await submit(w, backup);
+    await vi.waitFor(() => expect(push).toHaveBeenCalledOnce());
+    expect(createdBodies[0]!.data!.items![0]).toMatchObject({ catalogItemId: 4, unitWeightMg: 68_000, classification: null });
   });
 
   it("makes one list when a file is chosen during a request", async () => {

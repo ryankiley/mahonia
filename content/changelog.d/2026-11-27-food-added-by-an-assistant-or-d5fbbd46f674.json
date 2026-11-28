@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "Food added by an assistant or an import now follows its folder's class, as food picked in the list does."
+  ],
+  "fixed": [
+    "A calorie figure you typed is no longer cleared when a pasted row matches a catalog product that has none."
+  ]
+}

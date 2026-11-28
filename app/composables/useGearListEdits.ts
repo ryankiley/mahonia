@@ -2,6 +2,7 @@ import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
 import { MAX_ITEMS } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
+import { pickFromCatalog } from "~~/shared/catalogMatch";
 import { splitWeightTail } from "~~/shared/pasteList";
 import { counted, formatCount, tidyText } from "~~/shared/tidyText";
 import { isWaterName, waterMgFromMl, waterPhrase } from "~~/shared/water";
@@ -382,31 +383,15 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
           // ride onto the new product marked as a disagreement, with the "suggest a
           // fix" nudge then offering the wrong product's figure to everyone.
           const keeps = !!live.weightOverridden && live.unitWeightMg > 0;
-          dispatch({
-            t: "updateItem",
-            id: live.id,
-            patch: {
-              name: row.name,
-              brand: row.brand ?? "",
-              variant: row.variant ?? "",
-              commonName: live.commonName ?? row.commonName ?? "",
-              nameOverridden: false,
-              unitWeightMg: keeps ? live.unitWeightMg : row.weightMg,
-              weightOverridden: keeps && live.unitWeightMg !== row.weightMg,
-              catalogItemId: row.id,
-              catalogWeightMgAtLink: row.weightMg,
-              // only a consumable product changes the class, and through
-              // storedClassification as a pick does (ItemRow.onNameCommit): null means
-              // "follow the folder", so food landing in a food folder keeps following
-              // it rather than being pinned. Any other product leaves the row on the
-              // folder's default, which is where a typed row sits.
-              ...(row.categoryHint === "consumable"
-                ? { classification: storedClassification("consumable", live.folderId, snapshot.value!.folders) }
-                : {}),
-              // the product's calories with its weight; a kept weight keeps its kcal
-              ...(keeps ? (live.kcal == null && row.kcal != null ? { kcal: row.kcal } : {}) : { kcal: row.kcal ?? null }),
-            },
-          });
+          // a gear type already on the row stays, and a kept weight keeps its calories
+          const pick = pickFromCatalog(
+            row,
+            { weightMg: keeps ? live.unitWeightMg : undefined, commonName: live.commonName, kcal: keeps ? live.kcal : undefined },
+            { folderId: live.folderId, folders: snapshot.value!.folders },
+          );
+          // a gear type the person cleared stays theirs, as it was before the link
+          if (live.commonNameOverridden) delete pick.commonNameOverridden;
+          dispatch({ t: "updateItem", id: live.id, patch: pick });
         });
       })
       .catch(() => {});
