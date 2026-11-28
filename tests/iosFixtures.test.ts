@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Op } from "../shared/ops";
-import { fixtures } from "../scripts/iosFixtures";
+import { canonical, fixtures, ruleVectors } from "../scripts/iosFixtures";
 
 // Every op kind there is. A Record over Op["t"], so the compiler refuses a new op
 // until it is listed here, and the test below then refuses it until a scenario
@@ -34,5 +34,13 @@ describe("the iOS port's fixtures", () => {
   it("name each scenario once, since the name is its file", () => {
     const names = fixtures.map((f) => f.name);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  // A vector is compared byte for byte on the other side, so it has to come out the
+  // same every time: a copy and a restore mint ids, and one left in would differ per run.
+  it("write the same rule vectors twice, each with cases in it", () => {
+    const vectors = ruleVectors();
+    expect(Object.entries(vectors).filter(([, v]) => v.cases.length === 0)).toEqual([]);
+    expect(canonical(ruleVectors())).toBe(canonical(vectors));
   });
 });
