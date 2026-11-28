@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-28",
+  "fixed": [
+    "KML tracks recorded by Google Earth and phone trackers (OsmAnd, Locus, My Tracks) now open instead of being refused.",
+    "A GPX holding both a planned route and the recorded track no longer reads as twice the distance.",
+    "A GPX or TCX inside a zip, as Garmin Connect exports one, now opens.",
+    "A GeoJSON route now shows its own name rather than the file's."
+  ]
+}

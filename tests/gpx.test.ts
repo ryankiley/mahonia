@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { fileRouteName, filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, MAX_GPX_BYTES, readRouteFile, zipMember, type TrackPoint } from "../shared/gpx";
+import { fileRouteName, filePins, geoJsonName, geoJsonPoints, gpxPoints, gpxStats, haversineM, MAX_GPX_BYTES, readRouteFile, zipMember, type TrackPoint } from "../shared/gpx";
 import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, filledElevations, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs, smooth } from "../shared/profile";
 import { zipEntries } from "./helpers/zip";
 
@@ -730,6 +730,20 @@ describe("readRouteFile", () => {
   it("throws on an empty file", async () => {
     await expect(withParser(() => readRouteFile(new Blob([""])))).rejects.toThrow();
   });
+
+  it("reads a GPX or a TCX zipped, as Garmin Connect's Export Original hands an uploaded one back", async () => {
+    for (const name of ["activity_123.gpx", "activity_123.tcx"]) {
+      const body = name.endsWith(".gpx") ? GPX : TCX;
+      const read = await withParser(() => readRouteFile(new Blob([zipEntries([{ name, body, deflate: true }])])));
+      expect(read !== "too-big" && read.points).toHaveLength(3);
+    }
+  });
+
+  it("names a GeoJSON route from its own properties", async () => {
+    const named = { ...GEOJSON, features: [{ ...GEOJSON.features[0], properties: { name: "Timberline Trail" } }] };
+    const read = await readRouteFile(new Blob([JSON.stringify(named)]));
+    expect(read !== "too-big" && read.name).toBe("Timberline Trail");
+  });
 });
 
 describe("fileRouteName", () => {
@@ -742,5 +756,59 @@ describe("fileRouteName", () => {
   it("gives no name for a file named by number, as a watch names its own", () => {
     expect(fileRouteName("17345678901.fit")).toBeUndefined();
     expect(fileRouteName("2026-11-28_0715.tcx")).toBeUndefined();
+  });
+});
+
+describe("a file holding the same walk twice", () => {
+  it("reads a GPX's track, not its planned route as well", () => {
+    // a planner that also records, or a GPS that keeps its route beside its track: read
+    // together, the two were stitched end to end into twice the distance
+    const both = GPX.replace("<trk>", `<rte><rtept lat="45.33" lon="-121.71"/><rtept lat="45.35" lon="-121.69"/></rte><trk>`);
+    expect(gpxPoints(xml(both))).toEqual(gpxPoints(xml(GPX)));
+  });
+
+  it("still reads a GPX that is only a planned route", () => {
+    const route = `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1"><rte>
+      <rtept lat="45.33" lon="-121.71"/><rtept lat="45.34" lon="-121.70"/><rtept lat="45.35" lon="-121.69"/>
+    </rte></gpx>`;
+    expect(gpxPoints(xml(route))).toHaveLength(3);
+  });
+});
+
+describe("a KML track, as Google Earth and phone trackers record one", () => {
+  // <gx:coord> is `lon lat ele`, separated by SPACES, beside a <when> per point
+  const track = (points: string) => `<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"><Document><Placemark><gx:MultiTrack><gx:Track>
+    <when>2026-07-01T08:00:00Z</when><when>2026-07-01T08:01:00Z</when><when>2026-07-01T08:02:00Z</when>
+    ${points}
+  </gx:Track></gx:MultiTrack></Placemark></Document></kml>`;
+  const COORDS = "<gx:coord>-121.71 45.33 1800</gx:coord><gx:coord>-121.70 45.34 1850</gx:coord><gx:coord>-121.69 45.35 1900</gx:coord>";
+
+  it("reads its points, longitude first, with their heights", () => {
+    expect(gpxPoints(xml(track(COORDS)))).toEqual(gpxPoints(xml(GPX)));
+  });
+
+  it("reads a line instead when the file has both, rather than the walk twice", () => {
+    const both = track(COORDS).replace("</Document>", "<Placemark><LineString><coordinates>-121.71,45.33,1800 -121.69,45.35,1900</coordinates></LineString></Placemark></Document>");
+    expect(gpxPoints(xml(both))).toHaveLength(2);
+  });
+});
+
+describe("geoJsonName", () => {
+  const line = { type: "LineString", coordinates: [[-121.71, 45.33], [-121.69, 45.35]] };
+  it("takes the name of the feature holding the line, not a marker's", () => {
+    expect(
+      geoJsonName({
+        type: "FeatureCollection",
+        features: [
+          { type: "Feature", properties: { name: "Trailhead" }, geometry: { type: "Point", coordinates: [-121.71, 45.33] } },
+          { type: "Feature", properties: { title: "Timberline Trail" }, geometry: line },
+        ],
+      }),
+    ).toBe("Timberline Trail");
+  });
+
+  it("falls back to the collection's own name, and to none", () => {
+    expect(geoJsonName({ type: "FeatureCollection", name: "timberline", features: [{ type: "Feature", properties: {}, geometry: line }] })).toBe("timberline");
+    expect(geoJsonName(line)).toBeUndefined();
   });
 });

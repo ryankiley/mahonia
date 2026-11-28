@@ -67,8 +67,11 @@ export function haversineM(a: TrackPoint, b: TrackPoint): number {
 /**
  * Track points out of a parsed GPX document, in file order.
  *
- * Both `trkpt` and `rtept`: a planned route is a `rte` and a recorded one is a `trk`, and
- * someone dropping a file in has no reason to care which they exported.
+ * A `trk` if the file has one, and its `rte` only when it doesn't: a planned route is a `rte`
+ * and a recorded one a `trk`, and someone dropping a file in has no reason to care which they
+ * exported. But a file can hold both, the plan and the walk of it (a planner that also
+ * records, a GPS that saves its route beside its track), and read together they were stitched
+ * end to end: a 39.8-mile loop came out at 79.6. The track is the detailed one of the two.
  */
 export function gpxPoints(doc: Document): TrackPoint[] {
   // The other XML dialects that carry the same thing under other names, then GPX itself.
@@ -77,7 +80,8 @@ export function gpxPoints(doc: Document): TrackPoint[] {
   if (kml.length) return kml;
   const tcx = tcxPoints(doc);
   if (tcx.length) return tcx;
-  const nodes = [...byLocalName(doc, "trkpt"), ...byLocalName(doc, "rtept")];
+  const track = byLocalName(doc, "trkpt");
+  const nodes = track.length ? track : byLocalName(doc, "rtept");
   const out: TrackPoint[] = [];
   for (const n of nodes) {
     const lat = finiteTextNumber(n.getAttribute("lat"));
@@ -400,6 +404,30 @@ function georssPoints(doc: Document): TrackPoint[] {
  * same concession gpxPoints makes for multi-segment tracks. A `<Point>` never is.
  */
 function kmlPoints(doc: Document): TrackPoint[] {
+  const lines = kmlLinePoints(doc);
+  return lines.length ? lines : kmlTrackPoints(doc);
+}
+
+/**
+ * A KML TRACK, as Google Earth, Google My Tracks, OsmAnd and Locus record one: a
+ * `<gx:Track>` (several, inside a `<gx:MultiTrack>`) whose points are `<gx:coord>` elements,
+ * each `lon lat ele` separated by SPACES, beside a `<when>` for each. KML 2.3 writes the same
+ * without the gx: prefix, which reading by local name takes in. Read only when the file has
+ * no line of its own, so a file carrying both a line and a track of one walk isn't read twice.
+ */
+function kmlTrackPoints(doc: Document): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  for (const coord of byLocalName(doc, "coord")) {
+    if (coord.parentElement?.localName.toLowerCase() !== "track") continue;
+    const [lon, lat, ele] = (coord.textContent ?? "").trim().split(/\s+/).map(finiteTextNumber);
+    if (!validLatLon(lat!, lon!)) continue;
+    out.push(Number.isFinite(ele) ? { lat: lat!, lon: lon!, ele } : { lat: lat!, lon: lon! });
+  }
+  return out;
+}
+
+/** A KML's LINES: the `<coordinates>` of its LineStrings (see kmlPoints). */
+function kmlLinePoints(doc: Document): TrackPoint[] {
   const out: TrackPoint[] = [];
   const LINES = new Set(["linestring", "linearring", "track"]);
   for (const block of byLocalName(doc, "coordinates")) {
@@ -471,6 +499,31 @@ export function geoJsonPoints(raw: unknown): TrackPoint[] {
   };
   walk(raw);
   return out;
+}
+
+/**
+ * A GeoJSON route's own name: the `name` (or `title`) in the properties of the feature that
+ * holds the line, as geojson.io and CalTopo write it, or else the collection's own `name`, as
+ * GDAL writes the layer's.
+ */
+export function geoJsonName(raw: unknown): string | undefined {
+  const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const isLine = (g: unknown) => {
+    const type = (g as { type?: unknown } | null)?.type;
+    return type === "LineString" || type === "MultiLineString";
+  };
+  const fromProps = (f: unknown) => {
+    const props = (f as { properties?: Record<string, unknown> } | null)?.properties;
+    return props ? text(props.name) ?? text(props.title) : undefined;
+  };
+  if (!raw || typeof raw !== "object") return undefined;
+  const top = raw as { type?: unknown; geometry?: unknown; features?: unknown; name?: unknown };
+  if (top.type === "Feature" && isLine(top.geometry)) return fromProps(top);
+  if (Array.isArray(top.features)) {
+    const line = top.features.find((f) => isLine((f as { geometry?: unknown } | null)?.geometry));
+    return fromProps(line) ?? text(top.name);
+  }
+  return undefined;
 }
 
 /**
@@ -581,19 +634,23 @@ export interface RouteFile {
  * Two pages read route files, the Trip tab and /trail-spin, and they read them alike: every
  * dialect one page learns, the other gets.
  */
+/** The members of a zip worth opening: the route files readRouteFile reads bare. */
+const ZIPPED_ROUTE = /\.(kml|fit|gpx|tcx|geojson|json)$/i;
+
 export async function readRouteFile(file: Blob): Promise<RouteFile | "too-big"> {
   // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
   // seconds; declining is cheaper than a worker, and honest.
   if (file.size > MAX_GPX_BYTES) return "too-big";
   // Sniffed by CONTENT, never by name: a file saved as .txt or renamed by a share sheet is
   // still the route it was. Twelve bytes are enough to tell the two binary shapes apart:
-  // "PK" is a zip (a KMZ, or the FIT-in-a-zip Garmin Connect's "Export Original" hands
-  // out), ".FIT" at byte 8 is a watch's file as it was written.
+  // "PK" is a zip (a KMZ, or what Garmin Connect's "Export Original" hands out: the file
+  // the activity came from, a FIT, a GPX or a TCX), ".FIT" at byte 8 is a watch's file as
+  // it was written. Inside a zip the first route file is read, whichever kind it is.
   const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
   let fit: Uint8Array | null = isFit(head) ? new Uint8Array(await file.arrayBuffer()) : null;
   let text = "";
   if (!fit && head[0] === 0x50 && head[1] === 0x4b) {
-    const member = await zipMember(await file.arrayBuffer(), (name) => /\.(kml|fit)$/i.test(name));
+    const member = await zipMember(await file.arrayBuffer(), (name) => ZIPPED_ROUTE.test(name));
     if (member && isFit(member.bytes)) fit = member.bytes;
     else if (member) text = new TextDecoder().decode(member.bytes);
   } else if (!fit) {
@@ -613,7 +670,10 @@ function parseRoute(fit: Uint8Array | null, text: string): Omit<RouteFile, "stat
   // JSON or XML, decided by the first non-space character, which tells us which family
   // the text belongs to more reliably than a name would
   const first = text.trimStart()[0];
-  if (first === "{" || first === "[") return { points: geoJsonPoints(JSON.parse(text)), pins: [] };
+  if (first === "{" || first === "[") {
+    const json: unknown = JSON.parse(text);
+    return { points: geoJsonPoints(json), pins: [], name: geoJsonName(json) };
+  }
   const doc = new DOMParser().parseFromString(text, "application/xml");
   if (doc.querySelector("parsererror")) throw new Error("not xml");
   // gpxPoints reads GPX, KML and TCX (same track, different dialects), and the pins are
