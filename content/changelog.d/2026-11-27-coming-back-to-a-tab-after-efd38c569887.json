@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "Coming back to a tab after signing in or out in another one now shows the account you're in, without a reload."
+  ]
+}

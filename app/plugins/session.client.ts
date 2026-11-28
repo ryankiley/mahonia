@@ -27,6 +27,8 @@ export default defineNuxtPlugin(() => {
   // ...and again while it can't be answered (offline with an account), for every
   // surface waiting on it at once
   useSessionReask();
+  // ...and again when another tab has signed in or out since this one last heard
+  useSessionFollow();
 
   // Attach the lists this browser holds to the account, so they're waiting on the
   // next device.

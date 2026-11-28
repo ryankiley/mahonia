@@ -127,6 +127,8 @@ function signOutElsewhere(owner: string) {
   document.cookie = "mh_session_owner=; Max-Age=0; path=/";
   storage.delete(`gear.account.v1.${owner}`);
 }
+/** The person comes back to this tab from the other one. */
+const backInView = () => document.dispatchEvent(new Event("visibilitychange"));
 const offline = () => ((down = true), window.dispatchEvent(new Event("offline")));
 const online = () => ((down = false), window.dispatchEvent(new Event("online")));
 const slot = (account: string) => records.get(accountSlot(claimedLocalKey(CODE), account));
@@ -367,6 +369,36 @@ describe("a list held by its edit link, when the account changes under it", () =
     await vi.waitFor(() => expect(asked).toEqual(["bbbb"]));
     await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
     expect(c.vaultGear.value.has(TENT_KEY)).toBe(false);
+  });
+
+  it("asks it too when the other account signed in from another tab, once this one is back in view", async () => {
+    storage.set(`gear.vault.answer.${CODE}`, "no");
+    await signIn("1", "aaaa");
+    const c = await openEditor(`/e/${CODE}#${TOKEN}`);
+    await vi.waitFor(() => expect(c.vaultGear.value.has(TENT_KEY)).toBe(true));
+    asked = [];
+
+    signInElsewhere("2", "bbbb");
+    backInView();
+    c.setMeta(RENAME); // typed in the tab A left open
+    await vi.waitFor(() => expect(asked).toEqual(["bbbb"]));
+    await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
+    expect(c.vaultGear.value.has(TENT_KEY)).toBe(false);
+    expect(useSession().user.value?.account).toBe("bbbb");
+    // the list is the link's, and the edit went under it
+    await vi.waitFor(() => expect(sent.flatMap((s) => s.ops)).toMatchObject([renameOp]));
+  });
+
+  it("stops showing what the account's My Gear holds once it has signed out in another tab", async () => {
+    storage.set(`gear.vault.answer.${CODE}`, "no");
+    await signIn("1", "aaaa");
+    const c = await openEditor(`/e/${CODE}#${TOKEN}`);
+    await vi.waitFor(() => expect(c.vaultGear.value.has(TENT_KEY)).toBe(true));
+
+    signOutElsewhere("1");
+    backInView();
+    await vi.waitFor(() => expect(c.vaultGear.value.has(TENT_KEY)).toBe(false));
+    expect(useSession().presence.value).toBe("signedOut");
   });
 
   it("goes on sending under the link whoever is signed in, and never loads the list again", async () => {
