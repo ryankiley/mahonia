@@ -6,7 +6,6 @@
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
-import { backfillSeedColumns } from "./seedBackfill";
 import { renameMovedVariants } from "./seedRenames";
 import { retireOrphans } from "./seedRetire";
 import { upsertSeedRows } from "./seedUpsert";
@@ -20,21 +19,6 @@ export async function seedCatalog(db: Db): Promise<void> {
   const csv = readFileSync(CATALOG_CSV, "utf8");
   const rows = csvToCatalogRows(csv);
   console.log(`Loaded ${rows.length} rows from seed/catalog.csv`);
-
-  const backfilled = await backfillSeedColumns(db, rows);
-  if (backfilled) {
-    const ids = (list: number[]) => (list.length ? ` (${list.map((id) => `#${id}`).join(", ")})` : "");
-    console.log(
-      `Seed columns filled in: ${backfilled.seedRows} seed rows from their own weight and link, ` +
-        `${backfilled.corrected.length} holding a visitor's correction from the research${ids(backfilled.corrected)}, ` +
-        `${backfilled.inApp.length} verified in the app from the research${ids(backfilled.inApp)}.`,
-    );
-    if (backfilled.inAppDiffers.length)
-      console.log(
-        `  ${backfilled.inAppDiffers.length} of those were verified over a weight the research doesn't say now${ids(backfilled.inAppDiffers)}: ` +
-          `a visitor's correction, or research edited since. Graduating won't mark them; compare each with its research row first.`,
-      );
-  }
 
   const renamed = await renameMovedVariants(db, rows);
   if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);

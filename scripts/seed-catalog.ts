@@ -3,8 +3,7 @@
 // re-running never duplicates — it inserts new rows and updates changed
 // weights/sources in place, except a visitor's cited correction the research hasn't moved
 // past, which stays (seedUpsert.ts). Each row it writes also records what the research
-// said (seed_weight_mg, seed_source_url); on a database older than those columns the
-// first run fills them in before anything reads them (seedBackfill.ts). A row whose
+// said (seed_weight_mg, seed_source_url). A row whose
 // variant was tidied keeps its id (seedRenames.ts: same product, one orphan and one
 // newcomer, renamed before the upsert), and a row the CSV stops naming is retired with a
 // pointer to its successor, never deleted (seedRetire.ts). Seeded rows are owner-curated +

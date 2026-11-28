@@ -59,13 +59,9 @@ export async function upsertSeedRows(
   db: Db,
   rows: readonly CatalogCsvRow[],
 ): Promise<{ inserted: number; updated: number; unchanged: number; held: number; kept: KeptCorrection[] }> {
-  const current = await db.select().from(catalogItems);
-  // Without the pair every seed row would read as one the research had moved, and a kept
-  // correction would be written over. Goes with backfillSeedColumns when the columns fold.
-  if (current.some((r) => seedManaged(r) && r.seedWeightMg == null)) {
-    throw new Error("catalog_items has seed rows without seed_weight_mg: run backfillSeedColumns (scripts/seedBackfill.ts) before the upsert.");
-  }
-  const byIdentity = new Map(current.map((r) => [identity(r.brand, r.name, r.variant), r]));
+  const byIdentity = new Map(
+    (await db.select().from(catalogItems)).map((r) => [identity(r.brand, r.name, r.variant), r]),
+  );
   const seeded = (row: CatalogCsvRow) => ({
     weightMg: row.weightMg,
     kcal: row.kcal,
