@@ -389,7 +389,7 @@ const saveLabel = computed(() =>
                  the route's details rather than a list of choices -->
             <Transition name="menu">
               <MenuList v-if="infoOpen" tag="div" side="start" role="dialog" aria-label="Route" class="spin-info">
-                <p class="t-label">{{ spun?.name }}</p>
+                <p class="spin-info__name">{{ spun?.name }}</p>
                 <p class="t-muted">{{ facts }}</p>
                 <button class="btn btn--soft spin-info__change" type="button" :disabled="busy" @click="changeRoute">
                   {{ busy ? "Reading…" : "Change route…" }}
@@ -624,6 +624,16 @@ const saveLabel = computed(() =>
    in WebKit, then taller than it needed to be. */
 .spin-info p {
   text-wrap: balance;
+}
+/* the route's name, the card's heading: the page's ink, as the (i) card's first line is, not
+   t-label's quieter one */
+.spin-info__name {
+  font-weight: var(--font-weight-semibold);
+}
+/* A card opened from the dock hangs the app's 4px off the BAR, not off its button: the button
+   sits inside the bar's padding, and 4px off it put the card's edge over the bar's. */
+.spin-dock :deep(.menu__list--above) {
+  bottom: calc(100% + var(--dock-pad) + var(--space-1));
 }
 .spin-info__change {
   justify-self: start;
