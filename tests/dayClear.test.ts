@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { applyOps, type Op } from "~~/shared/ops";
 import type { ListState } from "~~/shared/types";
@@ -13,7 +12,8 @@ import type { ListState } from "~~/shared/types";
  * it. The clear applied optimistically and the next autosave echo put the old value back.
  *
  * So every case here round-trips the op through JSON first. A test that skips that step
- * passes against the broken code.
+ * passes against the broken code. The defect itself was on the client, which sent
+ * undefined; tests/planGhostDayRow.nuxt.test.ts pins what the planning panel sends.
  */
 const wire = (op: Op): Op => JSON.parse(JSON.stringify(op)) as Op;
 
@@ -58,26 +58,5 @@ describe("clearing a day's figures reaches the reducer through JSON", () => {
   it("undefined does NOT survive the wire, which is the whole reason for the sentinel", () => {
     const op = { t: "updateDay", id: "d1", patch: { distanceM: undefined } } as unknown as Op;
     expect("distanceM" in (wire(op) as { patch: object }).patch).toBe(false);
-  });
-});
-
-/**
- * The reducer half above passes against the BROKEN code, and that is worth saying out loud:
- * cleanDayPatch always understood "" (cleanDayMetres parses it to NaN and returns
- * undefined), and `"distanceM" in patch` is true for "". Nothing server-side was wrong.
- *
- * The defect was entirely on the client — the panel sent `undefined`, which never arrived.
- * So the guard has to be on what the panel SENDS, or the fix can be reverted without a
- * single test noticing.
- */
-describe("the planning panel sends the clear sentinel, not undefined", () => {
-  const src = readFileSync(new URL("../app/components/TrailPlanPanel.vue", import.meta.url), "utf8");
-
-  it("commits a cleared distance as \"\"", () => {
-    expect(src).toMatch(/distanceM:\s*raw\s*\?[^;]*\?\?\s*""\s*\)\s*:\s*""/);
-  });
-
-  it("commits a cleared climb as \"\"", () => {
-    expect(src).toMatch(/ascentM:\s*raw\s*\?[^;]*\?\?\s*""\s*\)\s*:\s*""/);
   });
 });
