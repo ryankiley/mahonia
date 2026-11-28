@@ -424,13 +424,15 @@ function create() {
   // A claimed open's copy goes in the slot of the account it was opened through,
   // whoever the cookie names by now. Once that account has left the browser the copy
   // is kept only for what it still has to send, and dropped otherwise: nothing of an
-  // account's outlives its session here except edits waiting for it to come back.
+  // account's outlives its session here except edits waiting for it to come back. With
+  // nothing of this page's to send, the copy there may be another tab's, kept with an
+  // edit that tab couldn't send, so it is dropped only if it holds none.
   function writeLocal() {
     if (!snapshot.value) return;
     const key = storeKey();
     const left = !accountIsHere();
     const filedFor = account ?? undefined;
-    if (left && !pending.length) return void store.del(key, filedFor);
+    if (left && !pending.length) return void store.del(key, filedFor, { keepUnsent: true });
     store.set(key, { snapshot: snapshot.value, pending: pending.slice(), updatedAt: Date.now() }, filedFor);
   }
 

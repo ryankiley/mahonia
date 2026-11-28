@@ -138,13 +138,17 @@ export function useLocalListStore() {
 
   /** Drop `key`'s record. For a claimed open that is one account's copy (the
    *  signed-in one's, or `account`'s) and no other: another account's may hold
-   *  edits it has yet to send. */
-  async function del(key: string, account?: string): Promise<void> {
+   *  edits it has yet to send. `keepUnsent` leaves a copy that still holds some, as
+   *  delClaimed does: one this page has nothing in may be another tab's, kept with an
+   *  edit it couldn't send. */
+  async function del(key: string, account?: string, { keepUnsent = false } = {}): Promise<void> {
     if (held?.key === key) held = undefined;
     if (!enabled) return;
     try {
       const at = slotFor(key, account);
-      if (at) await tx("readwrite", (s) => s.delete(at.slot));
+      if (!at) return;
+      if (keepUnsent && (await read(at.slot))?.pending?.length) return;
+      await tx("readwrite", (s) => s.delete(at.slot));
     } catch {
       /* best-effort */
     }

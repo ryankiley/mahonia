@@ -9,6 +9,7 @@ import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { readBody } from "h3";
 import ImportModal from "~/components/ImportModal.vue";
 import { snapshotFor } from "./helpers/list";
+import { listToMarkdown } from "~~/shared/exporters/markdown";
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
@@ -118,6 +119,34 @@ describe("importing a list", () => {
     expect(body.title).toBe("Timberline");
     expect(body.data.items.map((i) => [i.brand, i.name, i.unitWeightMg])).toEqual([["Big Agnes", "Tiger Wall UL2", 992000]]);
     expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  // A table is read as pasted, link or not: our Markdown copy ends with its link too,
+  // and following it fetched the live list instead, dropping any edit made to the text
+  // and failing offline or once the list was gone.
+  it("reads a pasted Markdown copy as the table it holds, though it ends with its link", async () => {
+    const md = listToMarkdown(
+      snapshotFor({
+        shareCode: "SHARED000001",
+        slug: "s",
+        title: "Edited copy",
+        folders: [{ id: "f", name: "Shelter", colorKey: "green", defaultClassification: "base", sortOrder: 0 }],
+        items: [{ id: "i", folderId: "f", name: "Duplex", qty: 1, sortOrder: 0, unitWeightMg: 510_000, classification: null }],
+      }),
+    );
+    expect(md).toContain("mahonia.app/s/SHARED000001");
+    const w = dialog();
+    await submit(w, md);
+    await settle();
+    expect(createdBodies[0]!.data!.items!.map((i) => i.name)).toEqual(["Duplex"]);
+  });
+
+  it("reads a pasted CSV as the CSV, though a cell holds a Mahonia link", async () => {
+    const w = dialog();
+    await submit(w, "Item Name,Weight,URL\nDuplex,510,https://mahonia.app/s/SHARED000001\n");
+    await settle();
+    expect(createdBodies[0]!.data!.items!.map((i) => i.name)).toEqual(["Duplex"]);
+    expect(createdBodies[0]!.data).not.toHaveProperty("typed");
   });
 
   it("links catalog food in a food folder without pinning its class", async () => {

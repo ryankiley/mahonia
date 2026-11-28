@@ -225,7 +225,9 @@ export interface CsvImportOptions {
 
 /** What a CSV reads as: the list's content, and the unit most of its rows were
  *  written in when one unit outnumbers the rest, which is the list's own. */
-export type CsvListData = ListData & { displayUnit?: Unit };
+/** `typed`: read as a list typed one item a line, not as a table or a CSV. The import
+ *  dialog follows a Mahonia link only in such text; a table is read as pasted. */
+export type CsvListData = ListData & { displayUnit?: Unit; typed?: true };
 
 /** Map a CSV (ours or LighterPack's) into ListData. Tolerant of column order/naming. */
 export function csvToListData(
@@ -307,7 +309,7 @@ export function csvToListData(
   const prose = rows[0]!.length < 2 || (delimiter === "," && !/,(?! )/.test(firstLine));
   if (known.every((i) => i < 0) && prose) {
     const typed = typedListCsv(text);
-    return typed ? csvToListData(typed, { maxFolders, maxItems }) : { folders: [], items: [] };
+    return { ...(typed ? csvToListData(typed, { maxFolders, maxItems }) : { folders: [], items: [] }), typed: true };
   }
   if (rows.length < 2) return { folders: [], items: [] };
   const nameCol = iName >= 0 ? iName : 0;
@@ -418,8 +420,10 @@ export function csvToListData(
 
     // inside the nearest group above it with that name ("Monday" twice in one folder is
     // two days, each holding the rows under it), in that group's folder; a name that
-    // matches no row above stays where it is, at the top level
-    const parent = iNested >= 0 ? groupAbove.get(cell(iNested) ?? "") : undefined;
+    // matches no row above stays where it is, at the top level. A blank cell names no
+    // group: it is what every top-level row writes, and a row with no name is no group.
+    const nestedUnder = iNested >= 0 ? cell(iNested) : undefined;
+    const parent = nestedUnder ? groupAbove.get(nestedUnder) : undefined;
     const item: ListData["items"][number] = {
       id: uid(),
       folderId: parent ? parent.folderId : fId,
@@ -446,7 +450,7 @@ export function csvToListData(
     item.sortOrder = folderCount.get(slot) ?? 0;
     folderCount.set(slot, item.sortOrder + 1);
     if (parent) item.parentId = parent.id;
-    else groupAbove.set(name, item);
+    else if (name) groupAbove.set(name, item);
     items.push(item);
   }
 
