@@ -340,11 +340,10 @@ const cleanText = (raw: string, max: number) => tidyText(raw.slice(0, max));
 //
 // A row reaches storage two ways. WHOLE: an add, a create, an import, a restore, where
 // every field is read off a foreign object and one with nothing usable in it takes its
-// default. By PATCH: an update, which names only the fields it changes. These were two
-// lists of the same rules, and they drifted: a price the patch had no branch for, a
-// stored zero the whole row read as one, a cleared note kept as "" by one and dropped by
-// the other. ITEM_RULES is the one list. Each field's row holds both readings, built
-// from the same value rule, and normalizeItem and cleanItemPatch only walk it.
+// default. By PATCH: an update, which names only the fields it changes. ITEM_RULES is the
+// one list both read, so a field's rule can't reach one path and not the other. Each
+// field's row holds both readings, built from the same value rule, and normalizeItem and
+// cleanItemPatch only walk it.
 //
 // What stays different between the two is the same for every field, and deliberate:
 //   - a whole row is foreign JSON (a hand-edited backup, a raw create), so it takes a
@@ -396,9 +395,7 @@ const typed = (max: number) => optText((s) => cleanText(s, max) || undefined);
 
 /**
  * A flag stored only when it is set: true, or absent. A false would be a second way to
- * say what absent already says, and the two paths said it differently: a catalog pick in
- * a row's name field stored `nameOverridden: false` where the same pick added as a new
- * row stored nothing. `set` is what a whole row counts as set.
+ * say what absent already says. `set` is what a whole row counts as set.
  */
 const flag = (set: (raw: unknown) => boolean): ItemRule<boolean | undefined> => ({
   whole: (raw) => (set(raw) ? true : undefined),
@@ -573,9 +570,8 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
 function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   const out: Partial<Folder> = {};
   // A rename to nothing is IGNORED, as a person's is (cleanPersonPatch): a folder keeps
-  // a name. It was stored blank here while normalizeFolder and the read-time tidy both
-  // call a blank name "Folder", so the editor showed an empty box until the save's
-  // answer came back and typed "Folder" into it, and the name it had was gone.
+  // a name. Stored blank, normalizeFolder and the read-time tidy would call it "Folder",
+  // and the name it had would be gone.
   if (typeof patch.name === "string") {
     const name = cleanText(patch.name, MAX_FOLDER_NAME_LEN);
     if (name) out.name = name;
