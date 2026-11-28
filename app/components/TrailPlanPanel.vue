@@ -635,7 +635,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
       <FigureChip v-if="snapshot.trailAscentM" label="Route climb" :value="routeHeight(snapshot.trailAscentM)" :unit="ascentUnit" />
       <!-- only when it is a DIFFERENT fact — on a loop it equals the climb by definition -->
       <FigureChip v-if="routeDescentDiffers" label="Route descent" :value="routeHeight(snapshot.trailDescentM)" :unit="ascentUnit" />
-      <FigureChip v-if="totalAscentM > 0" :label="snapshot.trailAscentM ? 'Climb in days' : 'Climb'" :value="ascentReadout(totalAscentM)" :unit="ascentUnit" />
+      <!-- What the DAYS add up to, named for what sets it apart from the figure beside
+           it. With a route on the list that figure is the route's own climb, itself a
+           total, so this one is the plan's: "Planned climb". It was "Climb in days",
+           which reads as a climb measured in days, and "Total climb" there would be a
+           total smaller than the route's. With no route it is the only climb on the
+           page, and "Total climb" is what it is. -->
+      <FigureChip v-if="totalAscentM > 0" :label="snapshot.trailAscentM ? 'Planned climb' : 'Total climb'" :value="ascentReadout(totalAscentM)" :unit="ascentUnit" />
       <!-- the pack, kept in view because the totals bar stands down in this mode. The
            unit as its own element, the way the totals bar does it: baked into the
            formatted string it can't take the lesser foreground, so "lb" sat at full weight

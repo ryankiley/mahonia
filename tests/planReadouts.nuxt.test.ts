@@ -36,10 +36,19 @@ const burnTips = (w: ReturnType<typeof mountPlan>) =>
   w.findAllComponents(Tooltip).map((t) => String(t.props("text"))).filter((t) => t.startsWith("Walking and resting"));
 
 describe("the plan's read-only heights", () => {
-  it("groups the Climb chip, at the step the day fields round to", () => {
+  it("groups the climb chip, at the step the day fields round to", () => {
     const w = mountPlan();
-    const chip = w.findAll(".plan__chips .chip").find((c) => c.find(".t-label").text() === "Climb")!;
+    const chip = w.findAll(".plan__chips .chip").find((c) => c.find(".t-label").text() === "Total climb")!;
     expect(chip.find(".t-num").text()).toBe("3,200 ft");
+  });
+
+  // Beside a route's own climb, the days' sum is the plan's figure, not another total.
+  it("calls the days' climb Planned once the route has a climb of its own", () => {
+    const w = mount(TrailPlanPanel, { props: { snapshot: { ...plan(), trailAscentM: 1_200 }, personFilter: null } });
+    const labels = w.findAll(".plan__chips .chip .t-label").map((l) => l.text());
+    expect(labels).toContain("Route climb");
+    expect(labels).toContain("Planned climb");
+    expect(labels).not.toContain("Total climb");
   });
 
   it("groups a day's drop, and leaves the editable climb beside it ungrouped", () => {
