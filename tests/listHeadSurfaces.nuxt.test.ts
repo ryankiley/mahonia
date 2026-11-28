@@ -5,9 +5,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { nextTick } from "vue";
+import { effectScope, nextTick } from "vue";
 import DateRangePicker from "~/components/DateRangePicker.vue";
 import ListHead from "~/components/ListHead.vue";
+import { onKeyStroke } from "~/composables/dom";
 import { snapshotFor } from "./helpers/list";
 
 const setMeta = vi.fn();
@@ -29,7 +30,17 @@ async function clickOn(el: Element) {
   await nextTick();
 }
 
+/** A key as a person presses it: down, then up, on whatever holds focus by then. */
+async function press(key: string) {
+  const held = () => document.activeElement ?? document.body;
+  held().dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+  await nextTick();
+  held().dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
+  await nextTick();
+}
+
 beforeEach(() => {
+  setMeta.mockClear();
   wrapper = mount(ListHead, {
     props: {
       snapshot: {
@@ -94,10 +105,61 @@ describe("closing one surface", () => {
     expect(panel().exists()).toBe(true);
   };
 
-  it("closes the trail panel on Escape", async () => {
+  // My Gear closes on Escape from a listener on the window. The panel used to close on
+  // the key's release and leave the press unhandled, so the pane beside it went too.
+  it("closes the trail panel on Escape, and nothing around it", async () => {
+    const closePane = vi.fn();
+    const around = effectScope();
+    around.run(() => onKeyStroke("Escape", closePane));
     await openPanel();
-    await panel().trigger("keyup", { key: "Escape" });
+    await press("Escape");
     expect(panel().exists()).toBe(false);
+    expect(closePane).not.toHaveBeenCalled();
+    around.stop();
+  });
+
+  it("closes only the unit menu on Escape in it, and the panel on the next", async () => {
+    await openPanel();
+    const unit = () => panel().find(".optmenu__btn");
+    await unit().trigger("click");
+    expect(unit().attributes("aria-expanded")).toBe("true");
+
+    await press("Escape");
+    expect(unit().attributes("aria-expanded")).toBe("false");
+    expect(panel().exists()).toBe(true);
+
+    await press("Escape");
+    expect(panel().exists()).toBe(false);
+  });
+
+  // Escape is "never mind", as it is in a row's name. A browser fires a field's change
+  // as focus leaves it, and Escape sends focus back to the row, so the blur here does
+  // what no test DOM does by itself.
+  it("puts the panel away on Escape without saving what was typed", async () => {
+    await openPanel();
+    const title = wrapper.get<HTMLInputElement>('input[id$="-title"]').element;
+    title.focus();
+    title.value = "Timberline Tr";
+    title.dispatchEvent(new Event("input", { bubbles: true }));
+    title.addEventListener("blur", () => title.dispatchEvent(new Event("change", { bubbles: true })), { once: true });
+
+    await press("Escape");
+    expect(panel().exists()).toBe(false);
+    expect(setMeta).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(name().element);
+  });
+
+  it("closes the calendar on Escape", async () => {
+    await datesButton().trigger("click");
+    expect(dates().exists()).toBe(true);
+    await press("Escape");
+    expect(dates().exists()).toBe(false);
+  });
+
+  it("closes a pinned card on Escape", async () => {
+    await name().trigger("click");
+    await press("Escape");
+    expect(pinned()).toBe(false);
   });
 
   // the commit itself is the field's change, which fires on the blur only for an edit a
