@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "Edits made offline and not yet sent are no longer lost when another account opens the same list on this browser."
+  ]
+}

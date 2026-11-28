@@ -56,10 +56,17 @@ export const CLAIMED_KEY_PREFIX = "code:";
 export const claimedLocalKey = (shareCode: string): string => `${CLAIMED_KEY_PREFIX}${shareCode}`;
 export const isClaimedKey = (key: string): boolean => key.startsWith(CLAIMED_KEY_PREFIX);
 
+/** Where the account `account` (its marker) keeps its copy of the claimed open
+ *  `claimedKey`: a slot of its own, so two accounts that hold one list never write
+ *  the same record. Still under the claimed prefix, and never another list's slot
+ *  (a share code contains no ":"). */
+export const accountSlot = (claimedKey: string, account: string): string => `${claimedKey}:${account}`;
+
 /** Whether a session of the account `account` (its marker, or null with nobody
- *  signed in) may read the copy stored under `key`. Every copy but a claimed
- *  open's belongs to the device; a claimed open's belongs to the account that
- *  wrote it. One from before the stamp existed has nothing to compare and is
+ *  signed in) may read the copy stored under the list's own key `key`, which is
+ *  where a claimed open's was kept before each account had a slot. Every copy but
+ *  a claimed open's belongs to the device; a claimed open's belongs to the account
+ *  that wrote it. One from before the stamp existed has nothing to compare and is
  *  still read (useLocalListStore says why). */
 export const copyReadableBy = (key: string, record: Pick<LocalListRecord, "account">, account: string | null): boolean =>
   !isClaimedKey(key) || record.account === undefined || record.account === account;
