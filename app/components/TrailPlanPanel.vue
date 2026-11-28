@@ -463,8 +463,8 @@ function clockIcon(hours: number | undefined): IconNode {
     ["path", {
       d: `M${minute}L12 12L${hour}`,
       stroke: "currentColor",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
     }],
   ];
 }
