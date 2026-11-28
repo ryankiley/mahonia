@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconArrowUpRight, IconChevronDownMedium, IconDrop, IconFire2, IconFootsteps, IconQuestionmarkCircle, IconRacingFlag, IconSun, IconTrashCan } from "~/icons/central";
+import { IconArrowUpRight, IconChevronDownMedium, IconDrop, IconFire2, IconFootsteps, IconRacingFlag, IconSun, IconTrashCan } from "~/icons/central";
 import { MountainGlyph, StairsGlyph, TentGlyph } from "~/icons/mahonia";
 import { SvgIcon, type IconChild, type IconNode } from "~/utils/icon";
 import type { Directive } from "vue";
@@ -279,37 +279,79 @@ const facts = computed(() =>
 );
 /** a height in the list's own unit, with its unit word */
 const heightWord = (m: number) => heightWithUnit(m, distanceUnit.value);
-/** the lapse-rate rule of thumb, in the degrees the list's unit system speaks */
-function coolerWord(aboveM: number): string {
+/** the lapse-rate rule of thumb, in the degrees the list's unit system speaks: how many,
+ *  and which way, or null when it rounds to nothing */
+function coolerBy(aboveM: number): { degrees: string; way: "cooler" | "warmer" } | null {
   const c = coolerByC(aboveM);
   const v = distanceUnit.value === "mi" ? c * 1.8 : c;
   const n = Math.round(Math.abs(v));
-  if (n < 1) return "";
-  return `about ${n} °${distanceUnit.value === "mi" ? "F" : "C"} ${v > 0 ? "cooler" : "warmer"}`;
+  if (n < 1) return null;
+  return { degrees: `${n} °${distanceUnit.value === "mi" ? "F" : "C"}`, way: v > 0 ? "cooler" : "warmer" };
 }
-/** "Camp at 1,850 m, 650 m above the trailhead and about 4 °C cooler. High point 2,410 m." */
-function campSentence(i: number, f: DayFacts): string {
-  const end = i === finishDayIndex.value ? "Finish" : "Camp";
-  const parts = [`${end} at ${heightWord(f.campM)}`];
-  const above = Math.round(f.aboveTrailheadM);
-  if (Math.abs(above) >= 10) {
-    const cooler = coolerWord(f.aboveTrailheadM);
-    parts.push(`${heightWord(Math.abs(above))} ${above > 0 ? "above" : "below"} the trailhead${cooler ? ` and ${cooler}` : ""}`);
-  }
-  let s = parts.join(", ") + ".";
-  if (f.highM - f.campM >= 10) s += ` High point ${heightWord(f.highM)}.`;
-  return s;
+/**
+ * What the day is like, as LINES: one fact each, short enough to stand on one line of a
+ * phone, a glyph for its subject, its figures a step forward of its words.
+ *
+ * They were two sentences ("Camp at 2,080 ft, 1,390 ft below the trailhead and about 5 °F
+ * warmer. High point 8,280 ft." and "Longest climb … Steepest stretch …"): seven figures
+ * in four wrapped lines of one grey, under three rows of figures in the same grey, and
+ * the block read as a paragraph to get through (Ryan, 2026-11-27: "gets kinda heavy").
+ * There is one type size and no quieter ink to send them back to, so the lightening is
+ * in the words. Two figures went with the sentences: the camp's height against the
+ * trailhead, which was there to carry the temperature and is the difference of two
+ * numbers on the page, and where the longest climb starts, which the profile's pointer
+ * says.
+ */
+interface FactLine {
+  key: string;
+  icon: IconNode;
+  /** the staircase, descending */
+  down?: boolean;
+  parts: { t: string; fig?: boolean }[];
 }
-/** "Longest climb 620 m over 3.1 km, from 4.2 km. Steepest stretch 14% at 6.8 km." */
-function groundSentence(f: DayFacts): string {
-  const parts: string[] = [];
-  if (f.climb) parts.push(`Longest climb ${heightWord(f.climb.gainM)} over ${formatDistance(f.climb.lengthM, distanceUnit.value)}, from ${formatDistance(f.climb.startM, distanceUnit.value)}.`);
+const fig = (t: string) => ({ t, fig: true });
+function factLines(i: number, f: DayFacts): FactLine[] {
+  const finish = i === finishDayIndex.value;
+  const lines: FactLine[] = [];
+  const camp: FactLine = {
+    key: "camp",
+    icon: finish ? IconRacingFlag : TentGlyph,
+    parts: [{ t: finish ? "Finish " : "Camp " }, fig(heightWord(f.campM))],
+  };
+  const cooler = Math.abs(Math.round(f.aboveTrailheadM)) >= 10 ? coolerBy(f.aboveTrailheadM) : null;
+  if (cooler) camp.parts.push({ t: ", about " }, fig(cooler.degrees), { t: ` ${cooler.way}` });
+  lines.push(camp);
+  if (f.highM - f.campM >= 10)
+    lines.push({ key: "high", icon: MountainGlyph, parts: [{ t: "High point " }, fig(heightWord(f.highM))] });
+  if (f.climb)
+    lines.push({
+      key: "climb",
+      icon: StairsGlyph,
+      parts: [
+        { t: "Longest climb " },
+        fig(heightWord(f.climb.gainM)),
+        { t: " over " },
+        fig(formatDistance(f.climb.lengthM, distanceUnit.value)),
+      ],
+    });
   if (f.steepest) {
     const g = f.steepest.gradePct;
-    parts.push(`Steepest stretch ${Math.abs(g)}% ${g < 0 ? "downhill" : "uphill"} at ${formatDistance(f.steepest.atM, distanceUnit.value)}.`);
+    lines.push({
+      key: "steepest",
+      icon: StairsGlyph,
+      down: g < 0,
+      parts: [
+        { t: "Steepest " },
+        fig(`${Math.abs(g)}%`),
+        { t: ` ${g < 0 ? "down" : "up"} at ` },
+        fig(formatDistance(f.steepest.atM, distanceUnit.value)),
+      ],
+    });
   }
-  return parts.join(" ");
+  return lines;
 }
+/** each day's lines, worked out once: the row reads them, it doesn't rebuild them */
+const dayFactLines = computed(() => facts.value.map((f, i) => (f ? factLines(i, f) : [])));
 
 // ---- the longest dry carry ----
 // Between one water and the next, measured in full even across a night, from the pins
@@ -849,19 +891,26 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             </span>
           </span>
 
-          <!-- Read-only, and worked out rather than measured — so it carries the `~` AND
-               a (?) you can actually reach. A bare title= is invisible to a phone and to
-               a keyboard; Tooltip is the app's own affordance and answers both. -->
+          <!-- Read-only, and worked out rather than measured, so each says how: THE FIGURE
+               IS ITS OWN EXPLANATION'S TRIGGER. Each had a (?) after it, three small
+               circles in two lines of figures, and the marks outnumbered the things they
+               marked up. Tooltip opens on hover and on keyboard focus and never on touch
+               (its header says why), so on a phone those circles did nothing at all. The
+               figure is a button for the same reason the (?) was: it has to take focus
+               for a keyboard to reach the words. -->
           <span class="plan__cell plan__cell--est">
-            <SvgIcon :icon="clockIcon(estimates[i]?.hours)" class="plan__gl" aria-hidden="true" />
             <!-- no `~` on this one: the RANGE is the hedge, and "~4–4.5" says it twice.
                  The calories beside it keep theirs, being a single figure. -->
-            <span class="t-num">{{ estimates[i] ? formatHours(estimates[i]!.hours) : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only, no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
-              <button type="button" class="plan__why foreground-quiet" aria-label="How the walking time is worked out">
-                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
+              <button type="button" class="plan__est" :aria-label="`Walking time ${formatHours(estimates[i]!.hours)}`">
+                <SvgIcon :icon="clockIcon(estimates[i]!.hours)" class="plan__gl" aria-hidden="true" />
+                <span class="t-num">{{ formatHours(estimates[i]!.hours) }}</span>
               </button>
             </Tooltip>
+            <template v-else>
+              <SvgIcon :icon="clockIcon(undefined)" class="plan__gl" aria-hidden="true" />
+              <span class="t-num">—</span>
+            </template>
           </span>
 
           <!-- How much light there is to walk in: sunrise to sunset at the middle of the
@@ -876,24 +925,25 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             class="plan__cell plan__cell--est plan__cell--light"
             :class="{ 'is-short': lightShort(i) }"
           >
-            <SvgIcon :icon="IconSun" class="plan__gl" aria-hidden="true" />
-            <span class="t-num">{{ formatDaylight(dayDaylight[i]!) }}</span>
-            <span class="visually-hidden"> of daylight</span>
             <Tooltip :text="lightTip(i)" preferred-placement="top">
-              <button type="button" class="plan__why foreground-quiet" aria-label="How the daylight is worked out">
-                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
+              <button type="button" class="plan__est" :aria-label="`${formatDaylight(dayDaylight[i]!)} of daylight`">
+                <SvgIcon :icon="IconSun" class="plan__gl" aria-hidden="true" />
+                <span class="t-num">{{ formatDaylight(dayDaylight[i]!) }}</span>
               </button>
             </Tooltip>
           </span>
 
           <span class="plan__cell plan__cell--est">
-            <SvgIcon :icon="IconFire2" class="plan__gl" aria-hidden="true" />
-            <span class="t-num">{{ estimates[i] ? `~${formatKcal(roundKcal(estimates[i]!.totalKcal))}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" :text="burnTip" preferred-placement="top">
-              <button type="button" class="plan__why foreground-quiet" aria-label="How the calories are worked out">
-                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
+              <button type="button" class="plan__est" :aria-label="`About ${formatKcal(roundKcal(estimates[i]!.totalKcal))} kcal burned`">
+                <SvgIcon :icon="IconFire2" class="plan__gl" aria-hidden="true" />
+                <span class="t-num">~{{ formatKcal(roundKcal(estimates[i]!.totalKcal)) }}</span>
               </button>
             </Tooltip>
+            <template v-else>
+              <SvgIcon :icon="IconFire2" class="plan__gl" aria-hidden="true" />
+              <span class="t-num">—</span>
+            </template>
           </span>
 
           <!-- The forecast where the day ends, on somebody else's site, in a new tab:
@@ -911,20 +961,16 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 
         </div>
 
-        <!-- What the day is like, read off the profile: two derived sentences in the
-             estimate's foreground. The first is where you end up and how high; the second is
-             the climb you'll remember and the steepest bit. Both go quiet when there
-             is nothing to say (flat ground, a day with no distance). -->
-        <template v-if="dayDistancesM[i] && facts[i]">
-          <p class="plan__fact">
-            <SvgIcon :icon="i === finishDayIndex ? IconRacingFlag : TentGlyph" class="plan__gl" aria-hidden="true" />
-            <span>{{ campSentence(i, facts[i]!) }}</span>
+        <!-- What the day is like, read off the profile, a fact a line (factLines says
+             why they stopped being sentences): where you end up and how it compares, the
+             high point, the climb you'll remember, the steepest bit. Any of them goes
+             quiet when there is nothing to say (flat ground, a day with no distance). -->
+        <div v-if="dayDistancesM[i] && dayFactLines[i]?.length" class="plan__facts">
+          <p v-for="line in dayFactLines[i]" :key="line.key" class="plan__fact">
+            <SvgIcon :icon="line.icon" class="plan__gl" :class="{ 'plan__gl--down': line.down }" aria-hidden="true" />
+            <span><template v-for="(part, pi) in line.parts" :key="pi"><span v-if="part.fig" class="plan__fig">{{ part.t }}</span><template v-else>{{ part.t }}</template></template></span>
           </p>
-          <p v-if="groundSentence(facts[i]!)" class="plan__fact">
-            <SvgIcon :icon="MountainGlyph" class="plan__gl" aria-hidden="true" />
-            <span>{{ groundSentence(facts[i]!) }}</span>
-          </p>
-        </template>
+        </div>
 
         <!-- The longest carry this day walks any part of: a sentence, not a cell, because
              it names a place. Measured in full even when it straddles the night; the
@@ -934,7 +980,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
           <SvgIcon :icon="IconDrop" class="plan__gl" aria-hidden="true" />
           <span>
             Longest carry
-            <span class="t-num">{{ formatDistance(dayCarries[i]!.carry.toM - dayCarries[i]!.carry.fromM, distanceUnit) }}</span><template v-if="dayCarries[i]!.hours != null">, <span class="t-num">{{ formatHours(dayCarries[i]!.hours!) }}</span></template>,
+            <span class="plan__fig">{{ formatDistance(dayCarries[i]!.carry.toM - dayCarries[i]!.carry.fromM, distanceUnit) }}</span><template v-if="dayCarries[i]!.hours != null">, <span class="plan__fig">{{ formatHours(dayCarries[i]!.hours!) }}</span></template>,
             from {{ carryFromLabel(dayCarries[i]!.carry) }}.
           </span>
         </p>
@@ -1307,6 +1353,47 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   position: relative;
   top: 0.2em;
 }
+/* TWO GROUPS, not one block: the day's figures, then what the ground is like. The first
+   line of facts stands a step off the figures, where it sat a hair under them and the
+   seven lines read as one. */
+.plan__data + .plan__fact,
+.plan__facts {
+  margin-top: var(--space-3);
+}
+/* The facts run as the figures above them run: glyph-and-phrase pairs along a line that
+   wraps, the figures' own gap between them. Stacked, four short lines stood twice as
+   tall on a wide screen as the two sentences they replaced, with most of the row empty
+   beside them. A phone gets the stack (below): no two of them fit a line there, and a
+   column that is always a column reads steadier than one that pairs up now and then. */
+.plan__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+}
+.plan__facts .plan__fact {
+  margin-top: 0;
+}
+@media (max-width: $bp-stack) {
+  .plan__facts {
+    flex-direction: column;
+  }
+}
+/* a fact's figures, a step forward of its words: the line is scanned by its numbers,
+   and with one size on the panel the foreground is what can say which they are */
+.plan__fig {
+  color: var(--foreground-secondary);
+  font-variant-numeric: tabular-nums;
+}
+/* An estimate that explains itself on hover or focus (the walking time, the light, the
+   burn): the glyph and the figure are one control, laid out as the cell lays them out,
+   in the cell's own foreground. `help`, as the (?) it replaces had. */
+.plan__est {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: inherit;
+  cursor: help;
+}
 /* the once-only hint above the days, same foreground, same size, no glyph */
 .plan__carryhint {
   margin-top: var(--space-2);
@@ -1337,26 +1424,6 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__cell--light.is-short,
 .plan__cell--light.is-short .plan__gl {
   color: var(--foreground-primary);
-}
-/* the (?) — quiet until wanted, and a real button so it's reachable by keyboard and
-   by touch, unlike the title= it replaces */
-.plan__why {
-  /* the glyph annotates the figure rather than belonging to it, so it sits a full step
-     away — at --space-1 it read as a superscript on the number */
-  margin-left: var(--space-2);
-  display: inline-flex;
-  cursor: help;
-  /* the foregrounds are .foreground-quiet's (controls.scss). The resting state is
-     --foreground-tertiary and NOT --foreground-quaternary: the token's own definition
-     says not to reuse it below the page-title size, and at 14px it made the only sign an
-     explanation exists a 1.35:1 smudge — invisible to exactly the reader who needed the
-     explanation. */
-}
-/* The glyph is a circle and the button a bare 14px box, so the keyboard's ring was a
-   square with the circle's edge touching each side. Round on focus only, as the bare
-   option-menu triggers are (OptionMenu.vue), so nothing changes at rest. */
-.plan__why:focus-visible {
-  border-radius: var(--radius-pill);
 }
 .plan__gl {
   flex: none;
