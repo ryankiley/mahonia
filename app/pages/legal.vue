@@ -64,8 +64,9 @@ useHead({
         </p>
         <p>
           <strong>My Gear</strong>, your saved gear, is the one part that needs an account. It holds names,
-          brands, and weights, and belongs to you rather than to a browser, so signing in on another
-          device brings it with you, and clearing this one doesn’t lose it. While you’re signed in,
+          brands, and weights, plus any prices, product links, and calories. It belongs to you rather
+          than to a browser, so signing in on another device brings it with you, and clearing this one
+          doesn’t lose it. While you’re signed in,
           gear reaches it when you add something to a list yourself, or import or copy a list. A
           list someone else made asks before any of its gear goes into yours.
         </p>

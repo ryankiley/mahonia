@@ -1,7 +1,7 @@
 {
   "date": "2026-11-27",
   "added": [
-    "My Gear can share a read-only link to your gear and kits, without prices or food, that stops working the moment you turn it off."
+    "My Gear can share a read-only link to your gear and kits, without prices, that stops working the moment you turn it off."
   ],
   "changed": [
     "The shared list page's top bar says Create a list, like the rest of the site."

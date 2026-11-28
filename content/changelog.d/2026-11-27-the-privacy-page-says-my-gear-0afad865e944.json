@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "The privacy page says My Gear also holds any prices, product links and calories you keep in it.",
+    "In the account dialog, a screen reader's jump by heading now reaches Sign out and Delete account."
+  ]
+}

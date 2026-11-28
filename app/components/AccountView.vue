@@ -781,8 +781,11 @@ async function onSignOut() {
 
           <!-- Signing out, at the end with the account's other way out (delete, below):
                it sat mid-dialog between two settings, as if it were one. One row, the
-               everyday action first. -->
+               everyday action first. Its heading, like delete's below, is for the heading
+               outline alone: on screen the buttons name it, and without one a screen
+               reader's jump by heading files both under "Take your data with you". -->
           <section class="acct__section acct__signouts">
+            <h2 class="visually-hidden">Sign out</h2>
             <button type="button" class="btn btn--ghost acct__btn" @click="onSignOut">Sign out</button>
             <button
               type="button"
@@ -794,9 +797,10 @@ async function onSignOut() {
             </button>
           </section>
 
-          <!-- no heading or paragraph: the button names it, and its confirmation says what
-               goes and asks about the lists -->
+          <!-- no visible heading or paragraph: the button names it, and its confirmation
+               says what goes and asks about the lists -->
           <section class="acct__section">
+            <h2 class="visually-hidden">Delete account</h2>
             <button
               type="button"
               class="btn btn--ghost acct__btn acct__danger"
