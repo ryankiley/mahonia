@@ -87,6 +87,8 @@ describe("renaming a folder from its header", () => {
     await rename("Ryan's tent");
     expect(field.element.value).toBe("Ryan’s tent");
     await vi.waitFor(() => expect(sent).toHaveLength(1), { timeout: 5_000, interval: 25 });
-    expect(sent[0]).toEqual([{ t: "updateFolder", id: "f1", patch: { name: "Ryan's tent" } }]);
+    // one op; the queue stamps it with who sent it and in what order, which isn't this test's
+    expect(sent[0]).toHaveLength(1);
+    expect(sent[0]![0]).toMatchObject({ t: "updateFolder", id: "f1", patch: { name: "Ryan's tent" } });
   });
 });
