@@ -233,11 +233,10 @@ export function carriedTotalsMg(
 }
 
 /**
- * Does a chip selection still resolve? The editor's watcher and the share view's
- * ask the same question after the people list or the unassigned bucket changes —
- * a person removed, or the last unclaimed row claimed — and widen to everyone
- * when the answer is no, so nobody is stranded on a blank list under a chips
- * row with nothing lit.
+ * Does a chip selection still resolve? The editor's watcher asks after the people
+ * list or the unassigned bucket changes — a person removed, or the last unclaimed
+ * row claimed — and widens to everyone when the answer is no, so nobody is stranded
+ * on a blank list under a chips row with nothing lit.
  */
 export function selectionGone(
   people: Person[],

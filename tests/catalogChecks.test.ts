@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalog } from "../scripts/catalogBuild";
 import type { CatalogCsvRow } from "../scripts/catalogCsv";
-import { runCatalogChecks } from "../scripts/catalogChecks";
+import { findingText, runCatalogChecks } from "../scripts/catalogChecks";
 import type { ResearchFile } from "../scripts/research";
 import { kcalMatchesQuote, runResearchChecks, servingsOf } from "../scripts/researchChecks";
 import { tidyQuote } from "../shared/catalogQuality";
@@ -234,7 +234,7 @@ describe("catalog conventions are errors, not warnings", () => {
 describe("research-level attributes check", () => {
   const file = (attributes: unknown): ResearchFile => ({
     file: "synthetic.json",
-    rows: [{ brand: "Acme", name: "Ridge 2", variant: "2P", category_hint: "shelter", weight_value: 900, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/ridge", quote: "900 g", attributes: attributes as never }],
+    rows: [{ brand: "Acme", name: "Ridge 2", variant: "2P", common_name: "tent", category_hint: "shelter", weight_value: 900, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/ridge", quote: "900 g", attributes: attributes as never }],
   });
   const errs = (attributes: unknown) => runResearchChecks([file(attributes)]).filter((f) => f.level === "error").map((f) => f.code);
   it("attr: an unknown key, a wrong type or a non-canonical value on a research row is an error", () => {
@@ -303,6 +303,10 @@ describe("the build refuses what the research checks refuse", () => {
   it("a category is one the catalog has", () => {
     expect(refusal(file({ category_hint: "gadgets" }))).toEqual({ rows: 0, codes: ["category"] });
     expect(refusal(file({ category_hint: null }))).toEqual({ rows: 0, codes: ["category"] });
+  });
+  it("a row names its gear type, and the refusal names the row", () => {
+    for (const common_name of [undefined, "", " "]) expect(refusal(file({ common_name }))).toEqual({ rows: 0, codes: ["common-name"] });
+    expect(buildCatalog([file({ common_name: "" })]).errors.map(findingText)).toEqual(["synthetic.json: Acme Trail Bar: no common_name — every catalog row needs a gear type"]);
   });
   it("a duplicate is caught on the identity the build keys rows by", () => {
     expect(refusal(file({ variant: "M" }, { variant: "Medium" })).codes).toEqual(["dup-row"]);

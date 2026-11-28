@@ -888,8 +888,8 @@ async function exportGear(kind: string) {
       @saved="onItemSaved"
       @added="onItemAdded"
     >
-      <!-- The add dialog's catalog search, the list editor's own name field (ItemInput),
-           catalog-only and pick-only. The PAGE renders it and the dialog places it, so
+      <!-- The add dialog's catalog search, the list editor's own name field (ItemInput)
+           in its pick mode. The PAGE renders it and the dialog places it, so
            the field stays in /gear's own chunk graph, as the inline add row kept it:
            rendered inside the lazy dialog it left that graph, and the bundler split the
            editor's shared chunk three ways around it, 0.7 KB more on the editor's

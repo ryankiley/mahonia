@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { normalizeFolder } from "../shared/ops";
-import type { ListSnapshot } from "../shared/types";
+import type { ListData, ListSnapshot } from "../shared/types";
 import { LISTS_DDL } from "../server/utils/db";
 import { createList } from "../server/utils/listRepo";
 import { createTestDb } from "./helpers/db";
@@ -140,5 +140,46 @@ describe("importing a JSON backup, then creating the list", () => {
       ["dup day", 0],
       ["Day B", 1],
     ]);
+  });
+});
+
+// The create route checks only that folders and items are arrays; what is IN them is
+// whatever the request body said.
+describe("createList with a body that isn't a backup", () => {
+  it("drops rows that are not objects and keeps the rows beside them", async () => {
+    const junk = [null, "tent", 7, ["nested"]];
+    const { snapshot } = await createList({
+      title: "Trip",
+      data: {
+        folders: [...junk, { id: "f1", name: "Shelter" }],
+        items: [...junk, { id: "i1", name: "Tent", folderId: "f1", qty: 1 }],
+        days: junk,
+        waypoints: junk,
+        people: junk,
+      } as unknown as ListData,
+    });
+    expect(snapshot.folders.map((f) => f.id)).toEqual(["f1"]);
+    expect(snapshot.items.map((i) => i.id)).toEqual(["i1"]);
+    expect(snapshot.days).toEqual([]);
+    expect(snapshot.waypoints).toEqual([]);
+    expect(snapshot.people).toEqual([]);
+  });
+
+  // days, waypoints and people are not checked at all, so a body can send anything there
+  it("reads days, waypoints or people that are not arrays as none", async () => {
+    const { snapshot } = await createList({
+      title: "Trip",
+      data: {
+        folders: [{ id: "f1", name: "Shelter" }],
+        items: [{ id: "i1", name: "Tent", folderId: "f1", qty: 1 }],
+        days: 5,
+        waypoints: { id: "w1" },
+        people: "Ryan",
+      } as unknown as ListData,
+    });
+    expect(snapshot.items.map((i) => i.id)).toEqual(["i1"]);
+    expect(snapshot.days).toEqual([]);
+    expect(snapshot.waypoints).toEqual([]);
+    expect(snapshot.people).toEqual([]);
   });
 });

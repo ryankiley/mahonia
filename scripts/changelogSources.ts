@@ -6,7 +6,7 @@
 // added, because two open PRs cannot conflict on files neither of them shares. One
 // shared file conflicted on the same few lines whenever two PRs were open at once.
 //
-// Entries are hand-written per PR, never generated. A changelog-reminder comment
+// Entries are written per PR by a person, never generated. A changelog-reminder comment
 // nudges a user-facing PR that is missing one, but nothing scrapes the PR title; a
 // forgotten entry is simply absent from that day's release until it is backfilled.
 // House style: one plain user-facing sentence, the observable change and not the

@@ -12,7 +12,8 @@
  */
 
 import { MAX_ITEM_NAME_LEN } from "./ops";
-import { UNIT_ALIASES, WEIGHT_NUMBER as NUM } from "./weights";
+import { UNSPACED_NUMBER as NUM } from "./typedNumber";
+import { UNIT_ALIASES } from "./weights";
 
 // The unit words the weight field itself reads (shared/weights, the one vocabulary), and
 // its number token, imported (".9 oz" is a weight there, so it is one here). Longest alias first,

@@ -1,5 +1,5 @@
 import type { Op } from "~~/shared/ops";
-import { applyOps, tidyListText, rebaseOnto } from "~~/shared/ops";
+import { applyOps, tidyStoredList, rebaseOnto } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { STARTER_FOLDERS } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
@@ -433,10 +433,11 @@ function create() {
   }
 
   // Keep this list's row in "Your lists" in step with the snapshot. Called after a
-  // sync AND optimistically from dispatch, because the list switcher reads the REGISTRY, not the snapshot.
-  // A list you just renamed has to answer to its new name in the dropdown straight
-  // away, not one debounce plus a round-trip later; the reducer here is the same one
-  // the server runs, so the title we write is already the title it will store.
+  // sync AND optimistically from dispatch, because the list switcher reads the
+  // REGISTRY, not the snapshot. A list you just renamed has to answer to its new name
+  // in the dropdown straight away, not one debounce plus a round-trip later; the
+  // reducer here is the same one the server runs, so the title we write is already the
+  // title it will store.
   //
   // dispose() is what makes that more than a latency question. It fires its last
   // flush blind and discards the response, so a rename made on the way out of the
@@ -447,7 +448,7 @@ function create() {
     if (!snapshot.value) return;
     const patch = {
       title: snapshot.value.title,
-      displayUnit: snapshot.value.displayUnit, // keep the summary in the list's unit system
+      displayUnit: snapshot.value.displayUnit, // what /gear opens in when this is the most recent list
     };
     const held = access.value;
     if (held.kind === "token") myLists.touch(held.token, patch);
@@ -470,7 +471,7 @@ function create() {
 
   // The gate on that optimistic call. dispatch runs on every keystroke and touch()
   // REASSIGNS the registry array (which persists the whole registry), so this asks
-  // first whether anything the row actually shows, its name or its unit, has moved —
+  // first whether anything the row holds, its name or its unit, has moved —
   // for most edits, nothing has. (A sync answer still writes the row once, unasked.)
   // No row at all — a draft with no token yet, or a list removed from this device —
   // means nothing to update: touch is update-only by design, and re-adding one here
@@ -503,8 +504,8 @@ function create() {
     // A claimed open has no token to register and never gets a registry row; its
     // row copy and its ledger stamp are syncRegistry's, and a first open on this
     // device has no on-device copy for the hydrate path to have run it on — so it
-    // runs here, on the server's fresh title, the way registerCreated
-    // below refreshes a token's row.
+    // runs here, on the server's fresh title, the way registerCreated below refreshes
+    // a token's row.
     if (claimCode()) {
       syncRegistry();
       return;
@@ -591,7 +592,7 @@ function create() {
       // (rowToSnapshot). This copy is the FIRST paint and, offline, the only one — an
       // old list cached before the tidy existed would otherwise show straight
       // apostrophes until the network answered, then visibly re-spell itself.
-      snapshot.value = tidyListText(local.snapshot);
+      snapshot.value = tidyStoredList(local.snapshot);
       pending = local.pending ?? [];
       setStatus(pending.length ? "saving" : "synced");
       syncRegistry();
@@ -752,7 +753,7 @@ function create() {
     // Async (IndexedDB), so the fresh starter paints first and is replaced if found.
     store.get(DRAFT_KEY).then((local) => {
       if (myEpoch !== epochRef.value || editToken() || !local) return;
-      snapshot.value = tidyListText(local.snapshot); // same backfill as the token path
+      snapshot.value = tidyStoredList(local.snapshot); // same backfill as the token path
       // not local.pending: a draft's queue is what was typed while a create was out,
       // and the snapshot saved beside it already holds every one of those edits —
       // carried over, the create's success would replay them (see its catch)

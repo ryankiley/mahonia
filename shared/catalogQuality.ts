@@ -103,7 +103,7 @@ export const weightsInQuote = (q: string): number[] =>
 
 /** How far a quoted figure may sit from the weight it backs: 8 g or 5%, whichever is
  *  more. The research audit's tolerance, so a rounded ounce figure still agrees. */
-export const quoteTolerance = (grams: number) => Math.max(8, 0.05 * grams);
+const quoteTolerance = (grams: number) => Math.max(8, 0.05 * grams);
 
 /** The quoted figure closest to `grams` (a range's nearest point, `grams` itself when it
  *  falls inside one), or null when the quote states no weight. */

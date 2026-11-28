@@ -1,6 +1,6 @@
 {
   "date": "2026-11-27",
   "fixed": [
-    "Edits made just before a save failed are no longer lost when you switch lists or close the tab."
+    "An edit made while a save was still sending is no longer lost if that save fails and you switch lists or close the tab."
   ]
 }

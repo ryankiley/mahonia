@@ -14,7 +14,7 @@ import { cloneListData } from "../shared/clone";
 import { csvToListData, listToCsv } from "../shared/exporters/csv";
 import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { listToMarkdown } from "../shared/exporters/markdown";
-import { applyOps, MAX_PEOPLE, MAX_PERSON_NAME_LEN, normalizePerson, tidyListText, type Op } from "../shared/ops";
+import { applyOps, MAX_PEOPLE, MAX_PERSON_NAME_LEN, normalizePerson, tidyStoredList, type Op } from "../shared/ops";
 import {
   carriedTotalsMg,
   effectivePersonId,
@@ -419,8 +419,10 @@ describe("round-trips", () => {
       items: [item({ id: "i1", personId: "a" }), item({ id: "i2", personId: "b", sortOrder: 1 })],
     } as never);
     const back = jsonToListImport(json)!;
-    expect(back.data.people!.map((p) => p.name)).toEqual(["Sam", "Sam 2"]);
-    // …and they are still two DIFFERENT carriers, not one merged person
+    // two people, as the backup had them; the create numbers the names apart
+    // (tests/createList.test.ts)
+    expect(back.data.people!.map((p) => p.name)).toEqual(["Sam", "Sam"]);
+    // …and they are two DIFFERENT carriers, not one merged person
     const [one, two] = back.data.items.map((i) => i.personId);
     expect(one).toBeTruthy();
     expect(two).toBeTruthy();
@@ -461,9 +463,9 @@ describe("round-trips", () => {
 // Not round-trips — standing invariants. The vault one is a privacy-omission
 // canary, sibling in spirit to tests/bodyWeightPrivacy.test.ts.
 describe("standing invariants", () => {
-  it("tidyListText tidies person names like folder names", () => {
+  it("tidyStoredList tidies person names like folder names", () => {
     const s = state({ people: [person({ name: "Sam's  brother" })] });
-    tidyListText(s);
+    tidyStoredList(s);
     expect(s.people![0]!.name).toBe("Sam’s brother");
   });
 

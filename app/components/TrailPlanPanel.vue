@@ -572,10 +572,9 @@ const descentFor = (i: number) =>
 function commitDayMetres(id: string, field: "distanceM" | "ascentM", e: Event) {
   const raw = (e.target as HTMLInputElement).value.trim();
   const unit = field === "distanceM" ? distanceUnit.value : ascentUnit.value;
-  // "" and NOT undefined, spelled out per field. The patch is JSON on its way to
-  // the server and JSON.stringify drops undefined keys, so clearing a day's figure
-  // changed it locally and was overwritten by the very next echo — it looked like
-  // the server refusing the edit, when the server was never told. See DayPatch;
+  // "" and NOT undefined, spelled out per field. The patch goes through JSON — on its
+  // way to the server, and in dispatch before it applies here — and JSON drops an
+  // undefined key, so the clear would happen nowhere. See DayPatch;
   // tests/planGhostDayRow.nuxt.test.ts clears each field and expects the "".
   c.updateDay(
     id,

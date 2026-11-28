@@ -13,19 +13,13 @@ import { CATALOG_CSV, RESEARCH_DIR } from "./paths";
 import { readResearchFiles } from "./research";
 
 function main() {
-  const { errors, rows: built, missingCommon, handWritten } = buildCatalog(readResearchFiles(RESEARCH_DIR));
+  const { errors, rows: built, handWritten } = buildCatalog(readResearchFiles(RESEARCH_DIR));
 
   // Fail BEFORE writing, so a refused row never leaves the CSV a row short. The lines are
   // the audit's own (npm run catalog:audit prints them with the warnings).
   if (errors.length) {
     console.error(`\n✗ ${errors.length} research error(s) — nothing written:`);
     for (const e of errors) console.error(`  ✗ [${e.code}] ${findingText(e)}`);
-    process.exit(1);
-  }
-  if (missingCommon.length) {
-    console.error(`\n✗ ${missingCommon.length} row(s) have NO common name — every catalog row needs one.`);
-    console.error(`  Add "common_name" to the research row:`);
-    for (const r of missingCommon) console.error(`    - ${[r.brand, r.name, r.variant].filter(Boolean).join(" ")}`);
     process.exit(1);
   }
   writeFileSync(CATALOG_CSV, catalogCsvText(built), "utf8");

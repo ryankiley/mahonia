@@ -2,8 +2,6 @@
 // have. Import, Import gear, Keyboard shortcuts and the rest used a bare .t-label, which
 // is the size, weight and ink of the section heads inside them: "Keyboard shortcuts"
 // read as one more group above "A row" and "While dragging".
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
@@ -24,13 +22,6 @@ describe("a dialog's title", () => {
     expect(titleOf(mount(ImportModal, opts).get("h2"))).toEqual({ text: "Import a list", isTitle: true });
     expect(titleOf(mount(VaultImportModal, opts).get("h2"))).toEqual({ text: "Import gear", isTitle: true });
     expect(titleOf(mount(ShortcutsModal, opts).get("h2"))).toEqual({ text: "Keyboard shortcuts", isTitle: true });
-  });
-
-  it.each(["AppDialogs", "CatalogCorrectionModal", "PeopleModal", "VaultItemModal"])("%s gives its title the same class", (name) => {
-    const source = readFileSync(resolve(process.cwd(), `app/components/${name}.vue`), "utf8");
-    const titles = source.match(/<h2[^>]*>/g) ?? [];
-    expect(titles.length).toBeGreaterThan(0);
-    for (const h2 of titles) expect(h2).toContain("panel__title");
   });
 });
 

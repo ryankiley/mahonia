@@ -64,7 +64,7 @@ import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextB
 import { trustedOrigin } from "./origin";
 import { rateLimit, rateLimitSubject, useKv } from "./rateLimit";
 import { sha256Hex } from "./tokens";
-import { mintVault, touchVaultByUser, vaultIdOrMint } from "./vaultAuth";
+import { mintVault, vaultIdOfUser, vaultIdOrMint } from "./vaultAuth";
 import {
   addVaultItems,
   applyVaultItemOp,
@@ -2290,7 +2290,7 @@ async function openGear(event: H3Event, need: AccessScope): Promise<GearHandle |
   // runs down its own allowance and nobody else's, whatever address it calls from
   await rateLimitSubject(need === "write" ? "mcp-write" : "mcp-read", `gear:${caller.userId}`);
   const db = await useVaultDb();
-  return { db, userId: caller.userId, vaultId: await touchVaultByUser(db, caller.userId) };
+  return { db, userId: caller.userId, vaultId: await vaultIdOfUser(db, caller.userId) };
 }
 
 /** One piece as the tools return it. Named field by field, as describeList is, so a

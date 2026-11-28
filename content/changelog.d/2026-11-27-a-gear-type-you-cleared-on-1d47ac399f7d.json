@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "A gear type you cleared on a row stays cleared when a pasted list links that row to a catalog product."
+  ]
+}

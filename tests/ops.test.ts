@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyOps, clampUnitWeightMg, isOpObject, normalizeCalendarDate, normalizeItem, tidyListText, type Op } from "../shared/ops";
+import { applyOps, clampUnitWeightMg, isOpObject, normalizeCalendarDate, normalizeItem, tidyStoredList, type Op } from "../shared/ops";
 import type { Item, ListState } from "../shared/types";
 import { blankState, folder, item as listItem } from "./helpers/list";
 
@@ -667,7 +667,7 @@ describe("text tidying reaches every human field", () => {
 
 // The backfill. Text written before the tidy existed has to come out right on READ,
 // or a list made last year renders half-and-half the moment one field is retyped.
-describe("tidyListText — bringing already-stored text up to date", () => {
+describe("tidyStoredList — bringing already-stored text up to date", () => {
   const CURLY = String.fromCharCode(0x2019);
   const stale = () => ({
     title: "  Ryan's   Timberline ",
@@ -693,7 +693,7 @@ describe("tidyListText — bringing already-stored text up to date", () => {
   });
 
   it("tidies every text field a stale list can hold", () => {
-    const s = tidyListText(stale());
+    const s = tidyStoredList(stale());
     expect(s.title).toBe(`Ryan${CURLY}s Timberline`);
     expect(s.trailLabel).toBe(`Ryan${CURLY}s loop`);
     expect(s.folders[0]!.name).toBe(`Men${CURLY}s layers`);
@@ -706,22 +706,22 @@ describe("tidyListText — bringing already-stored text up to date", () => {
   });
 
   it("leaves URLs and measurements alone, exactly as the write path does", () => {
-    const s = tidyListText(stale());
+    const s = tidyStoredList(stale());
     expect(s.items[0]!.productUrl).toBe("https://example.com/men's-jacket");
     expect(s.items[1]!.name).toBe("Guyline 6'");
     expect(s.items[1]!.description).toBe(`2" stakes`);
   });
 
   it("is idempotent, so running it on every read can't drift", () => {
-    const once = tidyListText(stale());
-    const twice = tidyListText(structuredClone(once));
+    const once = tidyStoredList(stale());
+    const twice = tidyStoredList(structuredClone(once));
     expect(twice).toEqual(once);
   });
 
   it("agrees field-for-field with what the write path would have stored", () => {
     // the two must not diverge: a value read back must equal the value a retype
     // produces, or the backfill would fight the editor forever
-    const backfilled = tidyListText(stale());
+    const backfilled = tidyStoredList(stale());
     const written = base();
     applyOps(written, [
       { t: "setMeta", patch: { title: "  Ryan's   Timberline " } } as Op,
@@ -734,8 +734,8 @@ describe("tidyListText — bringing already-stored text up to date", () => {
   it("produces no phantom history entry — both sides of the diff move together", () => {
     // rowToState tidies BEFORE ops apply, so the pre-op state the summary compares
     // against is already tidied and a punctuation-only backfill reads as no change
-    const before = tidyListText(stale());
-    const after = tidyListText(stale());
+    const before = tidyStoredList(stale());
+    const after = tidyStoredList(stale());
     applyOps(after as unknown as ListState, [
       { t: "updateItem", id: "i1", patch: { qty: 2 } } as Op,
     ]);

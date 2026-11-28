@@ -70,6 +70,7 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     '      "variant": "",',
     '      "attributes": {"persons": 2},',
     '      "category_hint": "shelter",',
+    '      "common_name": "tent",',
     '      "weight_value": 17.8,',
     '      "weight_unit": "oz",',
     '      "weight_secondary": "504 g",',
@@ -84,6 +85,7 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     '      "name": "Duplex Zip",',
     '      "variant": "",',
     '      "category_hint": "shelter",',
+    '      "common_name": "tent",',
     '      "weight_value": 20.4,',
     '      "weight_unit": "oz",',
     '      "weight_source": "manufacturer",',
@@ -103,13 +105,14 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     const { rows, replaced, before } = rewriteResearchRows(held, by(corrected));
     expect([...replaced]).toEqual([researchIdentity(corrected)]);
     // its own keys in its own order, the stale weight_secondary gone, and nothing taken
-    // from the graduated row but the weight and its citation (no common_name, no null variant)
+    // from the graduated row but the weight and its citation (not its common_name, no null variant)
     expect(Object.entries(rows[0] as ResearchRow)).toEqual([
       ["brand", "Zpacks"],
       ["name", "Duplex"],
       ["variant", ""],
       ["attributes", { persons: 2 }],
       ["category_hint", "shelter"],
+      ["common_name", "tent"],
       ["weight_value", 524],
       ["weight_unit", "g"],
       ["weight_source", "manufacturer"],
@@ -163,6 +166,7 @@ describe("catalog:graduate, a research row corrected in the app", () => {
       '      "name": "Duplex",',
       '      "attributes": {"persons": 2},',
       '      "category_hint": "shelter",',
+      '      "common_name": "tent",',
       '      "weight_value": 524,',
       '      "weight_unit": "g",',
       '      "weight_source": "manufacturer",',

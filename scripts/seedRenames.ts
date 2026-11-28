@@ -13,17 +13,16 @@ const product = (brand: string | null, name: string, weightMg: number, sourceUrl
 
 /**
  * brand + name + variant is a row's identity, so a variant tidied in the research
- * ("Medium, JP 3" → "JP 3") reaches the upsert as a row it has never seen and the prune
+ * ("Medium, JP 3" → "JP 3") reaches the upsert as a row it has never seen and the retire
  * as a row the CSV no longer wants: the product would be inserted under a new id and
- * deleted under the old, and every list row linked to the old id would lose its live
- * name and its "suggest a fix" path. So a
- * seed-managed row the CSV no longer names and a CSV row the database does not hold
- * yet, with the same brand, name, weight and source, ONE of each, are the same product
- * under a new variant: the row takes the new variant, id kept, and My Gear's rows under
- * the old text move with it (they are keyed on it, vaultNormKey). Two orphans or two
- * newcomers for one product are not a rename — a size split, a size dropped — and are
- * left to the upsert and the prune. Idempotent: a renamed row is neither orphan nor
- * newcomer the next time.
+ * retired under the old, and every list row linked to the old id would lose its live
+ * name and its "suggest a fix" path. So a seed-managed row the CSV no longer names and
+ * a CSV row the database does not hold yet, with the same brand, name, weight and
+ * source, ONE of each, are the same product under a new variant: the row takes the new
+ * variant, id kept, and My Gear's rows under the old text move with it (they are keyed
+ * on it, vaultNormKey). Two orphans or two newcomers for one product are not a rename —
+ * a size split, a size dropped — and are left to the upsert and the retire. Idempotent:
+ * a renamed row is neither orphan nor newcomer the next time.
  */
 export async function renameMovedVariants(db: Db, rows: readonly CatalogCsvRow[]): Promise<{ catalog: number; vault: number }> {
   const held = await db

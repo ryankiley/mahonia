@@ -42,8 +42,6 @@ export interface CatalogBuild {
   errors: Finding[];
   /** The CSV's rows, sorted. */
   rows: BuiltRow[];
-  /** Rows that resolved to no gear type: the build fails on any. */
-  missingCommon: BuiltRow[];
   /** Research rows carrying attributes their variant doesn't state. */
   handWritten: number;
 }
@@ -52,7 +50,7 @@ export function buildCatalog(files: readonly ResearchFile[]): CatalogBuild {
   // Every rule a row is held to lives in the research checks, so the build doesn't restate
   // them: a refused row stops the whole build instead of the CSV quietly losing it.
   const errors = runResearchChecks(files).filter((f) => f.level === "error");
-  if (errors.length) return { errors, rows: [], missingCommon: [], handWritten: 0 };
+  if (errors.length) return { errors, rows: [], handWritten: 0 };
 
   const built: BuiltRow[] = [];
   let handWritten = 0; // research rows carrying attributes their variant doesn't state
@@ -90,9 +88,7 @@ export function buildCatalog(files: readonly ResearchFile[]): CatalogBuild {
       a.variant.localeCompare(b.variant),
   );
 
-  // Every catalog row must have a gear type (the pick-time default); one without fails the build.
-  const missingCommon = built.filter((r) => !r.common_name);
-  return { errors, rows: built, missingCommon, handWritten };
+  return { errors, rows: built, handWritten };
 }
 
 /** The CSV text for a build's rows, byte for byte what seed/catalog.csv holds. */

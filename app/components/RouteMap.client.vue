@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { IconExpand45, IconMinimize45, IconQuestionmarkCircle } from "~/icons/central";
-import { MAX_LABEL_LEN } from "~~/shared/ops";
+import { isLoneRouteEnd, MAX_LABEL_LEN } from "~~/shared/ops";
 import { formatLatLon, nearestAlongM, pointAlong, sliceAlong } from "~~/shared/polyline";
 import { SvgIcon, type IconNode } from "~/utils/icon";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
@@ -947,13 +947,10 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
   });
 
   root.append(head, input);
-  // The route's own trailhead and finish have no Remove, as their rows have none
-  // (WaypointRow's `removable`, the same rule): they come with the route and only a new
-  // route seeds them again, so a removed end would be gone for good. A SPARE one can go,
-  // which is how a list that was copied into two of each gets back to one. They still
-  // move, by the hold every pin answers to.
-  const isRouteEnd = w.kind === "trailhead" || w.kind === "end";
-  if (isRouteEnd && (props.waypoints ?? []).filter((p) => p.kind === w.kind).length < 2) return root;
+  // The route's only trailhead or finish has no Remove: it comes with the route and only
+  // a new route seeds it again, so a removed end would be gone for good. It still moves,
+  // by the hold every pin answers to.
+  if (isLoneRouteEnd(w, props.waypoints ?? [])) return root;
 
   const del = document.createElement("button");
   del.type = "button";

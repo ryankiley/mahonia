@@ -517,7 +517,7 @@ const ROUTE_END_IDS = ["wp-start", "wp-end"] as const;
  * they appear with the route, and this is the only place that makes them. They stay
  * movable afterwards, because a trailhead is often not where the track starts: you parked
  * somewhere else, or the recording begins mid-approach. Neither the plan nor the map
- * offers to remove one, since only a new route would bring it back.
+ * offers to remove the only one of either, since only a new route would bring it back.
  *
  * FIXED IDS, and that is not laziness. This reducer runs on the client and again on the
  * server, and both must produce the same list — a generated id would give the same pin two
@@ -539,6 +539,11 @@ export function seedRouteEnds(geo: string): Waypoint[] {
   }
   return out;
 }
+
+/** The route's ONLY trailhead or finish, which the plan and the map never offer to remove.
+ *  A spare one can go, which is how a list copied into two of each gets back to one. */
+export const isLoneRouteEnd = (w: { kind: string }, all: readonly { kind: string }[]) =>
+  (w.kind === "trailhead" || w.kind === "end") && all.filter((p) => p.kind === w.kind).length < 2;
 
 /** A day's or a pin's label as stored: capped, tidied like every other one-line field
  *  (cleanText), and absent rather than empty. */
@@ -955,7 +960,7 @@ export function normalizeItem(raw: Item): Item {
  * touched, plus a water row that still carries a count, so a read can afford to run it
  * every time.
  */
-export function tidyListText<T extends {
+export function tidyStoredList<T extends {
   title?: string;
   description?: string;
   trailLabel?: string;
@@ -983,8 +988,8 @@ export function tidyListText<T extends {
     if (it.description) it.description = cleanText(it.description, MAX_ITEM_NOTE_LEN) || undefined;
     // productUrl left alone — an apostrophe in a path is part of the address
     // A water row stored with a count before the reducer folded one: the same fold and
-    // worn-split clean-up updateItem runs, so a reader never sees the count and the
-    // editor never has to write the fix on open.
+    // worn-split clean-up updateItem runs, so no reader sees the count and nothing has
+    // to write a fix.
     if (it.qty > 1 && isWaterName(it.name)) {
       Object.assign(it, foldWaterQty(it.name, it.qty, it.unitWeightMg));
       const worn = normalizeWornSplit(it.qty, it.classification, it.wornQty);

@@ -29,7 +29,7 @@ const REGULAR = { id: 2, brand: "Zpacks", name: "Duplex", variant: "Regular", we
 const PLEX = { id: 3, brand: "Zpacks", name: "Plex Solo", variant: null, weightMg: 411_000, verified: true, categoryHint: "shelter" };
 
 function mountInput() {
-  const w = mount(ItemInput, { props: { unit: "g", mode: "row" }, attachTo: document.body });
+  const w = mount(ItemInput, { props: { unit: "g" }, attachTo: document.body });
   const input = w.find<HTMLInputElement>("input").element;
   return { w, input, commits: () => (w.emitted("commit") ?? []).map((e) => e[0] as NameCommit) };
 }

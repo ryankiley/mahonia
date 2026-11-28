@@ -30,7 +30,7 @@ import { resolveSession } from "./authSession";
  */
 
 /** The shared preamble of every resolver below: session or 401, then the vault
- *  looked up (touchVaultByUser). One body, so the 401 wording can't drift between
+ *  looked up (vaultIdOfUser). One body, so the 401 wording can't drift between
  *  the three public entry points. */
 async function vaultFor(
   event: H3Event,
@@ -39,7 +39,7 @@ async function vaultFor(
   if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in to use your vault" });
 
   const db = await useVaultDb();
-  return { db, vaultId: await touchVaultByUser(db, user.id), userId: user.id };
+  return { db, vaultId: await vaultIdOfUser(db, user.id), userId: user.id };
 }
 
 /**
@@ -76,7 +76,7 @@ export async function resolveVaultForRead(
  * A user's vault id, or null when they have none yet. Split out of requireVault so
  * it can be tested without an H3Event; what's left up there is error handling.
  */
-export async function touchVaultByUser(db: Db, userId: number): Promise<number | null> {
+export async function vaultIdOfUser(db: Db, userId: number): Promise<number | null> {
   const rows = await db.select({ id: vaults.id }).from(vaults).where(eq(vaults.userId, userId)).limit(1);
   return rows[0]?.id ?? null;
 }
@@ -102,13 +102,13 @@ export async function mintVault(db: Db, userId: number): Promise<number> {
 }
 
 /**
- * The account's vault, minted when it has none yet: touchVaultByUser,
+ * The account's vault, minted when it has none yet: vaultIdOfUser,
  * then mintVault. For the writes that reach a vault by user id rather than by a
  * request's session and must have somewhere to land: the sign-in backfill and a list
  * the connector files. Each holds a user id it has already verified.
  */
 export async function vaultIdOrMint(db: Db, userId: number): Promise<number> {
-  return (await touchVaultByUser(db, userId)) ?? (await mintVault(db, userId));
+  return (await vaultIdOfUser(db, userId)) ?? (await mintVault(db, userId));
 }
 
 /**

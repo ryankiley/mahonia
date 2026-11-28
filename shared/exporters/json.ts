@@ -15,7 +15,6 @@ import type { Folder, Item, ListData, ListMeta, Person, TripDay, Waypoint } from
 import { pickListMeta } from "../types";
 import { MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint } from "../ops";
 import { uid } from "../id";
-import { uniquifyPersonNames } from "../people";
 import { colorKeyForName, usedColorKeys } from "../categories";
 import { isRecord } from "../record";
 import { bySortOrder } from "../weights";
@@ -100,12 +99,7 @@ export function jsonToListImport(text: string): JsonImport | null {
   // People before items: the items re-point personId through this map. Same
   // first-occurrence-wins dedupe as folders, for the same op-targeting reason.
   const personIdMap = new Map<string, string>();
-  // …then uniquifyPersonNames: a backup may predate the one-name-per-person
-  // rule, and two "Sam"s are two DIFFERENT people here (they carry their own ids),
-  // so they're numbered apart rather than merged the way the CSV column merges them
-  const people = uniquifyPersonNames(
-    remintOrdered<Person>(raw.people, MAX_PEOPLE, normalizePerson, personIdMap),
-  );
+  const people = remintOrdered<Person>(raw.people, MAX_PEOPLE, normalizePerson, personIdMap);
 
   const normalized = raw.items
     .filter(isRecord)
