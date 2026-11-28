@@ -229,8 +229,11 @@ const inks = computed(() => {
 });
 // `bare` drops the site footer (layouts/default.vue): this page is one screen, the tool and
 // nothing under it, and it doesn't scroll.
-// What it does, in the words people search with: the title is the page's whole name.
+// What it does, in the words people search with: the title is the page's whole name. The tab
+// and a shared link's preview both carry the site's after it, as every page's tab does: a
+// preview in Messages shows only this title and the domain.
 const PAGE_TITLE = "Turn a GPX into a spinning 3D video";
+const TITLE = `${PAGE_TITLE} — Mahonia`;
 const PAGE_DESCRIPTION =
   "Turn a GPX, KML, TCX or FIT file into a spinning 3D line, and save it as a video: vertical, wide or square. Free, no account, and the file never leaves your browser.";
 // The preview a pasted link unfurls into: the page's own title and description over the site's,
@@ -238,7 +241,7 @@ const PAGE_DESCRIPTION =
 const previewImage = `${useSiteOrigin()}/og-trail-spin.png`;
 useSeoMeta({
   description: PAGE_DESCRIPTION,
-  ogTitle: PAGE_TITLE,
+  ogTitle: TITLE,
   ogDescription: PAGE_DESCRIPTION,
   ogImage: previewImage,
   ogImageWidth: 1200,
@@ -248,7 +251,7 @@ useSeoMeta({
   twitterImage: previewImage,
 });
 useHead({
-  title: `${PAGE_TITLE} — Mahonia`,
+  title: TITLE,
   // The ground's scheme goes on the body, where the theme's tokens resolve, in WebKit as in
   // Chrome (checked in the iOS Simulator). A dark-mode extension can still repaint the page;
   // none of the opt-outs tried stopped the one on Ryan's phone (2026-11-28), so the page
