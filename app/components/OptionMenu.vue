@@ -52,12 +52,12 @@ const props = defineProps<{
    */
   align?: "center" | "baseline";
   /**
-   * A visible name for a trigger that draws only a glyph or a figure: the app's Tooltip
-   * round the BUTTON (hover where there is hover, and keyboard focus; never touch), not
-   * round the whole menu, so it doesn't sit over the open list, and hidden while the list
-   * is open. The accessible name is still triggerLabel or label.
+   * Show `label` as a visible name, for a trigger that draws only a glyph or a figure: the
+   * app's Tooltip round the BUTTON (hover where there is hover, and keyboard focus; never
+   * touch), not round the whole menu, so it doesn't sit over the open list, and hidden
+   * while the list is open. The accessible name is still triggerLabel or label.
    */
-  tooltip?: string;
+  tooltip?: boolean;
 }>();
 const emit = defineEmits<{ pick: [key: string] }>();
 
@@ -87,7 +87,7 @@ function pick(key: string) {
 
 <template>
   <div ref="rootRef" class="menu optmenu">
-    <component :is="tooltip ? Tooltip : Bare" :text="tooltip" :disabled="open">
+    <component :is="tooltip ? Tooltip : Bare" :text="label" :disabled="open">
       <button
         type="button"
         class="optmenu__btn"

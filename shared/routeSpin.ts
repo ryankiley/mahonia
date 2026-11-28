@@ -8,9 +8,9 @@
 // depth. The line is there whole from the first frame, or draws itself on from the trail's
 // start to its end while it turns (drawnAt).
 //
-// Arithmetic over track points, and one function that draws it on a canvas. The page owns
-// the loop, the size and the colours.
-import { M_PER_DEG } from "./polyline";
+// Arithmetic over track points, and one function that draws it on a canvas. The stage
+// (app/components/RouteSpin.vue) owns the loop and the size, the page the colours.
+import { M_PER_DEG, segmentAt } from "./polyline";
 import type { TrackPoint } from "./gpx";
 import { filledElevations } from "./profile";
 
@@ -24,7 +24,7 @@ export type VideoTurns = (typeof VIDEO_TURN_CHOICES)[number];
 export const isVideoTurns = (v: unknown): v is VideoTurns => VIDEO_TURN_CHOICES.includes(v as VideoTurns);
 /** How the line appears: drawn on from the trail's start while it turns, or whole from the
  *  first frame. */
-export const SPIN_REVEALS = ["draw", "whole"] as const;
+const SPIN_REVEALS = ["draw", "whole"] as const;
 export type SpinReveal = (typeof SPIN_REVEALS)[number];
 export const isSpinReveal = (v: unknown): v is SpinReveal => SPIN_REVEALS.includes(v as SpinReveal);
 /** How long the line takes to draw itself on: the same in a video of any length, so the
@@ -63,7 +63,6 @@ export const SPIN_FORMATS = {
 } as const;
 export type SpinFormat = keyof typeof SPIN_FORMATS;
 export const isSpinFormat = (v: unknown): v is SpinFormat => typeof v === "string" && v in SPIN_FORMATS;
-
 
 /** How near the earlier path a point has to be to count as going back over it: across the
  *  ground, and in height. A recorded track's return wanders a few metres off its way out;
@@ -157,21 +156,20 @@ export function retraces(
     if (from >= 0 && to > from + 1 && along[to]! - along[from]! >= RETRACE_MIN_M) runs.push([from, to]);
     from = -1;
   };
-  for (let i = 0; i < count; i++) {
-    while (filed + 1 < count && along[filed + 1]! <= along[i]! - RETRACE_LAG_M) file(++filed);
+  /** whether point i lies on a segment filed so far, in its cell or the eight round it */
+  const onEarlierPath = (i: number) => {
     const cx = Math.floor(x[i]! / cell);
     const cy = Math.floor(y[i]! / cell);
-    let on = false;
-    for (let dx = -1; dx <= 1 && !on; dx++) {
-      for (let dy = -1; dy <= 1 && !on; dy++) {
-        for (const s of grid.get(key(cx + dx, cy + dy)) ?? []) {
-          if (onSegment(i, s)) {
-            on = true;
-            break;
-          }
-        }
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const s of grid.get(key(cx + dx, cy + dy)) ?? []) if (onSegment(i, s)) return true;
       }
     }
+    return false;
+  };
+  for (let i = 0; i < count; i++) {
+    while (filed + 1 < count && along[filed + 1]! <= along[i]! - RETRACE_LAG_M) file(++filed);
+    const on = onEarlierPath(i);
     if (on && from < 0) from = i;
     else if (!on && from >= 0) close(i - 1);
   }
@@ -353,8 +351,9 @@ export const pitchFor = (m: SpinModel): number => (m.exaggeration ? PITCH : FLAT
 
 /** The turn, in radians, this far into the spin. */
 export const spinAngle = (ms: number): number => (ms / SPIN_PERIOD_MS) * 2 * Math.PI;
-/** How long a video of `turns` full turns runs, in seconds. */
-export const videoSeconds = (turns: number): number => (turns * SPIN_PERIOD_MS) / 1000;
+/** How long a video of `turns` full turns runs, in milliseconds and in seconds. */
+export const videoMs = (turns: number): number => turns * SPIN_PERIOD_MS;
+export const videoSeconds = (turns: number): number => videoMs(turns) / 1000;
 
 /** How much of the line is drawn `ms` into a video (or the stage's loop of one): all of it
  *  when it appears whole; drawn on, none at the start and all of it after DRAW_ON_MS, easing
@@ -369,7 +368,7 @@ export function drawnAt(reveal: SpinReveal, ms: number): number {
 
 /** Where a route starts: an eighth of a turn in, so its first frame isn't the flat
  *  north-facing view that every other picture of it already is. The stage opens here, and
- *  the page's link preview is this frame. */
+ *  the page's link preview is the whole line at this angle. */
 export const SPIN_START_ANGLE = Math.PI / 4;
 
 /** Model units to pixels for a turn that stays inside `box`, centred: fixed for the whole
@@ -431,18 +430,6 @@ export interface SpinFrame {
   drawn?: number;
 }
 
-/** The last point at or before `share` of the way along (along is rising, 0 to 1). */
-function lastReached(along: Float64Array, share: number): number {
-  let lo = 0;
-  let hi = along.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (along[mid]! <= share) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo;
-}
-
 /**
  * One frame. Returns the projected points, to be handed back as `scratch` next frame so a
  * spin at 60 frames a second doesn't allocate at 60 frames a second.
@@ -462,17 +449,17 @@ export function drawSpin(
   if (drawn <= 0) return xy;
   const x = (i: number) => width / 2 + xy[2 * i]! * scale;
   const y = (i: number) => middleY - xy[2 * i + 1]! * scale;
-  // the last point the pen has reached, and how far it is past it toward the next
-  const last = drawn >= 1 ? m.e.length - 1 : lastReached(m.along, drawn);
+  // the segment the pen is on (from point `last`), and how far along it: the walk the
+  // track's own resamplers use, which never stops on the jump where the line lifts
+  const { i: last, f } = drawn >= 1 ? { i: m.e.length - 1, f: 0 } : segmentAt(m.along, drawn);
   ctx.beginPath();
   for (let i = 0; i <= last; i++) {
     if (m.starts[i]) ctx.moveTo(x(i), y(i));
     else ctx.lineTo(x(i), y(i));
   }
   const next = last + 1;
-  if (next < m.e.length && !m.starts[next]) {
-    const t = (drawn - m.along[last]!) / (m.along[next]! - m.along[last]!);
-    ctx.lineTo(x(last) + (x(next) - x(last)) * t, y(last) + (y(next) - y(last)) * t);
+  if (f > 0 && next < m.e.length && !m.starts[next]) {
+    ctx.lineTo(x(last) + (x(next) - x(last)) * f, y(last) + (y(next) - y(last)) * f);
   }
   ctx.lineWidth = Math.max(minLine, Math.min(width, height) * LINE_OF_SHORT_SIDE);
   ctx.lineJoin = "round";

@@ -22,6 +22,8 @@ import {
   drawnAt,
   drawSpin,
   SPIN_FORMATS,
+  spinAngle,
+  videoMs,
   videoSeconds,
   type SpinFormat,
   type SpinModel,
@@ -52,10 +54,11 @@ const STALL_MS = 4000;
 /** For the as-it-plays fallback: an MP4 where the browser can make one, WebM where not. */
 const RECORDER_TYPES = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
 
-export interface SpinVideoJob {
+interface SpinVideoJob {
   model: SpinModel;
   format: SpinFormat;
-  /** the angle the stage was at when Save was pressed: the video starts where you were looking */
+  /** the angle of the first frame: where the stage was when Save was pressed, or, for a line
+   *  that draws on, where the stage's loop began (RouteSpin) */
   from: number;
   /** how many full turns the video runs, ten seconds each */
   turns: VideoTurns;
@@ -96,19 +99,39 @@ export async function saveSpinVideo(job: SpinVideoJob): Promise<Blob> {
   throw new Error(failures.join("; "));
 }
 
-const angleAt = (job: SpinVideoJob, share: number) => job.from + share * job.turns * 2 * Math.PI;
-/** How much of the line is drawn `share` of the way through the video. */
-const drawnFor = (job: SpinVideoJob, share: number) => drawnAt(job.reveal, share * videoSeconds(job.turns) * 1000);
-
-/** A page canvas at the format's full size, drawn on and never shown. Opaque: every pixel is
- *  painted, and an opaque canvas is cheaper to read back. */
-function canvasFor(format: SpinFormat) {
-  const { width, height } = SPIN_FORMATS[format];
+/**
+ * The video's frames, on a page canvas at the format's full size that is drawn on and never
+ * shown: `draw(share)` paints the frame that far through the video, at its angle and with as
+ * much of the line as it shows by then. Opaque: every pixel is painted, and an opaque canvas
+ * is cheaper to read back. Null when the browser gives no 2D context.
+ */
+function painterFor(job: SpinVideoJob) {
+  const { width, height } = SPIN_FORMATS[job.format];
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d", { alpha: false });
-  return { canvas, ctx, frame: { width, height } };
+  if (!ctx) return null;
+  const look = { width, height, ink: job.ink, ground: job.ground };
+  const length = videoMs(job.turns);
+  let scratch: Float64Array | undefined;
+  const draw = (share: number) => {
+    const ms = share * length;
+    scratch = drawSpin(ctx, job.model, job.from + spinAngle(ms), { ...look, drawn: drawnAt(job.reveal, ms) }, scratch);
+  };
+  return { canvas, width, height, draw };
+}
+
+/** job.onProgress, but at most every SAVE_PROGRESS_MS: each report re-renders the page's ring,
+ *  on the thread drawing the frames. */
+function progressFor(job: SpinVideoJob) {
+  let told = performance.now();
+  return (share: number) => {
+    const now = performance.now();
+    if (now - told <= SAVE_PROGRESS_MS) return;
+    job.onProgress(share);
+    told = now;
+  };
 }
 
 // ---- 1. Frame by frame ----
@@ -164,10 +187,10 @@ const dequeued = (encoder: VideoEncoder) =>
  */
 async function encodeFrames(job: SpinVideoJob): Promise<Blob | null> {
   if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") return null;
-  const { canvas, ctx, frame } = canvasFor(job.format);
-  const { width, height } = frame;
-  const config = ctx && (await avcConfig(width, height));
-  if (!ctx || !config) return null;
+  const paint = painterFor(job);
+  const config = paint && (await avcConfig(paint.width, paint.height));
+  if (!paint || !config) return null;
+  const { width, height } = paint;
 
   const samples: Mp4Sample[] = [];
   const parts: Blob[] = [];
@@ -204,26 +227,20 @@ async function encodeFrames(job: SpinVideoJob): Promise<Blob | null> {
 
   const frames = Math.round(videoSeconds(job.turns) * VIDEO_FPS);
   const step = 1e6 / VIDEO_FPS;
-  const look = { ...frame, ink: job.ink, ground: job.ground };
-  let scratch: Float64Array | undefined;
-  let told = performance.now();
+  const report = progressFor(job);
   try {
     for (let i = 0; i < frames; i++) {
       job.signal?.throwIfAborted();
       if (failure) throw failure;
-      const share = i / frames;
-      scratch = drawSpin(ctx, job.model, angleAt(job, share), { ...look, drawn: drawnFor(job, share) }, scratch);
-      const picture = new VideoFrame(canvas, { timestamp: Math.round(i * step), duration: Math.round(step) });
+      paint.draw(i / frames);
+      const picture = new VideoFrame(paint.canvas, { timestamp: Math.round(i * step), duration: Math.round(step) });
       encoder.encode(picture, { keyFrame: i % KEY_EVERY === 0 });
       picture.close();
       while (encoder.encodeQueueSize > QUEUE_LIMIT && !failure) {
         if (performance.now() - lastOutput > STALL_MS) throw new Error(`the encoder stopped at frame ${i} of ${frames}`);
         await dequeued(encoder);
       }
-      if (performance.now() - told > SAVE_PROGRESS_MS) {
-        job.onProgress(i / frames);
-        told = performance.now();
-      }
+      report(i / frames);
     }
     await within(encoder.flush(), STALL_MS, "the encoder's last frames");
   } finally {
@@ -245,11 +262,10 @@ function recorderType(): string | null {
 
 async function recordAsItPlays(job: SpinVideoJob): Promise<Blob | null> {
   const type = recorderType();
-  const { canvas, ctx, frame } = canvasFor(job.format);
-  if (!type || !ctx) return null;
-  const look = { ...frame, ink: job.ink, ground: job.ground };
-  let scratch = drawSpin(ctx, job.model, job.from, { ...look, drawn: drawnFor(job, 0) });
-  const stream = canvas.captureStream(VIDEO_FPS);
+  const paint = type ? painterFor(job) : null;
+  if (!type || !paint) return null;
+  paint.draw(0);
+  const stream = paint.canvas.captureStream(VIDEO_FPS);
   const recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: VIDEO_BITRATE });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => {
@@ -258,17 +274,14 @@ async function recordAsItPlays(job: SpinVideoJob): Promise<Blob | null> {
   const stopped = new Promise<void>((resolve) => (recorder.onstop = () => resolve()));
   recorder.start();
   const t0 = performance.now();
-  let told = t0;
+  const report = progressFor(job);
   try {
     await new Promise<void>((resolve, reject) => {
       const tick = (now: number) => {
         if (job.signal?.aborted) return reject(job.signal.reason);
-        const share = Math.min(1, (now - t0) / (videoSeconds(job.turns) * 1000));
-        scratch = drawSpin(ctx, job.model, angleAt(job, share), { ...look, drawn: drawnFor(job, share) }, scratch);
-        if (now - told > SAVE_PROGRESS_MS) {
-          job.onProgress(share);
-          told = now;
-        }
+        const share = Math.min(1, (now - t0) / videoMs(job.turns));
+        paint.draw(share);
+        report(share);
         if (share < 1) requestAnimationFrame(tick);
         else resolve();
       };
