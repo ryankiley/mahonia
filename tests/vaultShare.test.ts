@@ -13,7 +13,8 @@ import {
   sharedGearByCode,
   vaultShareCode,
 } from "../server/utils/vaultShare";
-import { sharedGear } from "../shared/vaultShare";
+import { sharedGear, sharedGearSummary, sharedGearTitle } from "../shared/vaultShare";
+import { gearCardModel } from "../shared/ogGearCard";
 import { cap, vaultRow } from "./helpers/vault";
 import { createTestDb, type TestDb } from "./helpers/db";
 
@@ -155,5 +156,44 @@ describe("the link, on PGlite", () => {
     expect(await sharedGearByCode(db, "not-a-code")).toBeNull();
     await db.update(vaults).set({ userId: null }).where(eq(vaults.id, vaultId));
     expect(await sharedGearByCode(db, code)).toBeNull();
+  });
+});
+
+describe("the gear link's preview", () => {
+  const piece = (name: string, commonName: string) => vaultRow({ name, commonName });
+  const gear = {
+    owner: "Sam",
+    items: [
+      piece("X-Mid 2", "Tent"),
+      piece("Revelation", "Quilt"),
+      piece("NeoAir XLite", "Sleeping pad"),
+      piece("Rapide SL", "Sleeping pad"),
+      piece("Arc Haul", "Backpack"),
+      vaultRow({ name: "Cook kit", kind: "kit", parts: [] }),
+    ],
+  };
+
+  it("names the page by the owner's chosen name, and says its counts as one line", () => {
+    expect(sharedGearTitle(gear)).toBe("Sam’s gear");
+    expect(sharedGearTitle({})).toBe("Shared gear");
+    expect(sharedGearSummary(gear)).toBe("5 pieces · 1 kit");
+    expect(sharedGearSummary({ items: [piece("Duplex", "Tent")] })).toBe("1 piece");
+  });
+
+  it("draws a card of pieces, not a weight, with the kinds it holds most of and its kits", () => {
+    expect(gearCardModel(gear)).toEqual({
+      title: "Sam’s gear",
+      big: { value: "5", unit: "pieces" },
+      chips: [
+        { label: "Sleep", value: "3" },
+        { label: "Shelter", value: "1" },
+        { label: "Packs", value: "1" },
+        { label: "Kits", value: "1" },
+      ],
+    });
+  });
+
+  it("falls back to Shared gear when the owner's name has nothing the card can draw", () => {
+    expect(gearCardModel({ owner: "山田", items: [] }).title).toBe("Shared gear");
   });
 });

@@ -74,8 +74,12 @@ const DRAWABLE = new RegExp(
  *  strip leaves behind). A title that was ALL such glyphs falls back to the
  *  plain noun rather than shipping a blank card. */
 export function ogCardTitle(raw: string): string {
+  return drawableOr(raw, "A packing list");
+}
+/** The strip and tidy, with the noun a title falls back to when nothing was drawable. */
+export function drawableOr(raw: string, fallback: string): string {
   const kept = [...raw].filter((ch) => DRAWABLE.test(ch)).join("");
-  return tidyText(kept) || "A packing list";
+  return tidyText(kept) || fallback;
 }
 
 /** What the card needs from a list: the name, the owner's unit, and (when the
@@ -110,3 +114,4 @@ export function ogCardAlt(m: OgCardModel): string {
   const breakdown = m.chips.map((c) => `${c.label} ${c.value}`).join(" · ");
   return `${m.title} — ${m.big.value} ${m.big.unit}${breakdown ? `. ${breakdown}` : ""}. On Mahonia.`;
 }
+
