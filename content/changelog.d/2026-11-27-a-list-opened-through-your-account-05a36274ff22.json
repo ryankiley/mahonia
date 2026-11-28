@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "A list opened through your account closes when you sign out, and reopens with your unsent edits when you sign back in."
+  ],
+  "fixed": [
+    "Signing in to another account no longer sends the last account's unsent list edits, or adds its gear to My Gear, as the new one.",
+    "Edits typed after you were signed out in another tab are kept on this device until you sign back in.",
+    "Switching accounts with a list open now shows which of its gear the account you switched to already has in My Gear."
+  ]
+}

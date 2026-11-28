@@ -16,6 +16,7 @@ import { createEdits } from "~/composables/useGearListEdits";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
 import { useUndo } from "~/composables/useUndo";
 import { editorCapability, type EditorCapability } from "~/utils/editorRoute";
+import { sessionAccount, sessionCacheOwner } from "~/utils/sessionOwner";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -83,6 +84,11 @@ function create() {
   const claimCode = () => (access.value.kind === "claimed" ? access.value.code : "");
   /** Whether this open reaches a server row, by either way in. Not a draft, not keyless. */
   const holdsList = () => access.value.kind === "token" || access.value.kind === "claimed";
+  // The account a claimed open was opened through (its account marker), noted as soon
+  // as it is known. The list on screen is that account's view of it, so everything this
+  // open sends, banks or writes to the device is for that account and no other
+  // (accountIsHere).
+  let account: string | null = null;
   // the chrome hides the token-only affordances (Forget, the copyable edit link) on a
   // claimed open, and the keyless page offers the read view of this code
   const openedByCode = computed(() => access.value.kind === "claimed");
@@ -263,6 +269,8 @@ function create() {
     // that cookie exists to avoid (see useSession.refresh).
     if (!keys.length) return settle([]);
     if (sessionKnown.value ? !sessionHasVault.value : sessionPresence.value === "signedOut") return settle([]);
+    // nor is one account's list of gear put to another account's My Gear
+    if (!accountIsHere()) return settle([]);
     try {
       const res = await vaultRead<{ keys: VaultGearKey[] }>("/api/vault/among", {
         method: "POST",
@@ -336,14 +344,55 @@ function create() {
   // resolved (a cookie read, not a request); signedIn is the RESOLVED one, read where
   // a 401 on a claimed open has to be told apart from a session that merely lapsed
   // (load's catch).
-  const { presence: sessionPresence, signedIn: sessionSignedIn } = useSession();
+  const {
+    presence: sessionPresence,
+    signedIn: sessionSignedIn,
+    user: sessionUser,
+    refresh: refreshSession,
+  } = useSession();
+  /** The account this browser's cookies name right now, or null when that isn't known:
+   *  this tab's own answer when it is about the session the cookie names, otherwise
+   *  what the tab that asked about that session left on the device. */
+  function accountHere(): string | null {
+    const user = sessionUser.value;
+    return (user && user.owner === sessionCacheOwner() ? user.account : sessionAccount()) || null;
+  }
+  /**
+   * Whether the browser is still signed in to the account this list was opened through.
+   * Always, for a draft or a held edit link: those are the device's.
+   *
+   * Read from the cookie on every use, never from this tab's session: a sign-in or a
+   * sign-out in another tab changes the cookie at once, and a request sent from here
+   * afterwards would carry one account's edits and gear under the next account's
+   * session. When the cookie has moved and this tab hasn't heard, it asks, and the
+   * editor reopens the address for whoever the answer names (opensFor).
+   */
+  function accountIsHere(): boolean {
+    if (access.value.kind !== "claimed") return true;
+    const here = accountHere();
+    account ??= here;
+    if (here === account) return true;
+    if (sessionUser.value?.account === account) void refreshSession(true);
+    return false;
+  }
+  /** Whether the list on screen is `who`'s to see (null: nobody is signed in). False
+   *  only for a list opened through some other account, which the editor then closes
+   *  and opens again for whoever is here. */
+  function opensFor(who: string | null): boolean {
+    if (access.value.kind !== "claimed") return true;
+    account ??= who;
+    return who === account;
+  }
   // The device's registry and the account's list, resolved once: syncRegistry and its
   // gate run on every dispatch, and building a handle each time (useClaimedLists
   // builds useSession's computeds with it) was a keystroke's worth of allocation.
   const myLists = useMyLists();
   const claimedLists = useClaimedLists();
   scope.run(() => {
-    watch(sessionHasVault, (has) => {
+    // The account as well as whether there is one: an account replaced by another
+    // with no sign-out between never flips the first, and the rows went on showing
+    // what the last account's My Gear holds.
+    watch([sessionHasVault, () => sessionUser.value?.account], ([has]) => {
       clearVaultGear();
       void askVaultGear(true);
       // capture stands down while signed out (useVault's sync), so a sign-in on an
@@ -361,13 +410,18 @@ function create() {
   // Write the current snapshot + queue to IndexedDB under this list's key.
   // Best-effort: the store swallows its own failures, so this never throws into
   // the edit path. No-ops with no snapshot.
+  //
+  // A claimed open's copy goes in the slot of the account it was opened through,
+  // whoever the cookie names by now. Once that account has left the browser the copy
+  // is kept only for what it still has to send, and dropped otherwise: nothing of an
+  // account's outlives its session here except edits waiting for it to come back.
   function writeLocal() {
     if (!snapshot.value) return;
-    store.set(storeKey(), {
-      snapshot: snapshot.value,
-      pending: pending.slice(),
-      updatedAt: Date.now(),
-    });
+    const key = storeKey();
+    const left = !accountIsHere();
+    const filedFor = account ?? undefined;
+    if (left && !pending.length) return void store.del(key, filedFor);
+    store.set(key, { snapshot: snapshot.value, pending: pending.slice(), updatedAt: Date.now() }, filedFor);
   }
 
   // Mirror to IndexedDB, debounced — local writes are cheap but frequent (every
@@ -469,7 +523,8 @@ function create() {
       // HAS answered that the claim is dead, though: the hydrate stamp lands before
       // that answer, and every device-only edit on the dead-end page would renew it
       // — the bare address then offered the dead list first on every launch.
-      if (!remoteMissing()) markClaimedOpen(held.code);
+      // Nor under another account's session: the ledger is filed by the cookie.
+      if (!remoteMissing() && accountIsHere()) markClaimedOpen(held.code);
     }
   }
 
@@ -538,6 +593,7 @@ function create() {
     // notice: a tick still queued from the old session would otherwise fire into
     // this one, and a load() that fails never starts a chain of its own to replace it
     stopPoll();
+    account = access.value.kind === "claimed" ? accountHere() : null;
     pending = [];
     // a new session stamps its own ops from 1; any op the device kept from an earlier
     // one still carries that one's stamp
@@ -573,8 +629,12 @@ function create() {
   // cookie as the proof; see server/utils/editAuth). Token wins if both arrive,
   // matching the server's precedence: it's the more specific claim, and it keeps a
   // signed-in user's behaviour on a shared link identical to a signed-out user's.
-  async function load(cap: { token?: string; code?: string }) {
-    const myEpoch = bumpEpoch();
+  //
+  // `again` loads the list this session already names (retryLoad). The epoch stays:
+  // the load before it ended with nothing to show, so there is no late answer to tell
+  // apart, and whoever started the session still owns it and can close it.
+  async function load(cap: { token?: string; code?: string }, again = false) {
+    const myEpoch = again ? epochRef.value : bumpEpoch();
     const token = cap.token ?? "";
     // normalized so a hand-typed /e/{code} URL and the canonical code the server
     // returns key the same IndexedDB record and claimed-lists row
@@ -704,8 +764,8 @@ function create() {
    *  the device and no server: the online watcher calls it when the network returns,
    *  the page's "Try again" by hand. A draft names nothing, so it is a no-op there. */
   function retryLoad(): void {
-    if (editToken()) void load({ token: editToken() });
-    else if (claimCode()) void load({ code: claimCode() });
+    if (editToken()) void load({ token: editToken() }, true);
+    else if (claimCode()) void load({ code: claimCode() }, true);
   }
 
   // A fragment-less /e/{code} from a visitor with no session: the link lost its edit
@@ -942,6 +1002,15 @@ function create() {
     if (inFlight || remoteMissing() || !pending.length || !snapshot.value) return;
     // offline: leave the queue intact + persisted; the online watcher re-flushes
     if (!online.value) { setStatus("offline"); persistLocal(); return; }
+    // Another account's session, or nobody's: the queue waits on the device for its
+    // own. Tried again like any failed save, which is how it goes out once the same
+    // person is here under a new session.
+    if (!accountIsHere()) {
+      setStatus("error");
+      persistLocal();
+      retryAfterBackoff(scheduleFlush);
+      return;
+    }
     const myEpoch = epochRef.value;
     // One batch per request (FLUSH_BATCH_MAX). A longer queue (offline session)
     // drains across sequential flushes: the finally reschedules while pending is
@@ -1083,6 +1152,7 @@ function create() {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!online.value) return; // nothing to pull while the connection is down
       if (inFlight || pending.length || !snapshot.value || dragging()) return;
+      if (!accountIsHere()) return; // the answer would be the list as another account reads it
       pollInFlight = true;
       const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
         "/api/edit/changes",
@@ -1169,7 +1239,7 @@ function create() {
   async function saveItemToVault(id: string): Promise<CaptureOneResult> {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
-    if (!snap || !item) return "failed";
+    if (!snap || !item || !accountIsHere()) return "failed";
     const { result, landed } = await vault.captureOne(item, snap.items, snap.folders);
     // Folded in HERE rather than inside capture: the answer belongs to this list's
     // state, so a response that outlives the list (or the account) writes into a
@@ -1188,7 +1258,8 @@ function create() {
    * once and remember; until it's answered, nothing is captured.
    */
   function captureIfMine() {
-    if (!snapshot.value) return;
+    // a list opened through an account is that account's gear, and nobody else's
+    if (!snapshot.value || !accountIsHere()) return;
     // The decision lives in sync(), which asks only once it knows there is gear
     // worth asking about — see useVault.
     vault.sync(snapshot.value.items, snapshot.value.folders, {
@@ -1273,7 +1344,7 @@ function create() {
    * the request refused. The list on screen is then left as it was.
    */
   async function restore(snapshotId: number): Promise<boolean> {
-    if (!holdsList() || remoteMissing() || !online.value || !snapshot.value) return false;
+    if (!holdsList() || remoteMissing() || !online.value || !snapshot.value || !accountIsHere()) return false;
     const myEpoch = epochRef.value;
     while (pending.length || inFlight) {
       const queued = pending.length;
@@ -1323,6 +1394,7 @@ function create() {
     // /gear all stay usable while it's out), and reading editToken() then handed the
     // list now on screen the rotated list's token: its registry row and on-device
     // record were dropped and its edits flushed into the rotated list.
+    if (!accountIsHere()) return null;
     const myEpoch = epochRef.value;
     const old = editToken();
     const oldCode = claimCode();
@@ -1400,8 +1472,8 @@ function create() {
     // (shared/opStamp.ts), would then take the earlier batch for a copy. Nothing reads
     // the answer: every op stays in the on-device copy below and goes again on the
     // next open, where the server skips what landed. A dead token would only 404, so
-    // don't bother.
-    if (!inFlight && pending.length && holdsList() && !remoteMissing()) {
+    // don't bother; and a list whose account has left has nobody to be sent as.
+    if (!inFlight && pending.length && holdsList() && !remoteMissing() && accountIsHere()) {
       const ops = pending.slice(0, FLUSH_BATCH_MAX);
       $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops } }).catch(() => {});
     }
@@ -1428,6 +1500,7 @@ function create() {
     get claimCode() { return claimCode(); },
     epochRef,
     openedByCode,
+    opensFor,
     keylessCode,
     startKeyless,
     authHeaders,
