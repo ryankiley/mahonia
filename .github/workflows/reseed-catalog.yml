@@ -31,6 +31,7 @@ on:
     paths:
       - seed/catalog.csv
       - scripts/seed-catalog.ts
+      - scripts/seedCatalog.ts
       - scripts/catalogCsv.ts
       # catalogCsv derives search_terms through this, so an edit here changes
       # what seeding writes just as surely as an edit to catalogCsv itself

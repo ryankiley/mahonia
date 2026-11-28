@@ -1,14 +1,29 @@
 // A LOCAL account that mirrors a real one: its lists and its gear, so a change to
 // /gear or the editor can be tried against a closet of a hundred-odd real rows and
-// seven real packs instead of three rows typed in a hurry.
+// seven real packs instead of three rows typed in a hurry. It is the copy a change
+// is checked against; mahonia.app itself is never signed in to for that.
 //
-// Reads seed/_mirror/mirror.json (gitignored — it names an account):
+// One command, in any checkout, a fresh worktree included:
+//
+//   npm run mirror
+//
+// It seeds the local catalog first when that is empty (so the links have rows to
+// point at), builds the account, and ends by printing what comes next: start the dev
+// server from this checkout, and open the sign-in link it minted (the same magic link
+// the sign-in form would mail; good for fifteen minutes, or ask the form for another —
+// with no mail key the server prints it).
+//
+// Its input is mirror.json (gitignored — it names an account):
 //
 //   {
 //     "email": "you@example.com",            // the local account to make or fill
 //     "lists": ["ABCD2345EFGH", "..."],       // share codes, fetched from the public read
 //     "gear": "gear.json"                     // optional: a file beside it, see below
 //   }
+//
+// kept ONCE, in the main checkout's seed/_mirror, which every worktree reads unless it
+// has a seed/_mirror of its own; MAHONIA_MIRROR_DIR names any other folder
+// (mirrorSetup.ts).
 //
 // Lists come from the public share endpoint (a share link is permission to read, so
 // nothing here needs a session or a token). Gear comes from a file in one of two
@@ -17,16 +32,9 @@
 // names, the weights, the classes and the catalog links.
 //
 // Writes go to the local PGlite only. The script refuses to run with DATABASE_URL
-// set, because "mirror a real account" must never mean "write into production".
-//
-// PGlite is one process at a time: stop the dev server first, then
-//
-//   npm run seed      # once, so the catalog is there for the links to point at
-//   npm run mirror
-//
-// then start the dev server and open the sign-in link the script printed (it is the
-// same magic link the sign-in form would mail, minted here instead; good for fifteen
-// minutes, or ask the form for another — with no mail key the server prints it).
+// set, because "mirror a real account" must never mean "write into production". And
+// PGlite is one process at a time, so it refuses while a dev server runs from this
+// checkout: stop that, mirror, start it again.
 //
 // A SNAPSHOT, one way. Nothing here flows back, and nothing keeps it current:
 // re-running adds lists the account doesn't hold yet (by title) and gear rows the
@@ -38,20 +46,21 @@
 // which puts away the mirror's lists and empties its gear before importing again.
 // The lists are read live from the public endpoint, so they are current on every
 // run; the gear file is only as fresh as its last export (/gear's ⋯ menu →
-// Download JSON, or the connector's get_my_gear, saved beside the config).
+// Download JSON, or the connector's get_my_gear, saved beside mirror.json; the run
+// prints the file's date).
 //
 // Catalog links are RE-RESOLVED BY TEXT. A production catalog id means nothing in a
 // local database seeded in a different order, so every linked row is matched to the
 // local catalog by brand + name + variant, and a row with no local match loses its
 // link rather than pointing at a stranger.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { eq, inArray, isNull } from "drizzle-orm";
 import { catalogItems, listClaims, lists } from "../server/db/schema";
-import { findOrCreateUser, issueMagicToken, normalizeEmail } from "../server/utils/authSession";
+import { findOrCreateUser, issueMagicToken, MAGIC_LINK_TTL_MS, normalizeEmail } from "../server/utils/authSession";
 import { claimLists, listClaimedLists } from "../server/utils/claimRepo";
-import { useDb, type Db } from "../server/utils/db";
+import { countRows, useDb, type Db } from "../server/utils/db";
 import { createList } from "../server/utils/listRepo";
 import { mintVault } from "../server/utils/vaultAuth";
 import { deleteVaultContents, importVaultItems } from "../server/utils/vaultRepo";
@@ -60,10 +69,10 @@ import { CLASSIFICATIONS, pickListMeta, type Classification, type Item, type Lis
 import { isRecord } from "../shared/record";
 import { vaultNormKey } from "../shared/vault";
 import { vaultImportFromJson, type VaultImportRow } from "../shared/vaultImport";
+import { devServersIn, findMirrorDir, gitCommonDir, MIRROR_CONFIG } from "./mirrorSetup";
 import { ROOT } from "./paths";
+import { seedCatalog } from "./seedCatalog";
 
-const MIRROR_DIR = join(ROOT, "seed", "_mirror");
-const CONFIG = join(MIRROR_DIR, "mirror.json");
 /** Where the share codes are read from. Overridable so a preview deployment can be
  *  mirrored too. */
 const ORIGIN = process.env.MAHONIA_ORIGIN || CANONICAL_ORIGIN;
@@ -74,14 +83,27 @@ interface MirrorConfig {
   gear?: string;
 }
 
-function readConfig(): MirrorConfig {
+/** The folder mirror.json is read from, or the reason there is none, with what to do. */
+function mirrorDir(): string {
+  const found = findMirrorDir({ override: process.env.MAHONIA_MIRROR_DIR, root: ROOT, commonDir: gitCommonDir(ROOT), exists: existsSync });
+  if ("dir" in found) return found.dir;
+  throw new Error(
+    `no ${MIRROR_CONFIG}. Looked for:\n${found.looked.map((p) => `  ${p}\n`).join("")}` +
+      `Make one in the main checkout's seed/_mirror (gitignored, and every worktree reads it): an "email", the "lists" ` +
+      `as share codes, and "gear": "gear.json" with the connector's get_my_gear answer (or /gear's Download JSON) ` +
+      `saved beside it. The top of scripts/mirror-account.ts has the shape.`,
+  );
+}
+
+function readConfig(dir: string): MirrorConfig {
+  const config = join(dir, MIRROR_CONFIG);
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(CONFIG, "utf8"));
+    raw = JSON.parse(readFileSync(config, "utf8"));
   } catch (e) {
-    throw new Error(`Could not read ${CONFIG}: ${(e as Error).message}`);
+    throw new Error(`Could not read ${config}: ${(e as Error).message}`);
   }
-  if (!isRecord(raw) || typeof raw.email !== "string") throw new Error(`${CONFIG} needs an "email"`);
+  if (!isRecord(raw) || typeof raw.email !== "string") throw new Error(`${config} needs an "email"`);
   const lists = Array.isArray(raw.lists) ? raw.lists.filter((c): c is string => typeof c === "string") : [];
   const gear = typeof raw.gear === "string" ? raw.gear : undefined;
   return { email: raw.email, lists, gear };
@@ -235,20 +257,30 @@ async function main() {
   if (process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is set. The mirror writes to the local PGlite only; unset it and run again.");
   }
-  const config = readConfig();
+  const servers = process.env.PGLITE_DIR ? [] : devServersIn(process.cwd());
+  if (servers.length) {
+    throw new Error(
+      `a dev server (pid ${servers.join(", ")}) is running from this checkout and holds its .data/pglite, which takes one process at a time. ` +
+        `Stop it, run the mirror again, then start it again.`,
+    );
+  }
+  const dir = mirrorDir();
+  const config = readConfig(dir);
   const email = normalizeEmail(config.email);
   if (!email) throw new Error(`"${config.email}" is not an address the sign-in form would take`);
+  console.log(`Mirroring from ${dir}.`);
 
   const db = await useDb();
+  if (!(await countRows(db, catalogItems))) {
+    console.log("The local catalog is empty; seeding it first, so the catalog links have rows to point at.");
+    await seedCatalog(db);
+  }
   const user = await findOrCreateUser(db, email);
   const vaultId = await mintVault(db, user.id);
   console.log(`Account ${email} (user ${user.id}, vault ${vaultId}).`);
   if (fresh) await wipe(db, user.id, vaultId);
 
   const index = await catalogIndex(db);
-  if (!index.size) {
-    console.warn("The local catalog is empty, so every catalog link will be dropped. Run `npm run seed` first to keep them.");
-  }
   let linked = 0;
   let unlinked = 0;
   const resolve: Resolve = (brand, name, variant) => {
@@ -274,10 +306,12 @@ async function main() {
   }
 
   if (config.gear) {
-    const text = readFileSync(join(MIRROR_DIR, config.gear), "utf8");
-    const rows = gearRows(text, resolve);
+    const file = join(dir, config.gear);
+    const rows = gearRows(readFileSync(file, "utf8"), resolve);
     const { added, skipped } = await importVaultItems(db, vaultId, rows);
-    console.log(`  My Gear: ${added} added, ${skipped} already there, of ${rows.length} in the file.`);
+    // the file is only as fresh as its export, so say how fresh that is
+    const saved = statSync(file).mtime.toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+    console.log(`  My Gear: ${added} added, ${skipped} already there, of ${rows.length} in ${config.gear} (saved ${saved}).`);
   }
 
   console.log(`Catalog links: ${linked} matched the local catalog, ${unlinked} dropped.`);
@@ -286,7 +320,19 @@ async function main() {
   // last, because issuing one consumes any earlier pending link for the account.
   const token = await issueMagicToken(db, user.id);
   const origin = process.env.MIRROR_ORIGIN || "http://localhost:3000";
-  console.log(`\nStart the dev server, then sign in as ${email}:\n  ${origin}/auth/callback?t=${token}`);
+  const minutes = Math.round(MAGIC_LINK_TTL_MS / 60_000);
+  console.log(
+    [
+      ``,
+      `The copy is ready. Next, from ${process.cwd()}:`,
+      `  1. Start the dev server: npm run dev (or npm run dev:preview, as the Claude app's Browser pane does).`,
+      `  2. Within ${minutes} minutes, sign in as ${email} by opening, on the address the server prints:`,
+      `       ${origin}/auth/callback?t=${token}`,
+      `     (on another port, keep the path: /auth/callback?t=${token})`,
+      `     A browser that didn't ask for the link is asked to confirm the address first: Sign in.`,
+      `A link that has run out: ask the sign-in form for another; with no mail key the server prints it in its log.`,
+    ].join("\n"),
+  );
 }
 
 main()

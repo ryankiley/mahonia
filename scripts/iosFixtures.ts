@@ -32,15 +32,22 @@
 // (several readers treat `"kcal": null` differently from no key at all).
 
 import { readFileSync } from "node:fs";
-import { listToCsv, parseCsv } from "../shared/exporters/csv";
+import { keptGearType, pickFromCatalog, type CatalogPickOwn, type CatalogPickRow } from "../shared/catalogMatch";
+import { cloneListData } from "../shared/clone";
+import { csvToListData, listToCsv, parseCsv } from "../shared/exporters/csv";
+import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { listToText } from "../shared/exporters/text";
 import { GEAR_GLYPHS, gearFamilyOf, gearGlyphFor } from "../shared/gearGlyph";
-import { applyOps, type Op } from "../shared/ops";
+import { parsePriceInput } from "../shared/money";
+import { applyOps, tidyStoredList, type Op } from "../shared/ops";
 import { encodePolyline } from "../shared/polyline";
+import { parseDistanceM } from "../shared/trailDistance";
 import { CLEARS_WITH_LINK } from "../shared/trailLink";
-import type { ListSnapshot, ListState } from "../shared/types";
-import { computeTotals } from "../shared/weights";
+import type { Folder, Item, ListSnapshot, ListState, Waypoint } from "../shared/types";
+import { pickListMeta } from "../shared/types";
+import { parseVolumeMl } from "../shared/water";
+import { computeTotals, parseDecimal, parseKcal, parseWeightInput } from "../shared/weights";
 import { CATALOG_CSV } from "./paths";
 
 /** Sorted-key, compact stringify — the canonical byte form both sides emit. */
@@ -718,6 +725,8 @@ const EXTRA_TYPES = [
   "E-reader", "Hip belt", "Bungee cords", "Bungees", "Pee funnel", "Pill bottle", "Toiletry bottle",
   "Phone case", "Camera case", "Toothbrush case", "Pack liner", "Toiletry bag", "Face wipe", "Face wipes",
   "Fanny pack", "Keychain flashlight", "Mouth guard", "Card game", "Air pump",
+  // a lens goes with the camera it mounts on; the ones worn in an eye do not
+  "Lens", "Lenses", "Camera lens", "Contact lenses",
 ];
 
 // A row with no gear type is read by its name instead.
@@ -736,5 +745,158 @@ export function glyphVectors() {
     types: types.map((type) => [type, gearGlyphFor(type)]),
     names: NAMES_WITHOUT_TYPE.map((name) => [name, gearGlyphFor(null, name)]),
     families: GEAR_GLYPHS.map((glyph) => [glyph, gearFamilyOf(glyph)]),
+  };
+}
+
+// ---- rule vectors ------------------------------------------------------------------
+// The port's pure rules that no op replays, because they run before an op exists (a
+// typed number, a catalog pick), after one is stored (the read-time tidy) or around a
+// whole list (a copy, a restored backup). The port had each of these and no vector for
+// any, so the web changed four of them in a day with the iOS suite green. One file per
+// rule in vectors/, each a list of cases answered here by the real function.
+
+// A typed number, handed to every field that reads one (shared/typedNumber): the bare
+// figures on which the fields once disagreed, then figures with a unit, a symbol or a
+// sentence around them.
+const TYPED_NUMBERS = [
+  "1234", "820", "1.5", "0.5", ".9", "12.25", "1,5", "1,50", "12,50", "0,5", "1,23", "72,5",
+  "1,234.56", "1.234,56", "1,234", "1,299", "2,000", "1,500", "3,159", "1 234", "12 000", "12 000",
+  "1 234,5", "1 234.5", "1,234,567", "1.234.567", "1,2345", ",9", "0,750", "1234,567", "1.234", "0.250",
+  "5 10", "1,2,3", "1..5", "-5", "", " ", "lots",
+  "2,000 ml", "1,5 l", "12 000 g", "1,2345 kg", "2 lb 3 oz", "32.5 oz (921 g)",
+  ",9 km", "7.5 mi • 3,159 ft • Out & back", "Out & back,12 km",
+  "$1,299.00", "1.299,00 €", "CAD 12,50", "approx. $399",
+  "250 kcal", "2.700 kcal", "1 350 calories", "250 kcal 3",
+];
+
+/** null for nothing read; a cell that is not a number reads NaN, which JSON has no word for */
+const read = (n: number | null | undefined) => (n == null || Number.isNaN(n) ? null : n);
+
+function typedNumberVector(input: string) {
+  const price = parsePriceInput(input);
+  return {
+    input,
+    weight: read(parseWeightInput(input, "g")), // milligrams, on a gram list
+    cell: read(parseDecimal(input)), // a number cell in an imported file
+    distance: read(parseDistanceM(input, "km")), // metres, on a km list
+    water: read(parseVolumeMl(input)), // millilitres; a bare number is litres
+    price: price?.cents ?? null,
+    currency: price?.currency ?? null,
+    kcal: read(parseKcal(input)),
+    csvKcal: csvToListData(`name,weight,unit,calories,consumable\nBars,60,g,"${input}",1`).items[0]?.kcal ?? null,
+    csvQty: csvToListData(`name,qty,weight,unit\nBars,"${input}",60,g`).items[0]?.qty ?? null,
+  };
+}
+
+// What a row takes from the catalog product it is linked to (pickFromCatalog), on the
+// points the copies it replaced disagreed: a consumable product's class, an equal kept
+// weight, calories, and the gear type a row keeps (keptGearType).
+const PICK_FOLDERS: Folder[] = [
+  { id: "pack", name: "Pack", colorKey: "pack", defaultClassification: "base", sortOrder: 0 },
+  { id: "food", name: "Food", colorKey: "food", defaultClassification: "consumable", sortOrder: 1 },
+];
+const TENT: CatalogPickRow = { id: 7, brand: "Zpacks", name: "Duplex", variant: "DCF", weightMg: 538000, commonName: "Tent", categoryHint: "shelter", kcal: null };
+const BAR: CatalogPickRow = { id: 4, brand: "Clif", name: "Builders Bar", variant: null, weightMg: 68000, commonName: "Energy bar", categoryHint: "consumable", kcal: 290 };
+const RICE: CatalogPickRow = { ...BAR, id: 5, brand: "Knorr", name: "Rice Sides", kcal: null };
+
+/** One pick: the product, what the caller keeps, and the folder (of PICK_FOLDERS) the row sits in. */
+function pickVector(name: string, catalog: CatalogPickRow, own: CatalogPickOwn, folderId: string | null) {
+  return { name, catalog, own, folderId, patch: pickFromCatalog(catalog, own, { folderId, folders: PICK_FOLDERS }) };
+}
+
+/** A pick onto a row already on a list, keeping the gear type that row keeps. */
+function rowPickVector(name: string, row: Pick<Item, "commonName" | "commonNameOverridden">) {
+  return { ...pickVector(name, TENT, { commonName: keptGearType(row) }, "pack"), row };
+}
+
+const catalogPickVectors = () => [
+  pickVector("nothing-kept", TENT, {}, "pack"),
+  pickVector("no-brand-or-variant", { ...TENT, brand: null, variant: null, commonName: null }, {}, "pack"),
+  pickVector("food-in-a-base-folder", BAR, {}, "pack"),
+  pickVector("food-in-a-food-folder", BAR, {}, "food"),
+  pickVector("food-in-no-folder", BAR, {}, null),
+  pickVector("class-set-by-the-caller", BAR, { classification: null }, "pack"),
+  pickVector("equal-weight-kept", TENT, { weightMg: 538000 }, "pack"),
+  pickVector("other-weight-kept", TENT, { weightMg: 600000 }, "pack"),
+  pickVector("name-kept-in-another-case", TENT, { name: "duplex" }, "pack"),
+  pickVector("calories-kept", BAR, { kcal: 240 }, "food"),
+  pickVector("no-calories-kept", BAR, { kcal: null }, "food"),
+  pickVector("product-states-no-calories", RICE, {}, "food"),
+  rowPickVector("gear-type-typed", { commonName: "Shelter", commonNameOverridden: true }),
+  rowPickVector("gear-type-cleared", { commonNameOverridden: true }),
+  rowPickVector("gear-type-from-the-last-product", { commonName: "Tarp" }),
+];
+
+// The read-time tidy (tidyStoredList), on a list as a build before the rules could
+// have left it. No fixture reaches this: every one of those gets its state through ops,
+// and no op can store these values any more. So the list is made through ops and then
+// set back by hand.
+function storedTidyVector() {
+  const stored = freshState();
+  applyOps(stored, [
+    { t: "setMeta", patch: { title: "Trip", description: "Plan", trailUrl: "https://example.com/trail", trailLabel: "Loop" } },
+    { t: "addFolder", folder: { id: "f1", name: "Kit", colorKey: "pack", defaultClassification: "base", sortOrder: 0 } },
+    { t: "addPerson", person: { id: "p1", name: "Sam", sortOrder: 0 } },
+    row("text", "Tent", { brand: "Zpacks", variant: "DCF", commonName: "Tent", description: "note" }),
+    row("blank", "Pot", { brand: "Toaks", variant: "750", commonName: "Pot", description: "lid", sortOrder: 1 }),
+    row("water", "Bottle", { unitWeightMg: 1000000, qty: 3, classification: "consumable", sortOrder: 2 }),
+    row("split", "Flask", { unitWeightMg: 500000, qty: 2, wornQty: 1, classification: "base", sortOrder: 3 }),
+    row("gear", "Water bottle", { qty: 2, sortOrder: 4 }),
+  ]);
+  const item = (id: string) => stored.items.find((i) => i.id === id)!;
+  stored.title = "  Ryan's  trip ";
+  stored.description = "Sam's plan\n\n  two  nights ";
+  stored.trailLabel = "   ";
+  stored.folders[0]!.name = "  ";
+  stored.people![0]!.name = "";
+  // straight quotes and stray spaces, from before text was tidied on the way in
+  Object.assign(item("text"), { name: "Ryan's  tent", brand: " Zpacks", variant: 'DCF 2"', commonName: "Tent ", description: "Sam's  spare" });
+  // blank where a cleared field is now absent
+  Object.assign(item("blank"), { brand: "", variant: "  ", commonName: "", description: "" });
+  // a count on water, from before it folded into the volume, and a split of that count
+  item("water").name = "Water";
+  item("split").name = "Drinking water";
+  return { name: "stored-under-older-rules", stored, tidied: canonical(tidyStoredList(structuredClone(stored))) };
+}
+
+// A copy (cloneListData) and a restored backup (jsonToListImport) of a list with a
+// route: the route comes along, every pin is kept, and there is one trailhead and one
+// finish, where a route end kept by id used to come back doubled. Both mint new ids, so
+// a case states the pins without theirs; `backup` is the file as the web writes it.
+function routeCopyVector(name: string, ops: Op[]) {
+  const list = freshState();
+  applyOps(list, ops);
+  const backup = listToJson(list);
+  const restored = jsonToListImport(backup)!;
+  const pins = (waypoints: Waypoint[] | undefined) => (waypoints ?? []).map(({ id: _minted, ...pin }) => pin);
+  return {
+    name,
+    list,
+    backup,
+    cloned: { routeGeometry: pickListMeta(list).routeGeometry, waypoints: pins(cloneListData(list).waypoints) },
+    restored: { routeGeometry: restored.routeGeometry, waypoints: pins(restored.data.waypoints) },
+  };
+}
+
+const routeCopyVectors = () => [
+  routeCopyVector("open-route", [
+    { t: "setMeta", patch: { title: "Timberline", routeGeometry: openRoute } },
+    { t: "addWaypoint", waypoint: { id: "w1", kind: "water", alongM: 900, label: "spring" } },
+    { t: "addWaypoint", waypoint: { id: "w2", kind: "camp", alongM: 1600, note: "flat spots" } },
+  ]),
+  // a loop has one pin for both ends, and keeps having one
+  routeCopyVector("loop", [
+    { t: "setMeta", patch: { routeGeometry: loopRoute } },
+    { t: "addWaypoint", waypoint: { id: "w1", kind: "water", alongM: 700 } },
+  ]),
+];
+
+/** Each rule's cases, by the name of the file they are written to in vectors/. */
+export function ruleVectors(): Record<string, { cases: unknown[]; folders?: Folder[] }> {
+  return {
+    "typed-numbers": { cases: TYPED_NUMBERS.map(typedNumberVector) },
+    "catalog-picks": { folders: PICK_FOLDERS, cases: catalogPickVectors() },
+    "stored-tidy": { cases: [storedTidyVector()] },
+    "route-copies": { cases: routeCopyVectors() },
   };
 }

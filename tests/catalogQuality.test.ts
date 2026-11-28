@@ -193,6 +193,12 @@ describe("weightsInQuote — the figures verify_catalog_item holds a quote to", 
     ["a range written with to", "claimed weight: 36 to 39 oz depending on options", [1021, 1106]],
     ["a range written with a hyphen", "36-39 oz", [1021, 1106]],
     ["a range written with an en dash, in kilograms", "1.2–1.4 kg", [1200, 1400]],
+    // a maker's spread across sizes runs wider than half, up to double
+    ["a range across sizes", "Weight: 400-700 g (S-XL)", [400, 700]],
+    ["a range that doubles", "8-16 oz", [227, 454]],
+    ["a range of pounds written with to", "1 to 2 lbs", [454, 907]],
+    // two single digits that no ruler divides by are a list, not a fraction
+    ["a slash list of single digits", "8/9 oz", [227, 255]],
   ])("reads every figure of %s", (_, quote, grams) => {
     expect(read(quote)).toEqual(grams);
   });
@@ -219,6 +225,8 @@ describe("weightsInQuote — the figures verify_catalog_item holds a quote to", 
     ["a size and a weight across a hyphen", "Weight: UK size 8.5-264g", [264]],
     ["a model number and a weight across a hyphen", "Model 2-480 g", [480]],
     ["a fraction", "1/2 oz", []],
+    ["an eighth", "3/8 oz", []],
+    ["a size and a weight more than double it", "Size 4-10 oz", [283]],
     ["a decimal comma", "Gewicht: 1,2 kg", []],
   ])("does not read %s as a list", (_, quote, grams) => {
     expect(read(quote)).toEqual(grams);
