@@ -577,6 +577,18 @@ describe("the /gear page's words and names", () => {
     expect(sort.attributes("aria-label")).toBe("Heaviest, change how your gear is sorted");
   });
 
+  it("offers Sharing only when there is gear to share", async () => {
+    listRows = [entry(1, "Tent")];
+    const w = await openPage();
+    expect(w.find("[aria-label='Sharing']").exists()).toBe(true);
+    w.unmount();
+
+    listRows = [];
+    const empty = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(empty.find(".page__mark").exists()).toBe(true));
+    expect(empty.find("[aria-label='Sharing']").exists()).toBe(false);
+  });
+
   it("opens the feedback box from the ⋯ menu", async () => {
     listRows = [entry(1, "Tent")];
     const w = await openPage();

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { IconTrashCan } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
-import { isLoneRouteEnd, MAX_LABEL_LEN } from "~~/shared/ops";
+import { isLoneRouteEnd, isRouteEnd, MAX_LABEL_LEN } from "~~/shared/ops";
 import type { Waypoint, WaypointKind } from "~~/shared/types";
 import { formatDistance, formatDistancePadded, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
@@ -39,7 +39,7 @@ const meta = computed(() => waypointKindMeta(props.waypoint.kind));
  * the case the plan wanted delete for anyway: you parked somewhere the track doesn't
  * start, so you drag the flag to where you actually left the car.
  */
-const isRouteEnd = computed(() => props.waypoint.kind === "trailhead" || props.waypoint.kind === "end");
+const routeEnd = computed(() => isRouteEnd(props.waypoint));
 /** Every pin but the route's only trailhead or finish (isLoneRouteEnd). */
 const removable = computed(() => !isLoneRouteEnd(props.waypoint, c.snapshot.value?.waypoints ?? []));
 /** For the screen-reader names, where the label reads mid-sentence. */
@@ -80,11 +80,11 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
       glance without needing the word beside it. The name field's placeholder still
       carries the word for anyone who wants it spelled out.
     -->
-    <!-- The route's end wears its mark and offers nothing — see isRouteEnd. Boxed to a
+    <!-- The route's end wears its mark and offers nothing — see routeEnd. Boxed to a
          toggle's width so the flag lands on the pixel the first toggle's glyph does, the
          same trick the camp row plays. -->
     <span
-      v-if="isRouteEnd"
+      v-if="routeEnd"
       class="wprow__fixedkind"
       role="img"
       :aria-label="meta.label"

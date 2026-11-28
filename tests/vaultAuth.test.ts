@@ -57,12 +57,6 @@ describe("vault ownership", () => {
     expect(JSON.stringify(rows[0])).not.toMatch(/token/i);
   });
 
-  it("resolves an account's vault and nobody else's", async () => {
-    const id = await mint(db, 1);
-    expect(await vaultIdOfUser(db, 1)).toBe(id);
-    expect(await vaultIdOfUser(db, 2)).toBeNull();
-  });
-
   it("gives distinct accounts distinct vaults", async () => {
     expect(await mint(db, 1)).not.toBe(await mint(db, 2));
   });

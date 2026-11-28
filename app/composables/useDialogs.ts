@@ -2,7 +2,8 @@ import { reactive } from "vue";
 
 // App-wide dialogs that replace the browser's native confirm()/prompt(): a
 // promise-based confirm and a copy-link fallback (shown when the async Clipboard
-// write is blocked, so a copy action never dead-ends). One shared reactive state
+// write is blocked, so a copy action never dead-ends), with copyLink, the one way a
+// link is copied that ends in it. One shared reactive state
 // drives a single <AppDialogs> mount (in AppOverlays), so any component can open a
 // dialog without wiring its own modal. Module-level singleton — the same pattern
 // as useMyLists; only ever mutated client-side, so SSR always renders it closed.
@@ -92,6 +93,40 @@ export function useDialogs() {
     linkState.open = false;
   }
 
+  /**
+   * Copy a link from inside a click, and say how it went: `done` in the toast when it
+   * landed, the link shown to copy by hand when the clipboard refused it (titled
+   * `title`), and a line saying so when a link being made by the same click never came.
+   * A link already known is copied the plain way (copyText); one still being made (a
+   * draft list's first save, My Gear's link turned on) is handed over as a promise, and
+   * its write starts now (copyTextWhen), so the wait doesn't spend the click. Resolves
+   * to whether there was a link, copied or shown.
+   *
+   * The editor's links, a read view's and My Gear's all came through three copies of
+   * this; the toast is still the caller's, passed in as `flash`.
+   */
+  async function copyLink(
+    link: string | Promise<string>,
+    say: { flash: (msg: string) => void; done: string; title: string },
+  ): Promise<boolean> {
+    let text: string;
+    let copied: boolean;
+    if (typeof link === "string") {
+      text = link;
+      copied = await copyText(link);
+    } else {
+      copied = await copyTextWhen(link);
+      text = await link.catch(() => "");
+      if (!text) {
+        say.flash("Couldn’t make the link. Try again.");
+        return false;
+      }
+    }
+    if (copied) say.flash(say.done);
+    else showLinkFallback(text, say.title);
+    return true;
+  }
+
   return {
     confirmState,
     settleConfirm,
@@ -99,6 +134,7 @@ export function useDialogs() {
     linkState,
     showLinkFallback,
     closeLinkFallback,
+    copyLink,
     mount,
   };
 }

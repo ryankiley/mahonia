@@ -131,6 +131,15 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     expect(unquoted[0]).not.toHaveProperty("quote");
   });
 
+  it("drops quote_unchecked with the quote it was about", () => {
+    // a table the reader can't hold the weight to, then verified in the app on a line that states it
+    const exos: ResearchRow = { brand: "Osprey", name: "Exos 48", variant: "S/M", category_hint: "pack", common_name: "backpack", weight_value: 2.84, weight_unit: "lb", weight_secondary: "1.29 kg", weight_source: "manufacturer", source_url: "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf", quote: "EXOS 48 MEN'S SPECS S/M L/XL ... Pounds 2.84 2.94 Kilograms 1.29 1.33", quote_unchecked: "table lists the unit before the figures" };
+    const verified: ResearchRow = { brand: "Osprey", name: "Exos 48", variant: "S/M", category_hint: "pack", common_name: "Backpack", weight_value: 1290, weight_unit: "g", weight_source: "manufacturer", source_url: "https://www.osprey.com/exos-48-exos48s22-418", quote: "S/M weight 1.29 kg" };
+    const { rows } = rewriteResearchRows([exos], by(verified));
+    expect(rows[0]).not.toHaveProperty("quote_unchecked");
+    expect(runResearchChecks([{ file: "packs-recovery.json", rows: rows as ResearchRow[] }]).filter((f) => f.level === "error")).toEqual([]);
+  });
+
   it("finds a row by the size as the build reads it, and lists what it replaced from the end of the file", () => {
     const elevate = { brand: "Hyperlite Mountain Gear", name: "Elevate 22", variant: "M", attributes: { volume_l: 22 }, category_hint: "pack", common_name: "backpack", weight_value: 502, weight_unit: "g", weight_secondary: "17.7 oz", weight_source: "manufacturer", source_url: "https://www.hyperlitemountaingear.com/products/elevate-22", quote: "Weight 17.7oz | 502g" };
     const hat = { brand: "Sunday Afternoons", name: "Adventure Hat", variant: "", category_hint: "clothing", common_name: "sun hat", weight_value: 85, weight_unit: "g", weight_secondary: "3.0 oz", weight_source: "manufacturer", source_url: "https://www.sundayafternoons.com/products/adventure-hat", quote: "Adjustable sizing Weight: 3.0 ounces/85.0 grams" };

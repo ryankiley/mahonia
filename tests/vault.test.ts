@@ -1214,16 +1214,6 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
     expect([...store.keys()].filter((k) => k.startsWith("gear.vault."))).toEqual([]);
   });
 
-  it("a dead link keeps the answer while another row still opens the list", () => {
-    // The list was rotated on another device and this one has its new link too: the
-    // answer is the live row's as much as the dead one's.
-    const my = useMyLists();
-    my.entries.value = [...my.entries.value, listEntry({ editToken: "newer-token", shareCode: CODE, slug: "trip-abc123" })];
-    my.clearVaultAnswer(TOKEN);
-    expect(vault.vaultDecisionFor({ editToken: "newer-token", shareCode: CODE })).toBe("yes");
-    expect([...vault.vaultExclusionsFor(LIST)]).toEqual(["stove"]);
-  });
-
   it("a cleared decision reads as unanswered, not as a no", () => {
     // The distinction the editor runs on: "no" never asks again, "ask" is the
     // question still open. A list that comes back around must land on the latter.

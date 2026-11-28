@@ -121,10 +121,10 @@ export function useVaultList(
   const session = useSession();
   const items = ref<VaultEntry[]>([]);
   /** Where the surface stands, moved only by load(): nothing on screen yet; this
-   *  device's copy on screen while the server is asked; the server's answer; offline
-   *  with gear on screen (the copy, or the last answer); offline with none. Only a
+   *  device's copy on screen while the server is asked; the server's answer; offline,
+   *  over whatever was on screen (the copy, the last answer, or nothing). Only a
    *  server answer is ever written back as the copy, and a copy is never edited. */
-  const status = ref<"none" | "copy" | "live" | "offline" | "offlineEmpty">("none");
+  const status = ref<"none" | "copy" | "live" | "offline">("none");
   /** Whose gear `items` is: the owner marker it was loaded under. A sign-in to another
    *  account (in this tab, or in another, which changes the cookie under this one)
    *  doesn't change what's on screen, so the copy is written under this, and only while
@@ -142,7 +142,7 @@ export function useVaultList(
   // "presumed" with the ask still out is a question; with the ask failed, it is offline
   const asking = computed(() => !hasVault.value && session.presence.value === "presumed" && session.pending.value);
   /** The server can't be asked: the session never answered, or the gear's read failed. */
-  const offline = computed(() => status.value === "offline" || status.value === "offlineEmpty");
+  const offline = computed(() => status.value === "offline");
   /** Nothing on screen may be changed: offline, or still the copy while the server's
    *  answer is on its way. The copy can be behind an edit made on another device, so a
    *  row of it opened for editing could save over that edit, or edit a piece since put
@@ -169,7 +169,6 @@ export function useVaultList(
     items.value = [];
     readAt.value = null;
   }
-  const goOffline = () => (status.value = items.value.length ? "offline" : "offlineEmpty");
 
   async function load() {
     if (!hasGear.value) {
@@ -195,7 +194,7 @@ export function useVaultList(
     // in. Offline once the session's ask has failed, and still offline while it asks
     // again, so its retries don't blink the note and the controls every 30 s.
     if (!hasVault.value) {
-      if (!asking.value) goOffline();
+      if (!asking.value) status.value = "offline";
       return;
     }
     // The session answering ends the offline its failed ask meant; a failed read of the
@@ -209,8 +208,7 @@ export function useVaultList(
       // its twin re-rendered every row for nothing. Kept as it is, then; only the
       // copy's date moves, which the items watcher below won't do for an array that
       // didn't change.
-      const shown = status.value === "copy" || status.value === "live" || status.value === "offline";
-      const same = shown && JSON.stringify(got) === JSON.stringify(items.value);
+      const same = status.value !== "none" && JSON.stringify(got) === JSON.stringify(items.value);
       if (!same) await opts.before?.();
       // Answered for an account this browser no longer holds (a sign-in in another tab
       // changes the cookie under this one, and this tab's session never hears of it):
@@ -227,7 +225,7 @@ export function useVaultList(
       }
     } catch {
       loadError.value = "Couldn’t load your gear. Check your connection and try again.";
-      goOffline();
+      status.value = "offline";
     }
     fetching.value = false;
     if (stale) await load();

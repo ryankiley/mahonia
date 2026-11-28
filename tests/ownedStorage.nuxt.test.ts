@@ -17,9 +17,9 @@ const everyKeyFor = (owner: string) => Object.values(OWNED).map((base) => ownedK
 const UNOWNED = [
   "gear.mylists.v1",
   "gear.account.initial.v1", // beside gear.account.v1.<owner>
-  "gear.vault.for.bF_UPp16unMFT6l7cJMylrxe1", // keyed by an edit token, beside gear.vault.copy.v1
-  "gear.vault.not.bF_UPp16unMFT6l7cJMylrxe1",
-  "gear.vault.for.deadbeefdeadbeef", // an edit token that happens to be all hex
+  "gear.vault.answer.SNAPCODE0001", // filed under a list's share code, beside gear.vault.copy.v1
+  "gear.vault.declined.SNAPCODE0001",
+  "gear.vault.answer.012345678901", // a share code that happens to be all digits, so hex
   "gear.vault.width.v1",
   "gear.vault.tab.v1",
   "gear.claimed.v1", // the legacy, unowned generation of the three claimed keys
