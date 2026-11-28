@@ -1,0 +1,8 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "Importing a CSV or Markdown export no longer tucks every later row inside a row that has a weight but no name.",
+    "Pasting a table or CSV that mentions a Mahonia link imports what you pasted, not the list the link points to.",
+    "Signing out in one tab no longer throws away edits another tab saved on this device while offline."
+  ]
+}
