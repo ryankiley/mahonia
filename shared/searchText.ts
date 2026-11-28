@@ -32,15 +32,21 @@ export function foldForSearch(input: string): string {
 }
 
 /**
- * The search fold with "+" left standing: what EXACT matching keys a product name by
- * (shared/catalogMatch). The catalog relies on that one mark to tell products apart
- * ("X-Mid Pro 2" and "X-Mid Pro 2+", "Lone Peak 9" and "9+"); dropping it is right for
- * recall and wrong for identity: each such pair becomes one ambiguous key, and an import
- * naming either links to neither. Everything else is foldForSearch's, by construction:
- * the two share every step but the last.
+ * The search fold with "+" left standing and a minus before a number spelled out: what
+ * EXACT matching keys a product name by (shared/catalogMatch, shared/catalogProducts).
+ * The catalog relies on those two marks to tell products apart ("X-Mid Pro 2" and
+ * "X-Mid Pro 2+", "Bishop Pass Windstopper -15F" and "... 15F", two sleeping bags thirty
+ * degrees apart); dropping them is right for recall and wrong for identity: each such
+ * pair becomes one ambiguous key, and an import naming either links to neither. Only a
+ * minus that starts a word counts: every other hyphen is spacing ("X-Mid", "G4-20",
+ * "25-40"). Everything else is foldForSearch's, by construction: the two share
+ * foldLetters, and this one only spells the minus first (after the width fold, so a
+ * full-width "－" counts) and keeps the "+" last.
  */
 export function foldKeepingPlus(input: string): string {
-  return foldLetters(input).replace(/[^\p{L}\p{N}+]+/gu, " ").trim();
+  return foldLetters(foldWidth(input).replace(/(^|\s)[-−](?=\d)/g, "$1minus "))
+    .replace(/[^\p{L}\p{N}+]+/gu, " ")
+    .trim();
 }
 
 /** Every step of the fold but the strip: width, marks, case, the undecomposed letters. */

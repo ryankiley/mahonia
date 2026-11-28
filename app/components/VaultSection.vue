@@ -17,18 +17,26 @@
 // Collapse is the list folder's own (usePersistedCollapse, as FolderSection uses it):
 // remembered per kind or kit on this device under `collapseKey`, never sent to the
 // server, since it's how you're looking at your gear rather than a fact about it.
+// Without a key nothing is remembered and every visit starts open, as a shared list's
+// folders do (ReadonlyFolderSection): someone else's gear (/g) passes none.
 //
 // The default slot is the rows. Their menus are absolutely positioned and the body
 // clips for the collapse animation; the body lifts that clip while a menu is inside it
 // (atoms/folder.scss), so a menu opened on the last row isn't guillotined.
 const props = defineProps<{
   label?: string;
-  /** the remembered collapse's key: a kind's, or `kit-<id>` */
+  /** the remembered collapse's key: a kind's, or `kit-<id>`; absent, nothing is kept */
   collapseKey?: string;
   /** the list's accessible name, when the heading alone doesn't give it */
   listLabel?: string;
 }>();
-const { collapsed, toggle } = usePersistedCollapse("gear.vkind.").useFor(() => props.collapseKey ?? "");
+const { collapsed, toggle } = props.collapseKey
+  ? usePersistedCollapse("gear.vkind.").useFor(() => props.collapseKey ?? "")
+  : localCollapse();
+function localCollapse() {
+  const collapsed = ref(false);
+  return { collapsed, toggle: () => void (collapsed.value = !collapsed.value) };
+}
 </script>
 
 <template>

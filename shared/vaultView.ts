@@ -51,6 +51,10 @@ export type VaultTab = "gear" | "food" | "kits";
 export const VAULT_TABS = ["gear", "kits", "food"] as const satisfies readonly VaultTab[];
 export const VAULT_TAB_LABEL: Record<VaultTab, string> = { gear: "Gear", kits: "Kits", food: "Food" };
 
+/** What filing a piece by tab or kind reads: whether it is a kit, and what its icon is
+ *  drawn from. */
+export type VaultKindFacts = Pick<VaultEntry, "kind" | "icon" | "commonName" | "name">;
+
 /**
  * The tab a piece sits on: a kit on Kits, food on Food, everything else on Gear.
  *
@@ -61,7 +65,7 @@ export const VAULT_TAB_LABEL: Record<VaultTab, string> = { gear: "Gear", kits: "
  * (a fuel canister lasts several trips, a tube of sunscreen a season). Food is the
  * consumable judged by another number, calories, which is why it reads apart.
  */
-export function vaultTabOf(e: Pick<VaultEntry, "kind" | "icon" | "commonName" | "name">): VaultTab {
+export function vaultTabOf(e: VaultKindFacts): VaultTab {
   if (e.kind === "kit") return "kits";
   return vaultFamilyOf(e) === "food" ? "food" : "gear";
 }
@@ -164,10 +168,10 @@ function byName(a: VaultEntry, b: VaultEntry): number {
 }
 
 /** One kind of gear on the page: the kits, a family, or the pieces with no family. */
-export interface VaultKindSection {
+export interface VaultKindSection<T extends VaultKindFacts = VaultEntry> {
   key: GearFamily | "kits" | "other";
   label: string;
-  entries: VaultEntry[];
+  entries: T[];
 }
 
 /** A piece's family: its hand-picked icon's, else its gear type's (or name's), as the
@@ -192,7 +196,7 @@ export function vaultFamilyOf(e: Pick<VaultEntry, "icon" | "commonName" | "name"
  * headings tells you the heaviest thing of each kind, not the heaviest thing you own.
  * Inside a section the rows keep the order they arrive in, most recently used first.
  */
-export function groupVaultByKind(rows: VaultEntry[]): VaultKindSection[] {
+export function groupVaultByKind<T extends VaultKindFacts>(rows: T[]): VaultKindSection<T>[] {
   const kits = rows.filter((r) => r.kind === "kit");
   const byFamily = groupBy(
     rows.filter((r) => r.kind !== "kit"),
@@ -208,6 +212,6 @@ export function groupVaultByKind(rows: VaultEntry[]): VaultKindSection[] {
 /** What a surface draws its rows under: the kinds, or, `flat` (a search, a chosen
  *  order), one list with no heading (label ""), so a caller draws its rows in one place
  *  either way. /gear and the list's gear pane both take it, so the rule is said once. */
-export function vaultSections(rows: VaultEntry[], flat: boolean): { key: string; label: string; entries: VaultEntry[] }[] {
+export function vaultSections<T extends VaultKindFacts>(rows: T[], flat: boolean): { key: string; label: string; entries: T[] }[] {
   return flat ? [{ key: "all", label: "", entries: rows }] : groupVaultByKind(rows);
 }

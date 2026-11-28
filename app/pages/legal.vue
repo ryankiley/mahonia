@@ -2,8 +2,10 @@
 // CONTACT_EMAIL is auto-imported from app/utils/site.
 // Privacy + Terms live together on one page (two sections, #privacy / #terms).
 // /privacy and /terms redirect here (routeRules). The "Last updated" line is
-// stamped at commit time by scripts/stamp-legal-dates.mjs.
-import { LIST_PURGE_GRACE_DAYS, LIST_REAP_STALE_DAYS } from "~~/shared/retention";
+// stamped at commit time by scripts/stamp-legal-dates.mjs, when the page's words change.
+// So the retention windows are written out here rather than read from
+// shared/retention.ts, where a change would alter the policy without moving the date;
+// tests/legalRetention.nuxt.test.ts fails while the two disagree.
 
 useHead({
   title: "Legal — Mahonia",
@@ -69,8 +71,9 @@ useHead({
         </p>
         <p>
           My Gear is private unless you turn on its <strong>read-only link</strong>. Anyone with that
-          link sees your gear and kits, with their weights and specs, but never prices or food, and
-          your name only if you’ve set one. Turning it off stops the link at once.
+          link sees your gear and kits, with their weights and specs, and your name only if you’ve set
+          one. It never shows prices, and shows food only where it’s packed in a kit. Turning it off
+          stops the link at once.
         </p>
 
         <h3>What Mahonia collects in the background</h3>
@@ -157,8 +160,8 @@ useHead({
         </ul>
         <p>
           Some things are also cleaned up automatically. A list with one item or none that hasn’t been edited for
-          <strong>{{ LIST_REAP_STALE_DAYS }} days</strong> is removed; a list with two items or more never expires. A list
-          you delete, or one that’s cleaned up, is held for <strong>{{ LIST_PURGE_GRACE_DAYS }} days</strong> before it’s
+          <strong>30 days</strong> is removed; a list with two items or more never expires. A list
+          you delete, or one that’s cleaned up, is held for <strong>90 days</strong> before it’s
           deleted for good, so if you’ve lost one, email me and I’ll see what can be recovered.
         </p>
         <p>

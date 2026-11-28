@@ -160,6 +160,28 @@ export interface VaultEntry extends VaultCapture, VaultKitFields {
   specs?: string;
 }
 
+/** What a row of gear draws from a piece (VaultGearRow): its name, its kind, its weight
+ *  and the short facts beneath. A piece reaches the row as a whole entry on /gear, and as
+ *  only what a reader may see on a shared link (/g), where a kit's part is just its name
+ *  and weight. */
+export type VaultRowView = Pick<
+  VaultEntry,
+  | "brand"
+  | "name"
+  | "variant"
+  | "commonName"
+  | "icon"
+  | "kind"
+  | "weightMg"
+  | "entryUnit"
+  | "owned"
+  | "classification"
+  | "kcal"
+  | "specs"
+  | "priceCents"
+  | "currency"
+>;
+
 // ---------------------------------------------------------------------------
 // kits
 // ---------------------------------------------------------------------------

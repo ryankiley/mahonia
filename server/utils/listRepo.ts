@@ -69,9 +69,10 @@ function firstById<R, T extends { id: string }>(
 // at once, so the reducer's list-wide referential invariants (enforced per-op in
 // ops.ts addItem/moveItem) must be re-applied in bulk here — otherwise a raw create
 // POST can persist dangling refs that render nowhere yet still count in totals
-// (invisible, UI-undeletable weight). Mirrors jsonToListImport's healing rules:
-// unknown folderId → ungrouped, dangling/self parentId → top-level, one nesting
-// level only, and a nested child always carries its parent's folderId.
+// (invisible, UI-undeletable weight). The healing rules: unknown folderId →
+// ungrouped, dangling/self parentId → top-level, one nesting level only, and a nested
+// child always carries its parent's folderId. A JSON import relies on this:
+// jsonToListImport normalizes each row and leaves the whole-list healing to the create.
 function normalizeListData(raw?: Partial<ListData>): ListData {
   const folderIds = firstById(raw?.folders, MAX_FOLDERS, normalizeFolder);
   const folders = [...folderIds.values()];
@@ -696,8 +697,9 @@ export async function restoreSnapshotByEditHash(
 }
 
 /**
- * The display names these accounts CHOSE, by id: the one read behind every name this
- * module shows for an account (a list's byline, who made a recent change).
+ * The display names these accounts CHOSE, by id: the one read behind every name the
+ * site shows for an account (a list's byline, who made a recent change, the owner of a
+ * shared gear link).
  *
  * Only a display name the account chose is ever surfaced — never the email, never
  * a fallback derived from it. An account with no display name is absent from the
@@ -719,6 +721,11 @@ async function chosenNames(db: Db, userIds: readonly number[]): Promise<Map<numb
   return names;
 }
 
+/** One account's chosen name, or undefined when it set none (chosenNames' rule). */
+export async function chosenName(db: Db, userId: number): Promise<string | undefined> {
+  return (await chosenNames(db, [userId])).get(userId);
+}
+
 /**
  * Resolve a list's maker to the name shown under its title on the read views
  * (chosenNames' rule).
@@ -732,7 +739,7 @@ async function attachAuthorName(
   authorUserId: number | null,
 ): Promise<ListSnapshot> {
   if (authorUserId == null) return snap;
-  const name = (await chosenNames(db, [authorUserId])).get(authorUserId);
+  const name = await chosenName(db, authorUserId);
   if (name) snap.authorName = name;
   return snap;
 }

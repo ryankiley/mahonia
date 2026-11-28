@@ -11,15 +11,11 @@
 import type { CatalogSearchResult } from "./catalogSearch";
 import { foldForSearch, foldKeepingPlus } from "./searchText";
 
-/** One fold for "the same product". The "+" stands, as it does for exact matching
- *  (foldKeepingPlus): "Lone Peak 9" and "Lone Peak 9+" are two products. */
+/** One fold for "the same product", exact matching's (foldKeepingPlus): "Lone Peak 9"
+ *  and "Lone Peak 9+" are two products, and so are a -15F bag and a 15F one. */
 export function productKey(brand: string | null | undefined, name: string): string {
-  return `${foldKeepingPlus(brand ?? "")}|${foldKeepingPlus(signed(name))}`;
+  return `${foldKeepingPlus(brand ?? "")}|${foldKeepingPlus(name)}`;
 }
-/** A minus before a number is part of the name, where every other hyphen is spacing:
- *  "Bishop Pass Windstopper -15F" and "... 15F" are two sleeping bags thirty degrees
- *  apart, and the fold alone reads them as one. Spelled out so it survives it. */
-const signed = (name: string) => name.replace(/(^|\s)[-\u2212](?=\d)/g, "$1minus ");
 
 // "en", not the runtime's locale: the server and the device must put a product's
 // versions in the same order, and a list sorted by the visitor's locale would not.

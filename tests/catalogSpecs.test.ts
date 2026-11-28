@@ -36,7 +36,7 @@ describe("specParts", () => {
   });
 
   it("writes a small volume in millilitres and a pack's in litres", () => {
-    expect(specParts("volume_l=0.22", null, "g")).toEqual(["220 ml"]);
+    expect(specParts("volume_l=0.22", null, "g")).toEqual(["220 mL"]);
     expect(specParts("volume_l=40", null, "g")).toEqual(["40 L"]);
   });
 

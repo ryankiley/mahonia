@@ -722,12 +722,22 @@ describe("parseKcal — calories as typed", () => {
   it("reads a number typed back the way the app prints it", () => {
     expect(parseKcal("500")).toBe(500);
     expect(parseKcal("2,700")).toBe(2700);
+    expect(parseKcal("2.700 kcal")).toBe(2700);
     expect(parseKcal(" 1 350 ")).toBe(1350);
     expect(parseKcal(formatKcal(12_345))).toBe(12_345);
   });
 
+  // The line beside the field prints the unit, so a figure typed with it is that figure
+  // rather than not a number, which cleared the calories.
+  it("reads a figure typed with its unit", () => {
+    expect(parseKcal("250 kcal")).toBe(250);
+    expect(parseKcal("2,700kcal")).toBe(2700);
+    expect(parseKcal("180 Cal")).toBe(180);
+    expect(parseKcal("1 350 calories")).toBe(1350);
+  });
+
   it("answers null for nothing typed and for anything that isn't a number", () => {
-    for (const raw of ["", "   ", ",", "lots", "12abc"]) expect(parseKcal(raw)).toBeNull();
+    for (const raw of ["", "   ", ",", "lots", "12abc", "250 g", "kcal", "250 kcal 3"]) expect(parseKcal(raw)).toBeNull();
   });
 
   it("leaves the sign to whoever stores it, and rounds a fraction as storing does", () => {

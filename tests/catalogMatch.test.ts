@@ -4,6 +4,7 @@ import {
   buildCatalogNameIndex,
   catalogNameKeys,
   importedNameKey,
+  keptGearType,
   linkImportedItems,
   lookupImported,
 } from "../shared/catalogMatch";
@@ -132,5 +133,16 @@ describe("linkImportedItems", () => {
     expect(out[1]!.catalogItemId).toBeUndefined();
     expect(out[2]!.catalogItemId).toBe(77);
     expect(out[3]!.catalogItemId).toBeUndefined();
+  });
+});
+
+describe("keptGearType", () => {
+  it("keeps a gear type the person typed or emptied, and lets any other make way", () => {
+    expect(keptGearType({ commonName: "Shelter", commonNameOverridden: true })).toBe("Shelter");
+    // emptied by hand: stays empty rather than taking the product's
+    expect(keptGearType({ commonNameOverridden: true })).toBe("");
+    // the last product's, or none: the new product's fills it
+    expect(keptGearType({ commonName: "Tent" })).toBeUndefined();
+    expect(keptGearType({})).toBeUndefined();
   });
 });

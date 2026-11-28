@@ -10,6 +10,7 @@
 // on the row.
 
 import type { Unit } from "./types";
+import { formatVolume } from "./water";
 import { unitSystem } from "./weights";
 
 /** The axes a spec line shows, in the order it shows them. */
@@ -86,8 +87,8 @@ function format(key: SpecKey, value: string, unit: Unit): string | null {
     case "persons":
       return Number.isFinite(n) ? `${n}P` : null;
     case "volume_l":
-      if (!Number.isFinite(n) || n <= 0) return null;
-      return n < 1 ? `${Math.round(n * 1000)} ml` : `${n} L`;
+      // the water row's own spelling ("220 mL", "1.5 L"), so a volume reads one way
+      return Number.isFinite(n) && n > 0 ? formatVolume(n * 1000) : null;
     case "capacity_mah":
       return Number.isFinite(n) ? `${n.toLocaleString("en-US")} mAh` : null;
     case "lumens":

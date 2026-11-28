@@ -76,6 +76,14 @@ export interface CatalogPickOwn {
   classification?: Classification | null;
 }
 
+/** The gear type a row already on a list keeps over a product linked to it: one the person
+ *  typed, or emptied, is theirs and outlives the pick; any other is the last product's and
+ *  makes way. The editor's pick, a paste and the connector's change all read it, so a row
+ *  answers the same whichever way it was linked. */
+export function keptGearType(row: Pick<Item, "commonName" | "commonNameOverridden">): string | undefined {
+  return row.commonNameOverridden ? (row.commonName ?? "") : undefined;
+}
+
 /** Where the row sits, which the classification rule reads. */
 export interface CatalogPickPlace {
   folderId: string | null;

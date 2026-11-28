@@ -38,7 +38,7 @@ import { editLinkPath, normalizeShareCode } from "../../shared/links";
 import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_PERSON_NAME_LEN, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { carrierName } from "../../shared/people";
-import { type CatalogPickOwn, pickFromCatalog, withCatalogPick } from "../../shared/catalogMatch";
+import { type CatalogPickOwn, keptGearType, pickFromCatalog, withCatalogPick } from "../../shared/catalogMatch";
 import { CATALOG_CATEGORIES, normKey } from "../../shared/catalogQuality";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { MAX_DISTANCE_M } from "../../shared/trailDistance";
@@ -1815,13 +1815,14 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
       if (!isCatalogId(r.catalog_id)) return notCatalogId(label);
       const row = catalogRows.get(r.catalog_id);
       if (!row) return notInCatalog(r.catalog_id);
-      // what this change sent is the owner's own; so is a gear type typed on the row before
+      // what this change sent is the owner's own; so is a gear type typed or emptied on the
+      // row before (keptGearType, as the editor's pick reads it)
       const own: CatalogPickOwn = {
         weightMg: patch.unitWeightMg || undefined,
         name: patch.name,
         brand: patch.brand,
         variant: patch.variant,
-        commonName: r.gear_type !== undefined ? patch.commonName : it.commonNameOverridden ? (it.commonName ?? "") : undefined,
+        commonName: r.gear_type !== undefined ? patch.commonName : keptGearType(it),
         kcal: patch.kcal,
         classification: patch.classification,
       };

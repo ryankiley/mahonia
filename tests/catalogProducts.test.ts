@@ -7,7 +7,9 @@ import { describe, expect, it } from "vitest";
 import { csvToCatalogRows } from "../scripts/catalogCsv";
 import { CATALOG_CSV } from "../scripts/paths";
 import { beginsVersion, compareVersions, groupProducts, leftoverWords, narrowVersions, nearestVersion, productKey } from "../shared/catalogProducts";
+import { buildCatalogNameIndex, lookupImported } from "../shared/catalogMatch";
 import type { CatalogSearchResult } from "../shared/catalogSearch";
+import { foldKeepingPlus } from "../shared/searchText";
 
 const row = (id: number, name: string, variant: string | null, brand = "El Coyote"): CatalogSearchResult => ({
   id,
@@ -29,6 +31,29 @@ describe("productKey", () => {
     // and the minus that tells a -15F bag from a 15F one, where other hyphens are spacing
     expect(productKey("Mountain Hardwear", "Bishop Pass Windstopper -15F")).not.toBe(productKey("Mountain Hardwear", "Bishop Pass Windstopper 15F"));
     expect(productKey("Durston", "X-Mid 2")).toBe(productKey("Durston", "X Mid 2"));
+  });
+});
+
+describe("the exact key keeps a minus before a number", () => {
+  const bag = (id: number, name: string) => row(id, name, "Regular", "Mountain Hardwear");
+
+  it("keys a -15F bag and a 15F bag apart, and leaves every other hyphen as spacing", () => {
+    expect(foldKeepingPlus("Bishop Pass Windstopper -15F")).not.toBe(foldKeepingPlus("Bishop Pass Windstopper 15F"));
+    expect(foldKeepingPlus("Lamina −20F")).toBe(foldKeepingPlus("Lamina -20F"));
+    // a full-width keyboard's minus reads as the ASCII one, as every other width does
+    expect(foldKeepingPlus("Lamina －20F")).toBe(foldKeepingPlus("Lamina -20F"));
+    expect(foldKeepingPlus("-40F")).toBe("minus 40f");
+    expect(foldKeepingPlus("X-Mid 2")).toBe(foldKeepingPlus("X Mid 2"));
+    expect(foldKeepingPlus("G4-20 Ultralight 42")).toBe("g4 20 ultralight 42");
+    expect(foldKeepingPlus("Flex Capacitor 25-40")).toBe("flex capacitor 25 40");
+  });
+
+  it("links an imported row to the bag it names, not to neither", () => {
+    const index = buildCatalogNameIndex([bag(1, "Bishop Pass Windstopper -15F"), bag(2, "Bishop Pass Windstopper 15F")]);
+    const linked = (name: string, variant?: string) => lookupImported(index, { brand: "Mountain Hardwear", name, variant })?.id ?? null;
+    expect(linked("Bishop Pass Windstopper -15F")).toBe(1);
+    expect(linked("Bishop Pass Windstopper -15F", "Regular")).toBe(1);
+    expect(linked("Bishop Pass Windstopper 15F", "Regular")).toBe(2);
   });
 });
 

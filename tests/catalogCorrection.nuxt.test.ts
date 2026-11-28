@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readBody } from "h3";
 import { registerEndpoint } from "@nuxt/test-utils/runtime";
-import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import CatalogCorrectionModal from "~/components/CatalogCorrectionModal.vue";
 
 const TARGET = {
@@ -18,7 +18,7 @@ const TARGET = {
 let release = () => {};
 let held = Promise.resolve();
 let posts = 0;
-let lastBody: { weight?: string; weightMg?: number } | null = null;
+let lastBody: { weightMg?: number } | null = null;
 registerEndpoint("/api/catalog/correct", {
   method: "POST",
   handler: async (event) => {
@@ -138,10 +138,27 @@ describe("what a typed catalog correction is sent as", () => {
     expect(await typed("505 g", "oz")).toMatchObject({ weightMg: 505_000 });
   });
 
-  it("sends what it cannot read as typed, for the server to refuse", async () => {
-    const body = await typed("heavy", "g");
-    expect(body.weight).toBe("heavy");
-    expect(body.weightMg).toBeUndefined();
+  // refused on the card, where the reason can be read, rather than sent to fail
+  it("sends nothing it cannot read as a weight, and says why under the field", async () => {
+    posts = 0;
+    useCatalogCorrection().open(TARGET);
+    const w = mount(CatalogCorrectionModal, {
+      global: { stubs: { BaseModal: { template: "<div><slot /></div>" } } },
+    });
+    await nextTick();
+    for (const text of ["heavy", "0"]) {
+      await w.get("input").setValue(text);
+      await pressEnter(w);
+      await flushPromises();
+      expect(w.get("[role=alert]").text()).toContain("isn’t a weight");
+      expect(w.get("input").attributes("aria-invalid")).toBe("true");
+    }
+    expect(posts).toBe(0);
+    expect(useCatalogCorrection().target.value).not.toBeNull();
+    // typing again takes the line away
+    await w.get("input").setValue("505");
+    expect(w.find("[role=alert]").exists()).toBe(false);
+    useCatalogCorrection().close();
   });
 
   it("still sends the exact figure when the field was never touched", async () => {
@@ -152,7 +169,6 @@ describe("what a typed catalog correction is sent as", () => {
     await pressEnter(w);
     await vi.waitFor(() => expect(lastBody).not.toBeNull());
     expect(lastBody).toMatchObject({ weightMg: 510_000 });
-    expect(lastBody!.weight).toBeUndefined();
     useCatalogCorrection().close();
   });
 });
