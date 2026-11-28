@@ -443,6 +443,19 @@ describe("rankCandidates — kind-of-gear queries", () => {
     expect(rankProducts(rows, "lone peak").map((r) => r.id)).toEqual([1, 3, 2]);
   });
 
+  it("caps a kind-of-gear query per product, not per name the plus and minus fold away", () => {
+    // three products the search fold reads as one name ("peak 9"), unbranded so the
+    // brand cap stays out of it
+    const rows = [
+      row({ id: 1, brand: null, name: "Peak 9", usageCount: 4, commonName: "Sleeping pad", searchTerms: "sleeping pad" }),
+      row({ id: 2, brand: null, name: "Peak 9+", usageCount: 3, commonName: "Sleeping pad", searchTerms: "sleeping pad" }),
+      row({ id: 3, brand: null, name: "Peak -9", usageCount: 2, commonName: "Sleeping pad", searchTerms: "sleeping pad" }),
+      row({ id: 4, brand: null, name: "Other Pad", usageCount: 1, commonName: "Sleeping pad", searchTerms: "sleeping pad" }),
+    ];
+    expect(rankCandidates(rows, "sleeping pad", 3).map((r) => r.id)).toEqual([1, 2, 3]);
+    expect(rankProducts(rows, "sleeping pad", 3).map((r) => r.id)).toEqual([1, 2, 3]);
+  });
+
   it("never hands over more than the row cap, and never splits a product to fit it", () => {
     const rows = Array.from({ length: 12 }, (_, p) =>
       Array.from({ length: 8 }, (_, v) => row({ id: p * 100 + v, brand: "Nemo", name: `Tensor ${p}`, variant: `Size ${v}` })),

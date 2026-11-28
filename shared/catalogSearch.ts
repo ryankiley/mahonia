@@ -233,7 +233,8 @@ export function tierOf(
  *  in five sizes or one brand's eight socks can't take the whole menu: twelve slots
  *  become six brands, two rows each (a Men's/Women's pair survives the product cap). Sizes come
  *  straight back the moment the query names the product ("tensor"), because the cap
- *  applies to generic queries only. An unbranded row escapes the brand cap: "" is
+ *  applies to generic queries only. A product is productKey's, so "Lone Peak 9" and
+ *  "Lone Peak 9+" are capped apart. An unbranded row escapes the brand cap: "" is
  *  not a brand, and lumping every generic item together would hide them. */
 const FAMILY_CAP = 2;
 const BRAND_CAP = 2;
@@ -245,7 +246,7 @@ function diversify<T extends { row: LocalCatalogRow }>(sorted: T[], limit: numbe
   const overflow: T[] = [];
   for (const r of sorted) {
     const brand = foldForSearch(r.row.brand ?? "");
-    const family = `${brand}|${foldForSearch(r.row.name)}`;
+    const family = productKey(r.row.brand, r.row.name);
     const famN = perFamily.get(family) ?? 0;
     const brandN = perBrand.get(brand) ?? 0;
     if (famN >= FAMILY_CAP || (brand && brandN >= BRAND_CAP)) {
@@ -350,9 +351,9 @@ function gateAndSort(rows: LocalCatalogRow[], rawQuery: string): { kept: Scored[
  * and Women's rows interleaved by popularity. A product stands where its best version
  * ranks; its other versions share its name, so they pass the same gate and come with it.
  *
- * A query that names a kind of gear still spreads across brands (BRAND_CAP products
- * each, the rest refilling as in diversify); the per-product cap has nothing left to do
- * once a product is one entry. The result is rows, not a nested shape, so every reader
+ * A query that names a kind of gear still spreads across brands, through diversify
+ * itself: BRAND_CAP products each, the rest refilling. Its per-product cap never fires
+ * here, each product being one entry. The result is rows, not a nested shape, so every reader
  * of a search response (the offline cache, the menu, the iOS client) keeps its type.
  */
 export function rankProducts(
@@ -366,31 +367,14 @@ export function rankProducts(
   // every gated row of the product: the junk filter judges each row by its own gear
   // type, so a jacket whose Men's row is filed a wind jacket and Women's a rain jacket
   // lost one of the two on "rain jacket", and the version step listed half a product.
-  const keep = new Set(kept.map(({ row }) => productKey(row.brand, row.name)));
   const products = new Map<string, LocalCatalogRow[]>();
   for (const { row } of kept) products.set(productKey(row.brand, row.name), []);
-  for (const { row } of gated) {
-    const key = productKey(row.brand, row.name);
-    if (keep.has(key)) products.get(key)!.push(row);
-  }
-  let ordered = [...products.values()];
-  if (generic) {
-    const perBrand = new Map<string, number>();
-    const picked: LocalCatalogRow[][] = [];
-    const overflow: LocalCatalogRow[][] = [];
-    for (const versions of ordered) {
-      const brand = foldForSearch(versions[0]!.brand ?? "");
-      const n = perBrand.get(brand) ?? 0;
-      if (brand && n >= BRAND_CAP) overflow.push(versions);
-      else {
-        perBrand.set(brand, n + 1);
-        picked.push(versions);
-      }
-    }
-    ordered = [...picked, ...overflow];
-  }
+  for (const { row } of gated) products.get(productKey(row.brand, row.name))?.push(row);
+  // each product as its best version, the row diversify reads its brand from
+  const heads = [...products.values()].map((versions) => ({ row: versions[0]!, versions }));
+  const ordered = generic ? diversify(heads, limit) : heads.slice(0, limit);
   const out: CatalogSearchResult[] = [];
-  for (const versions of ordered.slice(0, limit)) {
+  for (const { versions } of ordered) {
     if (out.length && out.length + versions.length > maxRows) break;
     for (const v of versions) out.push(toCatalogResult(v));
   }

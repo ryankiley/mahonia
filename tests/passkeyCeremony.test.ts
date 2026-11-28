@@ -27,6 +27,7 @@ import signupVerify from "../server/api/auth/passkey/signup-verify.post";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
 import { makeEvent, setCookieValue } from "./helpers/http";
+import { memoryKv } from "./helpers/kv";
 import { PASSKEY, signInCookie } from "./helpers/session";
 
 // The endpoints reach for useAccountDb() themselves — point it at this file's
@@ -34,13 +35,9 @@ import { PASSKEY, signInCookie } from "./helpers/session";
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 
 // The challenge store and the rate limiter both live in Nitro's `useStorage("kv")`
-// auto-import, which doesn't exist under plain vitest — a Map plays the part.
-const kv = new Map<string, unknown>();
-vi.stubGlobal("useStorage", () => ({
-  getItem: async (key: string) => kv.get(key) ?? null,
-  setItem: async (key: string, value: unknown) => void kv.set(key, value),
-  removeItem: async (key: string) => void kv.delete(key),
-}));
+// auto-import, which doesn't exist under plain vitest — a store in memory plays the part.
+const kv = memoryKv();
+vi.stubGlobal("useStorage", () => kv);
 
 // Stub the signature verification, not the gates around it. Tests that must
 // never REACH verification assert this was not called.

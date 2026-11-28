@@ -328,11 +328,10 @@ describe("which version is lit", () => {
     expect(Object.keys(localStorage)).toEqual([]);
   });
 
-  // the module clears the key once, on load (before this suite can set it); what a test
-  // can hold is that a value still sitting there chooses nothing
-  it("ignores a fit an earlier version of the menu left on the device", async () => {
+  it("clears the fit an earlier version of the menu left on the device, and chooses nothing by it", async () => {
     localStorage.setItem("gear.fit.v1", "womens");
     const m = await menuFor(PAIR, "ghost whisperer");
+    expect(localStorage.getItem("gear.fit.v1")).toBeNull();
     await openVersions(m);
     expect(options(m.w).filter((o) => o.classes("is-active")).map((o) => o.find(".ac__size").text())).toEqual(["Men’s Medium"]);
   });

@@ -261,7 +261,8 @@ const DDL = [
   ...LISTS_DDL,
   // catalog_items (Phase 2) — single-sourced in server/utils/catalog.ts so the
   // seed script + search endpoint can ensure it on Neon too. These are safe on
-  // both engines; the pg_trgm GIN index is created Neon-only (see catalog.ts).
+  // both engines; the pg_trgm and unaccent extensions are created Neon-only (see
+  // catalog.ts).
   ...CATALOG_DDL,
   ...CANDIDATES_DDL,
   ...SNAPSHOTS_DDL,

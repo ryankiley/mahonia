@@ -5,40 +5,19 @@
 //
 // Mounted because the popup is DOM that Leaflet builds on a click of the marker, so the
 // thing to press is a real marker on a real map.
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { enableAutoUnmount, mount, type VueWrapper } from "@vue/test-utils";
-import RouteMap from "~/components/RouteMap.client.vue";
-import { encodePolyline } from "~~/shared/polyline";
-
-const geometry = encodePolyline([
-  { lat: 45.3736, lon: -121.696 },
-  { lat: 45.378, lon: -121.69 },
-  { lat: 45.382, lon: -121.684 },
-]);
-
-beforeAll(() => {
-  // draw() watches the host's box; happy-dom has no ResizeObserver to hand it
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { enableAutoUnmount } from "@vue/test-utils";
+import { mountRouteMap } from "./helpers/routeMap";
 
 enableAutoUnmount(afterEach);
 
 /** Mount a map holding one pin of each kind given (ids "pin0", "pin1", … all on one
  *  spot, as doubled ends are), press the first, and hand back its popup. */
 async function openFirstPopup(...kinds: string[]) {
-  const wrapper: VueWrapper = mount(RouteMap, {
-    props: { geometry, dayDistancesM: [], waypoints: kinds.map((kind, i) => ({ id: `pin${i}`, kind, alongM: 400 })) },
-    attachTo: document.body,
-  });
-  const root = wrapper.element as HTMLElement;
-  await vi.waitFor(() => expect(root.querySelectorAll(".leaflet-marker-icon")).toHaveLength(kinds.length), { interval: 25 });
+  const { wrapper, root } = await mountRouteMap(
+    { waypoints: kinds.map((kind, i) => ({ id: `pin${i}`, kind, alongM: 400 })) },
+    { ready: (map) => map.querySelectorAll(".leaflet-marker-icon").length === kinds.length },
+  );
   root.querySelector(".leaflet-marker-icon")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   await vi.waitFor(() => expect(root.querySelector(".routemap__wp")).not.toBeNull(), { interval: 25 });
   const popup = root.querySelector<HTMLElement>(".routemap__wp")!;

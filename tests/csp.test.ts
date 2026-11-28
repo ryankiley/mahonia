@@ -18,7 +18,6 @@ import { ROOT } from "./helpers/sources";
 
 const config = readFileSync(`${ROOT}config/security.ts`, "utf8");
 const nuxtConfig = readFileSync(`${ROOT}nuxt.config.ts`, "utf8");
-const routeMap = readFileSync(`${ROOT}app/components/RouteMap.client.vue`, "utf8");
 
 /**
  * The directives, parsed from the REAL policy string.
@@ -84,49 +83,11 @@ describe("the basemap costs exactly one token", () => {
     expect(TILE_ORIGIN).toMatch(/^https:\/\/[a-z0-9.-]+$/);
     expect(TILE_ORIGIN).not.toMatch(/[?=]/);
   });
-
-  it("the map reads the host from runtimeConfig, so URL and policy cannot drift", () => {
-    expect(nuxtConfig).toMatch(/tileOrigin: TILE_ORIGIN/);
-    expect(routeMap).toMatch(/tileOrigin/);
-    // and doesn't hardcode a second copy of it
-    expect(routeMap).not.toContain(TILE_ORIGIN);
-  });
 });
 
 describe("what using someone else's tiles obliges", () => {
-  it("sends a referrer, or the tiles are refused", () => {
-    // The site sets Referrer-Policy: no-referrer. Both candidate providers authenticate
-    // or enforce their usage policy by Referer, and an <img> never sends Origin either —
-    // so without this the map is silently either broken or in breach.
-    expect(routeMap).toMatch(/referrerPolicy:\s*"origin"/);
-  });
-
-  it("caps maxZoom at the provider's own ceiling", () => {
-    // Most tiles in a session come from zooming in, so this is the cheapest way to stay a
-    // light user of infrastructure that is donated rather than sold.
-    expect(routeMap).toMatch(/maxZoom:\s*17\b/);
-  });
-
-  it("keeps attribution, which is a licence requirement and not decoration", () => {
-    // CC-BY-SA, so this one is a condition of use rather than a courtesy.
-    expect(routeMap).toMatch(/attribution:/);
-    expect(routeMap).toMatch(/OpenStreetMap/);
-    expect(routeMap).toMatch(/OpenTopoMap/);
-    // …and never styles it away
-    expect(routeMap).not.toMatch(/\.leaflet-control-attribution[^{]*\{[^}]*display:\s*none/);
-  });
-
-  it("uses the OSM axis order, not the ArcGIS one", () => {
-    // This provider numbers tiles {z}/{x}/{y}; the documented fallback numbers them
-    // {z}/{y}/{x}. Swapped, either still returns 200s — just tiles of somewhere else,
-    // which no error handler would ever catch.
-    expect(routeMap).toMatch(/\{z\}\/\{x\}\/\{y\}\.png/);
-  });
-
-  it("never prefetches — the offline story is the fallback, not a tile cache", () => {
-    expect(routeMap).not.toMatch(/prefetch|preload|bulk/i);
-  });
-
+  // The map's own half (the referrer it sends, the axis order, the zoom ceiling, the
+  // credit, no fetching ahead) is checked on the mounted map: routeMapTiles.nuxt.test.ts.
   it("the non-commercial tripwire sits next to the thing it governs", () => {
     // These tiles are free for non-commercial use only. If the site ever takes advertising
     // the basemap has to be revisited BEFORE that ships — so the note has to be where
