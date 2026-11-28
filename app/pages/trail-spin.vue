@@ -252,16 +252,25 @@ useSeoMeta({
 });
 useHead({
   title: TITLE,
-  // The ground's scheme goes on the body, where the theme's tokens resolve, in WebKit as in
-  // Chrome (checked in the iOS Simulator). A dark-mode extension can still repaint the page;
-  // none of the opt-outs tried stopped the one on Ryan's phone (2026-11-28), so the page
-  // carries none, and an extension's own per-site setting is the way out.
+  // The ground's scheme goes on the ROOT, as a class with a real rule behind it (the
+  // unscoped style block at the foot of this file), not as an inline style. The production
+  // build runs the CSS through LightningCSS, which rewrites every light-dark() token into a
+  // pair of fallback variables switched only by `color-scheme` in a STYLESHEET rule, and all
+  // the tokens are set on :root. An inline `color-scheme` (on the body, as it was) passed
+  // straight through, so on mahonia.app the tokens followed the phone's own setting: in light
+  // mode the "Upload a route" bar and the (i) drew black on the black ground and vanished
+  // (Ryan, 2026-11-28). The dev server serves light-dark() as written, which hid it there.
+  // (A dark-mode extension can still repaint the page; none of the opt-outs tried stopped
+  // the one on Ryan's phone, so the page carries none.)
+  htmlAttrs: {
+    class: computed(() => `spin-scheme-${scheme.value}`),
+  },
   bodyAttrs: {
     class: "bare",
     // Held still: one screen with nothing to scroll to. The rubber band is already off
     // (overscroll-behavior-y, reset.scss), and only on y: the shorthand's x half would turn
     // off a Mac's two-finger swipe back.
-    style: computed(() => `background: ${ground.value}; color-scheme: ${scheme.value}; overflow: hidden`),
+    style: computed(() => `background: ${ground.value}; overflow: hidden`),
   },
 });
 
@@ -754,5 +763,17 @@ const saveLabel = computed(() =>
     gap: var(--space-2);
     padding-block: var(--space-1) var(--space-2);
   }
+}
+</style>
+
+<style>
+/* The page's colour scheme, on the root, where the theme's tokens live; set by the class
+   useHead puts on <html> (see there for why a class and not an inline style). Unscoped: the
+   rule has to reach <html>, which no component of this page renders. */
+html.spin-scheme-light {
+  color-scheme: light;
+}
+html.spin-scheme-dark {
+  color-scheme: dark;
 }
 </style>
