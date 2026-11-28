@@ -16,9 +16,11 @@
 // shared/tripPlan.ts turns it into time and calories. What stays out of here is anything
 // that needs more than a number and a unit.
 
-// The one import: tidyText.ts pins the locale numbers are grouped in (heights render on
-// the server-rendered share views too) and imports nothing itself, so nothing can cycle.
+// tidyText.ts pins the locale numbers are grouped in (heights render on the
+// server-rendered share views too) and typedNumber.ts is the rule a typed number is read
+// by; neither imports anything itself, so nothing can cycle.
 import { formatCount } from "./tidyText";
+import { parseNumberToken, TYPED_NUMBER } from "./typedNumber";
 
 /** Metres per distance unit: the one place each conversion factor is written. */
 const M_PER_UNIT = {
@@ -58,29 +60,8 @@ function unitFromToken(token: string): DistanceUnit | null {
   return null;
 }
 
-/**
- * A number token → its value, resolving the comma.
- *
- * This is the one genuinely ambiguous character in a pasted stats line: "3,159 ft"
- * means three thousand, "12,5 km" means twelve and a half, and the old code's blanket
- * `.replace(",", ".")` read the first as 3.159. It never showed because the field was
- * anchored and people typed simple values; a paste puts both in the same string.
- *
- *   a dot is present   → the comma can only be a thousands separator
- *   groups of three    → thousands ("1,234", "1,234,567", and "12 000")
- *   anything else      → a decimal comma, the European form
- *
- * A SPACE groups thousands too ("12 000 m"), which is why it's read here rather than
- * treated as the end of the number: taken as a terminator, "12 000 m" parsed as a
- * bare "12" and became twelve MILES on an imperial list, and "1 234 km" quietly threw
- * the leading 1 away. Only exact groups of three join, so "5 10" stays two numbers.
- */
-function parseNumberToken(token: string): number {
-  const t = token.trim();
-  if (t.includes(".")) return Number.parseFloat(t.replace(/[, ]/g, ""));
-  if (/^\d{1,3}(?:[, ]\d{3})+$/.test(t)) return Number.parseFloat(t.replace(/[, ]/g, ""));
-  return Number.parseFloat(t.replace(",", "."));
-}
+// A fresh regex per call because /g carries lastIndex state.
+const distanceScan = () => new RegExp(String.raw`(${TYPED_NUMBER})\s*([a-z]+)?`, "g");
 
 type Candidate = { metres: number; unit: DistanceUnit | null };
 
@@ -107,15 +88,20 @@ export function parseDistanceM(raw: string, fallbackUnit: DistanceUnit): number 
   if (!s) return null;
 
   const candidates: Candidate[] = [];
-  // number, then the word attached to it if there is one
-  // grouped-thousands form FIRST, so "12 000" is one number rather than "12" and a
-  // stray "000" (see parseNumberToken)
-  const scan = /(\d{1,3}(?:[ ,]\d{3})+(?:\.\d+)?|\d[\d,]*(?:\.\d+)?|\.\d+)\s*([a-z]+)?/g;
+  // A typed number, then the word attached to it if there is one. The number is read by
+  // the one rule (shared/typedNumber), which is what tells the two commas in a pasted
+  // stats line apart: "3,159 ft" is three thousand, "12,5 km" twelve and a half. A space
+  // groups thousands too ("12 000 m"): taken as the end of the number, that parsed as a
+  // bare "12" and became twelve MILES on an imperial list.
+  const scan = distanceScan();
   for (let m = scan.exec(s); m; m = scan.exec(s)) {
     // A leading minus belongs to the number, and a negative distance is not one.
     // Checked from the source rather than captured, so "7.5 mi • -3 ft" still works.
     if (s[m.index - 1] === "-") continue;
-    const value = parseNumberToken(m[1]!);
+    // ",9" opens with a decimal comma, but straight after a word the comma or full stop
+    // is the sentence's: "Out & back,12 km" is twelve.
+    const afterWord = /^[.,]/.test(m[1]!) && /\p{L}/u.test(s[m.index - 1] ?? "");
+    const value = parseNumberToken(afterWord ? m[1]!.slice(1) : m[1]!);
     if (!Number.isFinite(value) || value <= 0) continue;
     const word = m[2];
     if (!word) {
@@ -354,21 +340,23 @@ export function normalizeBodyWeightUnit(raw: unknown): BodyWeightUnit | undefine
   return oneOf(BODY_WEIGHT_UNITS, raw);
 }
 
+// The whole of an amount field: one typed number, then the unit word if there is one.
+const AMOUNT = new RegExp(String.raw`^(${TYPED_NUMBER})\s*([a-z. ]*)$`);
+
 /**
  * "1.5 L", "32 fl oz", "70kg", "0.75" → the number and the unit word beside it, or null
- * for anything unparseable or non-positive. A comma reads as the decimal point; the unit
+ * for anything unparseable or non-positive. The number is read by the rule every typed
+ * number is (shared/typedNumber): "1,5" is one and a half, "2,000" two thousand. The unit
  * comes back lower-case with its dots and spaces gone ("fl. oz" → "floz"), "" when there
- * is none. The one rule for reading an amount someone typed — a body weight below and a
- * water volume (shared/water.ts) both start here, so what counts as a number can't
- * drift between them. (It lives in this file because this file imports no domain module,
- * so both can reach it without a cycle.)
+ * is none. A body weight below and a water volume (shared/water.ts) both start here, so
+ * what counts as an amount can't drift between them. (It lives in this file because this
+ * file imports no domain module, so both can reach it without a cycle.)
  */
 export function splitAmount(raw: unknown): { n: number; unit: string } | null {
   if (raw == null) return null;
-  const s = String(raw).trim().toLowerCase().replace(",", ".");
-  const m = s.match(/^(\d*\.?\d+)\s*([a-z. ]*)$/);
+  const m = AMOUNT.exec(String(raw).trim().toLowerCase());
   if (!m) return null;
-  const n = Number.parseFloat(m[1]!);
+  const n = parseNumberToken(m[1]!);
   if (!Number.isFinite(n) || n <= 0) return null;
   return { n, unit: m[2]!.replace(/[. ]/g, "") };
 }

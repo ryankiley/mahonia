@@ -730,8 +730,9 @@ describe("parseKcal — calories as typed", () => {
     for (const raw of ["", "   ", ",", "lots", "12abc"]) expect(parseKcal(raw)).toBeNull();
   });
 
-  it("leaves the sign and the fraction to whoever stores it", () => {
+  it("leaves the sign to whoever stores it, and rounds a fraction as storing does", () => {
     expect(parseKcal("-5")).toBe(-5);
-    expect(parseKcal("12.5")).toBe(12.5);
+    expect(parseKcal("12.5")).toBe(13);
+    expect(parseKcal("1,5")).toBe(2);
   });
 });
