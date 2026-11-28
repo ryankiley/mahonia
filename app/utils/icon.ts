@@ -41,7 +41,8 @@ export type IconNode = readonly IconChild[];
 /** The icon scale: each step's flat line, in screen px (its size is its --icon-* token in
  *  tokens.scss). md is the default: the glyph beside 16px text, on every pointer, and the
  *  folder chevrons and gear marks too (one size where there were 18 and 20). sm sits
- *  beside 14px text and in small indicators (a menu's chevron and tick). */
+ *  beside 14px text and in small indicators (a chevron). A menu's tick is md, the leading
+ *  icons' size, since 2026-11-27. */
 export const ICON_STROKES = {
   xs: 1,
   sm: 1.25,

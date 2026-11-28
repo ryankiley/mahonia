@@ -21,6 +21,7 @@
     "changelog": "jiti scripts/changelog.ts",
     "release-notes": "jiti scripts/release-notes.ts",
     "og:site": "jiti scripts/render-og-site.ts",
+    "og:spin": "jiti scripts/render-og-spin.ts",
     "catalog:build": "jiti scripts/build-catalog.ts",
     "catalog:audit": "jiti scripts/audit-catalog.ts",
     "catalog:graduate": "jiti scripts/catalog-graduate.ts",

@@ -816,7 +816,7 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
 
           <p class="head__gpx">
             <label class="head__gpxbtn">
-              <input type="file" accept=".gpx,.kml,.kmz,.tcx,.fit,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/vnd.ant.fit,application/geo+json,application/json,text/xml" @change="onGpx" />
+              <input type="file" :accept="ROUTE_FILE_ACCEPT" @change="onGpx" />
               {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
             </label>
             <Tooltip

@@ -108,7 +108,6 @@ function pick(key: string) {
               :icon="IconCheckmark1Medium"
               class="menu__check"
               :class="{ 'is-on': o.key === current }"
-              size="sm"
               aria-hidden="true"
             />
           </button>

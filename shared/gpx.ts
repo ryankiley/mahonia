@@ -16,13 +16,10 @@
 // packing list. The arithmetic the reducer and the charts need — parsing a stored profile,
 // climbs per day, grade bands — lives in profile.ts precisely so this file can stay off
 // that path. Import FROM profile.ts freely; never make profile.ts import from here.
+import { fitRoute, isFit } from "./fit";
 import { segmentAt, validLatLon } from "./polyline";
-import { CLIMB_SAMPLE_M, PROFILE_SAMPLES, totalClimb } from "./profile";
+import { CLIMB_SAMPLE_M, filledElevations, PROFILE_SAMPLES, totalClimb } from "./profile";
 import type { WaypointKind } from "./types";
-
-// The one binary format, in its own file for legibility and re-exported here so the
-// composable's single `await import()` still fetches every reader as one chunk.
-export { fitRoute, isFit } from "./fit";
 
 /** One point off the track. `ele` is often absent — plenty of tracks carry no elevation. */
 export interface TrackPoint {
@@ -519,24 +516,6 @@ function resampleEvery(cumulative: number[], elevations: number[], stepM: number
 }
 
 /**
- * Every point's altitude, in order — with a gap carried from the nearest earlier
- * reading, and a leading gap from the first later one. Empty when no point has one.
- *
- * A watch often has a fix a few seconds before its barometer has settled, and a TCX
- * or GPX writer leaves the tag out of those samples (a FIT writes the format's
- * INVALID value, which fitRoute reads the same way). Read strictly, a handful of such
- * seconds would drop the whole profile and the climb with it — and read as sea level,
- * which is what an absent tag once became, they invented a descent to the coast. The
- * carried reading is what the device's own screen showed in those seconds.
- */
-export function filledElevations(points: readonly TrackPoint[]): number[] {
-  const first = points.find((p) => typeof p.ele === "number" && Number.isFinite(p.ele));
-  if (!first) return [];
-  let last = first.ele!;
-  return points.map((p) => (typeof p.ele === "number" && Number.isFinite(p.ele) ? (last = p.ele) : last));
-}
-
-/**
  * Distance, climb and a profile from a track. Null when there isn't enough to say
  * anything — one point is a location, not a route.
  *
@@ -581,4 +560,76 @@ export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
     descentM: Math.round(descentM),
     profile,
   };
+}
+
+/** What a route file holds. The pins are the places it marked, read apart from the track. */
+export interface RouteFile {
+  points: TrackPoint[];
+  pins: FilePin[];
+  /** the name the file gives its route, when it gives one (a FIT or GeoJSON doesn't) */
+  name?: string;
+  /** its distance, climb and profile (gpxStats), which every reader of a file wants */
+  stats: GpxStats;
+}
+
+/**
+ * The route out of a file somebody picked, whatever kind of file it is: GPX, KML or KMZ,
+ * TCX, GeoJSON, or a watch's FIT (bare or zipped), with its stats. "too-big" when it is over
+ * the limit, said before a byte is read. Throws when there's no route to be had: a file that
+ * is none of those, or one that is with no track in it.
+ *
+ * Two pages read route files, the Trip tab and /trail-spin, and they read them alike: every
+ * dialect one page learns, the other gets.
+ */
+export async function readRouteFile(file: Blob): Promise<RouteFile | "too-big"> {
+  // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
+  // seconds; declining is cheaper than a worker, and honest.
+  if (file.size > MAX_GPX_BYTES) return "too-big";
+  // Sniffed by CONTENT, never by name: a file saved as .txt or renamed by a share sheet is
+  // still the route it was. Twelve bytes are enough to tell the two binary shapes apart:
+  // "PK" is a zip (a KMZ, or the FIT-in-a-zip Garmin Connect's "Export Original" hands
+  // out), ".FIT" at byte 8 is a watch's file as it was written.
+  const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  let fit: Uint8Array | null = isFit(head) ? new Uint8Array(await file.arrayBuffer()) : null;
+  let text = "";
+  if (!fit && head[0] === 0x50 && head[1] === 0x4b) {
+    const member = await zipMember(await file.arrayBuffer(), (name) => /\.(kml|fit)$/i.test(name));
+    if (member && isFit(member.bytes)) fit = member.bytes;
+    else if (member) text = new TextDecoder().decode(member.bytes);
+  } else if (!fit) {
+    text = await file.text();
+  }
+  const read = parseRoute(fit, text);
+  const stats = gpxStats(read.points);
+  if (!stats) throw new Error("no track");
+  return { ...read, stats };
+}
+
+function parseRoute(fit: Uint8Array | null, text: string): Omit<RouteFile, "stats"> {
+  // binary end to end: no text, no DOM, and the course's placed points come out of the
+  // same pass as its track
+  if (fit) return fitRoute(fit);
+  if (!text) throw new Error("empty");
+  // JSON or XML, decided by the first non-space character, which tells us which family
+  // the text belongs to more reliably than a name would
+  const first = text.trimStart()[0];
+  if (first === "{" || first === "[") return { points: geoJsonPoints(JSON.parse(text)), pins: [] };
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  if (doc.querySelector("parsererror")) throw new Error("not xml");
+  // gpxPoints reads GPX, KML and TCX (same track, different dialects), and the pins are
+  // read SEPARATELY: gpxPoints never touches <wpt>, and that separation is load-bearing,
+  // since a KML's marker placemarks once inflated a 39.8-mile trail to 58.5.
+  return { points: gpxPoints(doc), pins: filePins(doc), name: routeName(doc) };
+}
+
+/** The route's own name: a GPX's metadata, track or route; a KML's document; a TCX course. */
+function routeName(doc: Document): string | undefined {
+  for (const holder of ["metadata", "trk", "rte", "Document", "Course"]) {
+    for (const el of byLocalName(doc, holder)) {
+      const named = [...el.children].find((c) => c.localName.toLowerCase() === "name");
+      const name = named?.textContent?.trim();
+      if (name) return name;
+    }
+  }
+  return undefined;
 }

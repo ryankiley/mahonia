@@ -384,6 +384,7 @@ export default defineNuxtConfig({
     "/about": { prerender: true },
     "/help": { prerender: true },
     "/legal": { prerender: true },
+    "/trail-spin": { prerender: true },
     // Privacy + Terms were merged into /legal (two sections) — keep the old URLs
     // working with a permanent redirect (bookmarks, external links, llms.txt history).
     // The changelog is GitHub's Releases now — the same entries, one release per day

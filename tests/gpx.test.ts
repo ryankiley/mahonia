@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { filePins, filledElevations, geoJsonPoints, gpxPoints, gpxStats, haversineM, MAX_GPX_BYTES, zipMember, type TrackPoint } from "../shared/gpx";
-import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs, smooth } from "../shared/profile";
+import { filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, MAX_GPX_BYTES, readRouteFile, zipMember, type TrackPoint } from "../shared/gpx";
+import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, filledElevations, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs, smooth } from "../shared/profile";
 import { zipEntries } from "./helpers/zip";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
@@ -685,5 +685,49 @@ describe("gpxStats — a track sampled every second, as a watch writes one", () 
     expect(s.profile).toHaveLength(PROFILE_SAMPLES);
     expect(Math.min(...s.profile)).toBeGreaterThanOrEqual(1000);
     expect(Math.max(...s.profile)).toBeLessThanOrEqual(1099);
+  });
+});
+
+describe("readRouteFile", () => {
+  // The reader is the browser's; this file runs in node, so it borrows happy-dom's for
+  // the length of a read. happy-dom refuses CDATA, which real exports use for names
+  // (AllTrails does), so the names here are plain text.
+  const withParser = async <T>(read: () => Promise<T>): Promise<T> => {
+    const had = globalThis.DOMParser;
+    globalThis.DOMParser = new Window().DOMParser as unknown as typeof DOMParser;
+    try {
+      return await read();
+    } finally {
+      globalThis.DOMParser = had;
+    }
+  };
+  const gpx = (inner: string) =>
+    new Blob([
+      `<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">${inner}<trk><name>Track name</name><trkseg>
+        <trkpt lat="45.30" lon="-121.70"><ele>1500</ele></trkpt>
+        <trkpt lat="45.31" lon="-121.70"><ele>1600</ele></trkpt>
+      </trkseg></trk><wpt lat="45.305" lon="-121.70"><name>Spring</name></wpt></gpx>`,
+    ]);
+
+  it("reads the track, the pins apart from it, and the route's own name", async () => {
+    const read = await withParser(() => readRouteFile(gpx("<metadata><name>Timberline Trail #600</name></metadata>")));
+    if (read === "too-big") throw new Error("read as too big");
+    expect(read.points).toHaveLength(2);
+    expect(read.pins.map((p) => p.name)).toEqual(["Spring"]);
+    expect(read.name).toBe("Timberline Trail #600");
+  });
+
+  it("falls back to the track's name when the file's metadata has none", async () => {
+    const read = await withParser(() => readRouteFile(gpx("")));
+    expect(read !== "too-big" && read.name).toBe("Track name");
+  });
+
+  it("refuses an oversized file before reading a byte of it", async () => {
+    const file = { size: MAX_GPX_BYTES + 1, slice: () => { throw new Error("read"); } } as unknown as Blob;
+    await expect(readRouteFile(file)).resolves.toBe("too-big");
+  });
+
+  it("throws on an empty file", async () => {
+    await expect(withParser(() => readRouteFile(new Blob([""])))).rejects.toThrow();
   });
 });

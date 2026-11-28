@@ -35,7 +35,8 @@
 // hostile file full of 255-field messages costs no more per byte than a real one.
 
 import { validLatLon } from "./polyline";
-import { filledElevations, type FilePin, type TrackPoint } from "./gpx";
+import type { FilePin, TrackPoint } from "./gpx";
+import { filledElevations } from "./profile";
 import { MAX_WAYPOINTS } from "./ops";
 
 /** degrees per semicircle: the format stores 180° as 2^31 */

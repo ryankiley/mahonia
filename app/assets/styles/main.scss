@@ -259,8 +259,11 @@
    button's own chrome. `.prose a` outranks `.btn--primary` (0,1,1 against 0,1,0), so a
    NuxtLink styled as the primary action inside a prose column had its label repainted
    --foreground-primary — white on the white pill, i.e. an empty button — and took a stray
-   hairline under it as well. A prose page has no reason to restyle a control it contains. */
-.prose a:not(.btn) {
+   hairline under it as well. A prose page has no reason to restyle a control it contains.
+   .prose-link wears the same look outside a prose column: a link in a line of chrome (/trail-spin's
+   line under its bar), where .prose would bring its measure and flex with it. */
+.prose a:not(.btn),
+.prose-link {
   color: var(--foreground-primary);
   border-bottom: 1px solid var(--border-strong);
   transition: border-color var(--spring-fade-dur) var(--spring-fade);
@@ -268,7 +271,8 @@
 // deepen on hover, but never to primary foreground — keeps the underline soft (see
 // --underline). Pointer-gated like every hover (see .btn:hover, controls.scss).
 @media (hover: hover) and (pointer: fine) {
-  .prose a:not(.btn):hover {
+  .prose a:not(.btn):hover,
+  .prose-link:hover {
     border-bottom-color: var(--foreground-secondary);
   }
 }
