@@ -67,6 +67,8 @@ const mode = computed(() => (surface.value === "add" || surface.value === "edit"
 const pinned = computed(() => surface.value === "card");
 const datesOpen = computed(() => surface.value === "dates");
 const open = computed(() => mode.value !== null);
+// the panel or a pinned card: what a press elsewhere, a drag or Escape puts away
+const trailUp = computed(() => surface.value !== null && surface.value !== "dates");
 const fieldsId = useId();
 const fieldsEl = useTemplateRef<HTMLElement>("fieldsEl");
 const trailEl = useTemplateRef<HTMLElement>("trailEl");
@@ -89,41 +91,84 @@ const cardUrl = computed(() => {
 // the empty space.
 const titleEl = useTemplateRef<HTMLTextAreaElement>("titleEl");
 
-// The title is a DRAFT while you're in it — the same shape ItemInput gives a gear
-// name, and for the same reason its comment gives: never clobber what the user is
-// actively typing.
+// The four text fields here each hold a DRAFT while there is something typed in them,
+// the same shape ItemInput gives a gear name and for the same reason: never clobber
+// what the user is actively typing. The box shows the draft when there is one, else
+// what is stored.
 //
-// The field used to bind straight to snapshot.title. That binding is reactive, so
-// REPLACING the snapshot re-patches the textarea's value — and the controller
-// replaces it out from under you in two places that can't be guarded the way
-// flush() and the poll are (`if (!isEditing)`), because both have to install a
-// snapshot to have an editor at all: load() adopts the server's copy over the local
-// one it painted first, and createFromDraft() adopts the list it just created.
-// Neither carries the characters you've typed, because typing isn't an op until it
-// commits — so the box was rewritten mid-word and only what you typed AFTERWARDS
-// survived to be committed on blur. A three-word name came back as its last word.
+// Bound straight to the snapshot, a field is re-patched whenever the snapshot is
+// REPLACED (Vue re-applies a :value on every render), and the controller replaces it
+// out from under you in two places that can't be guarded the way flush() and the poll
+// are (`if (!isEditing)`), because both have to install a snapshot to have an editor
+// at all: load() adopts the server's copy over the local one it painted first, and
+// createFromDraft() adopts the list it just created. Neither carries the characters
+// you've typed, because typing isn't an op until it commits — so the box was rewritten
+// mid-word and only what you typed AFTERWARDS survived to be committed on blur. A
+// three-word name came back as its last word.
 //
-// Synced from the snapshot only while the field is NOT focused, so a name that
-// arrives from elsewhere (a collaborator's rename on the poll, the local copy being
-// overtaken by the server's) still updates the heading you aren't touching.
-const titleFocused = ref(false);
-const draftTitle = ref(props.snapshot.title);
-watch(
+// A field with nothing typed in it still follows the list, so a name that arrives from
+// elsewhere (a collaborator's rename on the poll, the local copy being overtaken by
+// the server's) updates the heading you aren't touching.
+//
+// `send` commits a value, and answers with the reason when it refuses one: the refused
+// draft stays in the box with that line, and is not offered again as it stands.
+// Committing drops the draft, so the box goes back to the STORED spelling, which the
+// reducer may have tidied on the way in. That covers the case nothing reactive would:
+// retyping "Ryan's Timberline" over a stored "Ryan’s Timberline" tidies to exactly
+// what's already in state, and the straight apostrophe would sit there looking saved.
+function textDraft(stored: () => string, send: (value: string) => string | void) {
+  const draft = ref<string | null>(null);
+  const error = ref("");
+  function commit() {
+    if (draft.value === null || error.value) return;
+    error.value = send(draft.value) ?? "";
+    if (!error.value) draft.value = null;
+  }
+  return reactive({
+    value: computed(() => draft.value ?? stored()),
+    error,
+    /** a keystroke; typed back to what is stored is nothing typed */
+    input(e: Event) {
+      const typed = (e.target as HTMLInputElement).value;
+      draft.value = typed === stored() ? null : typed;
+      error.value = "";
+    },
+    /** blur or Enter: commits what the box holds, so a half-typed value never reaches the reducer */
+    change(e: Event) {
+      draft.value = (e.target as HTMLInputElement).value;
+      error.value = "";
+      commit();
+    },
+    /** commits a draft that is still waiting on its blur */
+    commit,
+    reset() {
+      draft.value = null;
+      error.value = "";
+    },
+  });
+}
+
+const titleField = textDraft(
   () => props.snapshot.title,
-  (t) => {
-    if (!titleFocused.value) draftTitle.value = t;
+  (title) => {
+    c.setMeta({ title });
   },
 );
 
 const fit = () => fitTextarea(titleEl.value);
-// Follows the DRAFT, which is what the box actually shows: the initial value, and any
-// that arrives from OUTSIDE this component — a list loading in, a collaborator's
-// rename on a poll — reach it through the sync above. (Typing is covered by @input.)
+// Follows what the box actually shows: the initial value, a commit putting the stored
+// spelling back (a collapsed run of spaces can shorten the line enough to free a row),
+// and any that arrives from OUTSIDE this component — a list loading in, a collaborator's
+// rename on a poll. (Typing is covered by @input.)
 // Also on resize: the wrap point moves with the column, so a title that fits on one
 // line in landscape may need two in portrait.
 if (needsTextareaFit) {
-  watch(draftTitle, () => nextTick(fit), { immediate: true });
+  watch(() => titleField.value, () => nextTick(fit), { immediate: true });
   useWindowEvent("resize", fit);
+}
+function onTitleInput(e: Event) {
+  titleField.input(e);
+  fit();
 }
 
 // The site's mark. A SAVED list gets it joined into its snapshot server-side; a DRAFT has
@@ -158,82 +203,54 @@ const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.va
 // object (shared/trailLink CLEARS_WITH_LINK), spread here and by the MCP edit_list
 // tool, so the next field added there is cleared on both paths.
 
-// The Link field is a DRAFT while it's being typed in, as the title is: null when the
-// box shows the stored link, else what is in the box. Vue re-applies a :value on every
-// render, so bound straight to snapshot.trailUrl the box could not keep a value the
-// reducer refuses, and a refused link used to vanish with the panel and no word said.
-const urlDraft = ref<string | null>(null);
-const urlError = ref("");
+const clearLink = () => c.setMeta({ trailUrl: "", ...CLEARS_WITH_LINK });
+
+// The trail panel's fields. A change that arrives once the panel has been put away is
+// not a commit: Escape closes it first and focus leaves the field after, which is when
+// a browser fires the change (see dismissTrail).
+const panelDraft: typeof textDraft = (stored, send) =>
+  textDraft(stored, (value) => (open.value ? send(value) : undefined));
+
 // A refused link holds the panel open through the gesture that committed it (the Enter,
 // or the press elsewhere that blurred the field), so the line saying why is seen. One
 // gesture can ask to close twice (a focusout, then the click), so the hold is a state
 // that the NEXT press or key ends, not a count.
 let urlHeld = false;
-const releaseUrlHold = () => {
-  urlHeld = false;
-};
-// capture, so the Enter that commits releases an older hold before its handler sets a new one
-useWindowEvent("pointerdown", releaseUrlHold, { capture: true, passive: true });
-useWindowEvent("keydown", releaseUrlHold, { capture: true, passive: true });
+function holdForRefusal() {
+  urlHeld = true;
+  // capture, so an Enter that commits again releases this hold before its handler sets a new one
+  for (const next of ["pointerdown", "keydown"] as const)
+    window.addEventListener(next, () => (urlHeld = false), { capture: true, once: true, passive: true });
+}
 
+// What the reducer would refuse is not sent at all: it stays in the box with a line
+// under it, where a refused link used to vanish with the panel and no word said.
+// normalizeTrailUrl is the reducer's own test, and the href it returns is what goes in
+// the op, so "alltrails.com/…" is stored as https whichever build the server is running.
+const linkField = panelDraft(
+  () => props.snapshot.trailUrl ?? "",
+  (typed) => {
+    const value = typed.trim();
+    if (!value) return void clearLink();
+    const href = normalizeTrailUrl(value);
+    if (!href) {
+      holdForRefusal();
+      return "That isn’t a link.";
+    }
+    c.setMeta({ trailUrl: href });
+  },
+);
 function onUrlInput(e: Event) {
-  urlDraft.value = (e.target as HTMLInputElement).value;
-  urlError.value = "";
+  linkField.input(e);
   urlHeld = false;
 }
 
-// Commits on @change (blur/Enter), not per keystroke, so a half-typed URL never reaches
-// the reducer. What the reducer would refuse is not sent at all: it stays in the box
-// with a line under it. normalizeTrailUrl is the reducer's own test, and the href it
-// returns is what goes in the op, so "alltrails.com/…" is stored as https whichever
-// build the server is running.
-function commitUrl(e: Event) {
-  const value = (e.target as HTMLInputElement).value.trim();
-  if (!value) {
-    c.setMeta({ trailUrl: "" });
-    c.setMeta({ ...CLEARS_WITH_LINK });
-    urlDraft.value = null;
-    return;
-  }
-  const href = normalizeTrailUrl(value);
-  if (!href) {
-    urlError.value = "That isn’t a link.";
-    urlHeld = true;
-    return;
-  }
-  c.setMeta({ trailUrl: href });
-  urlDraft.value = null;
-}
-
-function commitLabel(e: Event) {
-  const el = e.target as HTMLInputElement;
-  c.setMeta({ trailLabel: el.value });
-  el.value = props.snapshot.trailLabel ?? ""; // resync — see commitTitle
-}
-
-// Commits on @change (blur/Enter) and then puts the STORED spelling back in the box,
-// because the reducer tidies on the way in and the field has to show what got saved.
-// The explicit resync is what covers the case the sync watcher can't: retyping
-// "Ryan's Timberline" over a stored "Ryan’s Timberline" tidies to exactly what's
-// already in state, so nothing reactive fires and the straight apostrophe would sit
-// there looking saved. Assigning the draft rather than el.value, so the field's one
-// source of truth stays the ref. Same resync ItemRow's weight and qty fields do.
-// autoGrow runs after, because a collapsed run of spaces can shorten the line enough
-// to free a row.
-function commitTitle(e: Event) {
-  const el = e.target as HTMLTextAreaElement;
-  c.setMeta({ title: el.value });
-  draftTitle.value = props.snapshot.title;
-  fit();
-}
-
-// Typing moves the DRAFT, not the list — the commit is still @change (blur/Enter),
-// as it is for every other text field in the editor. This only keeps the ref level
-// with the box, so an arriving snapshot has something current to be held off by.
-function onTitleInput(e: Event) {
-  draftTitle.value = (e.target as HTMLTextAreaElement).value;
-  fit();
-}
+const labelField = panelDraft(
+  () => props.snapshot.trailLabel ?? "",
+  (trailLabel) => {
+    c.setMeta({ trailLabel });
+  },
+);
 
 // ---- the other way in: a GPX ----
 // The whole reader — file sniffing, the dialects, the pin offer — is
@@ -305,8 +322,7 @@ const distanceUnit = computed(() => resolveDistanceUnit(props.snapshot.trailDist
 function pickDistanceUnit(unit: string) {
   c.setMeta({ trailDistanceUnit: unit });
 }
-// The field shows the bare number; the label beside it carries the unit. Same
-// uncontrolled :value + @change shape as the URL and title above.
+// The field shows the bare number; the label beside it carries the unit.
 const distanceValue = computed(() =>
   distanceFieldValue(props.snapshot.trailDistanceM, distanceUnit.value),
 );
@@ -320,16 +336,18 @@ const distanceLabel = computed(() =>
 // A bare "12" means the list's own unit; "7.5 mi" on a metric list still means miles,
 // because the parser reads a unit when one is typed. An unparseable value clears,
 // which is the reducer's rule for this field too.
-function commitDistance(e: Event) {
-  const raw = (e.target as HTMLInputElement).value.trim();
-  const metres = parseDistanceM(raw, distanceUnit.value);
-  c.setMeta({ trailDistanceM: metres ?? "" });
-}
+const distanceField = panelDraft(
+  () => distanceValue.value,
+  (raw) => {
+    c.setMeta({ trailDistanceM: parseDistanceM(raw.trim(), distanceUnit.value) ?? "" });
+  },
+);
+const panelFields = [linkField, labelField, distanceField];
 
 function remove() {
   // what describes the ROUTE goes with the link; the trip's distance stays (see
   // CLEARS_WITH_LINK), and the row falls back to showing it
-  c.setMeta({ trailUrl: "", ...CLEARS_WITH_LINK });
+  clearLink();
   surface.value = null;
 }
 
@@ -361,9 +379,9 @@ const dateLabel = computed(() =>
 );
 
 // Opening a surface replaces whatever was up, so no opener has anything to remember.
-// Dismissing is the opposite: each one is about its own side. closeDates hears every
-// click outside the calendar, which includes the ones landing on the card, and those
-// are not its to close.
+// Dismissing is the opposite: each one is about its own side. A panel on its way out
+// still hears focus leave it, and by then the calendar may be what is up, which is not
+// the panel's to close.
 function closeTrail() {
   if (urlHeld) return; // a link was just refused: see urlHeld
   if (surface.value !== "dates") surface.value = null;
@@ -392,7 +410,7 @@ function clearDates() {
   c.setMeta({ startDate: "", endDate: "" });
   closeDates();
 }
-onClickOutside(datesEl, closeDates);
+useMenuDismiss(datesOpen, datesEl, closeDates);
 
 async function openFields(next: "add" | "edit") {
   surface.value = next;
@@ -411,11 +429,10 @@ function commitAndClose(e: KeyboardEvent) {
   if (urlHeld) return void document.getElementById(`${fieldsId}-url`)?.focus();
   closeTrail();
 }
-// the draft and its line belong to one opening of the panel
+// a draft and its line belong to one opening of the panel
 watch(open, (isOpen) => {
   if (isOpen) return;
-  urlDraft.value = null;
-  urlError.value = "";
+  for (const field of panelFields) field.reset();
   urlHeld = false;
 });
 
@@ -428,19 +445,28 @@ watch(open, (isOpen) => {
 // on the editor's <main>, which it doesn't.
 function onFocusOut(e: FocusEvent) {
   const nextEl = e.relatedTarget as Node | null;
-  // a click on non-focusable chrome gives relatedTarget null — leave that to
-  // onClickOutside, which can tell "clicked elsewhere" from "the window lost focus"
+  // a click on non-focusable chrome gives relatedTarget null — leave that to the
+  // dismissal below, which can tell "clicked elsewhere" from "the window lost focus"
   if (nextEl && !fieldsEl.value?.contains(nextEl)) closeTrail();
 }
 
-// …and on a click anywhere outside, the same dismissal GearEditor's ⋯ menu uses.
-// focusout alone isn't enough: clicking a bare patch of page focuses nothing, so the
-// panel would sit open behind you.
+// …and the dismissal every menu has (useMenuDismiss): a press anywhere outside, a touch
+// drag past it, Escape. focusout alone isn't enough: clicking a bare patch of page
+// focuses nothing, so the panel would sit open behind you.
 //
-// Watched element is the whole ROW, not the panel: the Edit/Add button that opens the
-// panel lives in that row, and targeting the panel alone would let the very click that
-// opens it register as an outside click and close it again.
-onClickOutside(trailEl, closeTrail);
+// A press or a drag commits what is typed first. The fields commit on blur, and a drag
+// is a scroll, which blurs nothing: on a phone the text would go with the panel. Escape
+// is "never mind", as it is in a row's name: the panel goes, a refused link does not
+// hold it, and what was typed is not sent (panelDraft).
+//
+// Watched element is the whole ROW, not the panel: the name and the Edit/Add button
+// that open these live in that row, and a press on one of them is theirs to answer.
+function dismissTrail(e: Event) {
+  if (e.type === "keydown") urlHeld = false;
+  else for (const field of panelFields) field.commit();
+  closeTrail();
+}
+useMenuDismiss(trailUp, trailEl, dismissTrail);
 </script>
 
 <template>
@@ -462,16 +488,14 @@ onClickOutside(trailEl, closeTrail);
         class="field head__title"
         rows="1"
         :maxlength="MAX_TITLE_LEN"
-        :value="draftTitle"
+        :value="titleField.value"
         placeholder="List name"
         aria-label="List name"
         autocorrect="off"
         spellcheck="false"
-        @focus="titleFocused = true"
-        @blur="titleFocused = false"
         @input="onTitleInput"
         @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
-        @change="commitTitle"
+        @change="titleField.change"
       />
       <SvgIcon
         :icon="IconPencil2"
@@ -677,7 +701,6 @@ onClickOutside(trailEl, closeTrail);
           class="head__panel popover"
           tabindex="-1"
           @focusout="onFocusOut"
-          @keyup.escape="closeTrail"
         >
           <!-- No lede. Two sentences sat here saying what a link does and what a file
                does, and how the file is read; Ryan: "too complex". The labels say the
@@ -699,16 +722,16 @@ onClickOutside(trailEl, closeTrail);
             placeholder="https://"
             autocorrect="off"
             spellcheck="false"
-            :value="urlDraft ?? snapshot.trailUrl ?? ''"
-            :aria-invalid="urlError ? true : undefined"
-            :aria-describedby="urlError ? `${fieldsId}-urlerr` : undefined"
+            :value="linkField.value"
+            :aria-invalid="linkField.error ? true : undefined"
+            :aria-describedby="linkField.error ? `${fieldsId}-urlerr` : undefined"
             @input="onUrlInput"
-            @change="commitUrl"
+            @change="linkField.change"
             @keydown.enter="commitAndClose"
           />
           <!-- the Link field's own line, directly under it and in the map file's error
                style: under "Import map file" it read as a word about the file -->
-          <p v-if="urlError" :id="`${fieldsId}-urlerr`" class="head__gpxerr t-sm" role="alert">{{ urlError }}</p>
+          <p v-if="linkField.error" :id="`${fieldsId}-urlerr`" class="head__gpxerr t-sm" role="alert">{{ linkField.error }}</p>
 
           <p class="head__gpx t-sm">
             <label class="head__gpxbtn">
@@ -745,8 +768,9 @@ onClickOutside(trailEl, closeTrail);
               :id="`${fieldsId}-title`"
               class="well head__panelinput"
               :placeholder="link?.name ?? ''"
-              :value="snapshot.trailLabel ?? ''"
-              @change="commitLabel"
+              :value="labelField.value"
+              @input="labelField.input"
+              @change="labelField.change"
               @keydown.enter="commitAndClose"
             />
 
@@ -776,8 +800,9 @@ onClickOutside(trailEl, closeTrail);
               autocorrect="off"
               spellcheck="false"
               :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
-              :value="distanceValue"
-              @change="commitDistance"
+              :value="distanceField.value"
+              @input="distanceField.input"
+              @change="distanceField.change"
               @keydown.enter="commitAndClose"
             />
             <OptionMenu

@@ -104,7 +104,6 @@ describe("the Link field", () => {
     expect(document.activeElement).toBe(field().element);
     // and is not a trap: Escape closes it, and the refused text does not come back
     await field().trigger("keydown", { key: "Escape" });
-    await panel().trigger("keyup", { key: "Escape" });
     expect(panel().exists()).toBe(false);
     await wrapper.get("button.head__add").trigger("click");
     await nextTick();
@@ -136,8 +135,8 @@ describe("the Link field", () => {
     await open({ trailUrl: "https://example.com/timberline" });
     await type("");
     await field().trigger("change");
-    expect(setMeta).toHaveBeenCalledWith({ trailUrl: "" });
-    expect(setMeta).toHaveBeenCalledWith({ ...CLEARS_WITH_LINK });
+    // one write, the same one Remove link makes
+    expect(setMeta.mock.calls).toEqual([[{ trailUrl: "", ...CLEARS_WITH_LINK }]]);
     expect(line().exists()).toBe(false);
   });
 

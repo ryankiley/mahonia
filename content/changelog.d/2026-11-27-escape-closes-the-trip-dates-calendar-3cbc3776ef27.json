@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "On a phone, dragging the page past the trail panel or the dates calendar puts it away, keeping what you typed."
+  ],
+  "fixed": [
+    "Escape closes the trip dates calendar.",
+    "Escape in the trail panel no longer closes My Gear, and from the distance unit menu it closes just the menu.",
+    "Text typed into the link title or distance is no longer wiped when the list finishes loading or is first saved."
+  ]
+}
