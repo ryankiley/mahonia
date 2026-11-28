@@ -34,6 +34,7 @@ describe("sharedGear: what the link shows", () => {
     pinned: ["weight"],
     kcal: 0,
     inKits: [900],
+    specs: "persons=2",
   });
   const bar = vaultRow({
     id: 502,
@@ -72,6 +73,7 @@ describe("sharedGear: what the link shows", () => {
       lastUsedAt: "",
       createdAt: "",
       inKits: [2],
+      specs: "persons=2",
     });
   });
 

@@ -83,7 +83,7 @@ const vaultBtn = (w: ReturnType<typeof mountRow>) => w.find(".item__vault-btn");
  *  any entry there offers My Gear. */
 async function menuOffersVault(w: ReturnType<typeof mountRow>) {
   await w.find(".item__morebtn").trigger("click");
-  return w.findAll(".item__morelist .menu__item").some((b) => b.text().includes("My Gear"));
+  return w.findAll(".item__more .menu__item").some((b) => b.text().includes("My Gear"));
 }
 
 const keyFor = (item: Item) => vaultNormKey(item.brand, item.name, item.variant);
@@ -123,13 +123,15 @@ describe("the save button, against what My Gear actually holds", () => {
     expect(await menuOffersVault(w)).toBe(false);
   });
 
-  it("still offers gear the vault does NOT hold, on that same uncovered list", () => {
+  it("still offers gear the vault does NOT hold, on that same uncovered list", async () => {
     // the other half of the same rule — membership is per piece of gear, not per
     // list, so one banked row must not quiet its neighbours
     vaultGear.value = new Map([[vaultNormKey("Durston", "Kakwa 55", null), 900_000]]);
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(true);
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
+    // and the ⋯ menu offers it too
+    expect(await menuOffersVault(w)).toBe(true);
   });
 
   it("outranks a chooser exclusion — declining a row is not the same as not owning it", () => {

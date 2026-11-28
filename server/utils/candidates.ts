@@ -23,7 +23,7 @@ import {
 import { buildSearchTerms } from "../../scripts/searchTerms";
 import { itemDisplayName } from "../../shared/weights";
 import { trigramScore, type CatalogSearchResult } from "../../shared/catalogSearch";
-import { bumpUsage, ensureCatalogSchema, searchCatalog } from "./catalog";
+import { bumpUsage, catalogGearTypeCategories, ensureCatalogSchema, searchCatalog } from "./catalog";
 import { ensureOf } from "./ddl";
 import type { Db } from "./db";
 
@@ -222,6 +222,8 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     if (key && !brandSpellings.has(key)) brandSpellings.set(key, b.brand!.trim());
   }
   const knownBrands = new Set<string>(brandSpellings.keys());
+  // where the verified catalog files each gear type it carries, for the band below
+  const filedAs = await catalogGearTypeCategories(db);
 
   // A new maker must head at least two independently corroborated candidate names.
   // Let Postgres narrow the 90-day intake table to those names first; the small result
@@ -272,10 +274,10 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     if (weights.length < MIN_WEIGHTS) { res.skipped++; continue; } // leave open for more data
     const med = median(weights);
     // the plausibility band: the typed gear type where it names one ("Tent": up to
-    // 3.5 kg), else the class ("other" tops out at 1.6 kg, which rejected a typed
-    // 1.7 kg tent for good)
+    // 3.5 kg), as the verified catalog files it or else by its words, else the class
+    // ("other" tops out at 1.6 kg, which rejected a typed 1.7 kg tent for good)
     const commonName = mode(grp.filter((r) => r.rawCommonName).map((r) => r.rawCommonName!)) ?? null;
-    const category = categoryForGearType(commonName) ?? classificationToCategory(mode(grp.map((r) => r.classification).filter(Boolean) as string[]) ?? null);
+    const category = categoryForGearType(commonName, filedAs) ?? classificationToCategory(mode(grp.map((r) => r.classification).filter(Boolean) as string[]) ?? null);
     const [lo, hi] = RANGE_G[category] ?? RANGE_G.other ?? ([0, Number.MAX_SAFE_INTEGER] as [number, number]);
     if (med / 1000 < lo || med / 1000 > hi) { await reject(key); res.rejected++; continue; }
 

@@ -459,6 +459,8 @@ describe("the rules a chat doesn't have to be told", () => {
     const filed = await verify({ brand: "Bioré", name: "UV Essence", gear_type: "Sunscreen", category: "other", weight_g: 70, weight_source: "measured" });
     expect(filed.refused).toBe(true);
     expect(filed.text).toContain("one gear type, one category");
+    // and the way out it names includes the category it was refused for
+    expect(filed.text).toContain("To fix it, change the brand, name, variant, gear type, or category");
     // a row already part of a split isn't refused for it: its weight can still be put right,
     // and a write that leaves the split as it was is not the one that made it
     const small = await seedCatalogRow(db, { brand: "Evernew", name: "Ti Mug", variant: "Small, double wall", commonName: "Mug", categoryHint: "cook", weightMg: 90_000 });
@@ -472,6 +474,46 @@ describe("the rules a chat doesn't have to be told", () => {
     const sized = await verify({ brand: "Caudata", name: "NewtFlex Pants", variant: "L", gear_type: "Pants", weight_g: 300, weight_source: "measured" });
     expect(sized.refused, sized.text).toBe(false);
     expect(sized.data.row.variant).toBe("Large");
+  });
+
+  it("doesn't refuse a new row for another row's misfiling, whose count the new row moves", async () => {
+    // one dry bag already filed apart from the others: the audit names it "2 of 3", and a
+    // new dry bag filed where the rest are makes that "3 of 4" without being its fault
+    await seedCatalogRow(db, { brand: "Sea to Summit", name: "Big River", commonName: "Dry bag", categoryHint: "other", weightMg: 80_000, weightSource: "manufacturer", verified: true });
+    await seedCatalogRow(db, { brand: "Hyperlite", name: "Roll-Top Stuff Sack", commonName: "Dry bag", categoryHint: "other", weightMg: 40_000, weightSource: "manufacturer", verified: true });
+    await seedCatalogRow(db, { brand: "Granite Gear", name: "eVent Sil Drysack", commonName: "Dry bag", categoryHint: "sleep", weightMg: 30_000, weightSource: "manufacturer", verified: true });
+    const added = await verify({ brand: "Osprey", name: "Ultralight Drysack", variant: "20L", gear_type: "Dry bag", category: "other", weight_g: 50, weight_source: "measured" });
+    expect(added.refused, added.text).toBe(false);
+    // a new row that is itself the misfiling is still refused
+    const misfiled = await verify({ brand: "Osprey", name: "Ultralight Roll Top", variant: "12L", gear_type: "Dry bag", category: "sleep", weight_g: 40, weight_source: "measured" });
+    expect(misfiled.text).toContain("one gear type, one category");
+  });
+
+  it("files a new row's gear type where the verified catalog files it, and reads one it lacks by its words", async () => {
+    // the hand table reads "Sunglasses" as clothing; the catalog files them under other
+    await seedCatalogRow(db, { brand: "Goodr", name: "OG", commonName: "Sunglasses", categoryHint: "other", weightMg: 23_000, weightSource: "manufacturer", verified: true });
+    const shades = await verify({ brand: "Sunski", name: "Treeline", gear_type: "Sunglasses", weight_g: 28, weight_source: "measured" });
+    expect(shades.refused, shades.text).toBe(false);
+    expect(shades.data.row).toMatchObject({ gear_type: "Sunglasses", category: "other" });
+    // a gear type no verified row has: its last word picks the band, and 1.7 kg is a pack's
+    const frame = await verify({ brand: "Kifaru", name: "Highcamp 44", gear_type: "Frame pack", weight_g: 1700, weight_source: "measured" });
+    expect(frame.refused, frame.text).toBe(false);
+    expect(frame.data.row).toMatchObject({ gear_type: "Frame pack", category: "pack" });
+  });
+
+  it("closes the suggestions waiting on a row when a verification writes it, and leaves other rows' alone", async () => {
+    const row = await seedCatalogRow(db, { brand: "Big Agnes", name: "Rapide SL", variant: "Regular", commonName: "Sleeping pad", categoryHint: "sleep", weightMg: 440_000, weightSource: "manufacturer", verified: true, verifiedBy: admin });
+    const other = await seedCatalogRow(db, { brand: "Big Agnes", name: "Zoom UL", variant: "Regular", commonName: "Sleeping pad", categoryHint: "sleep", weightMg: 400_000, weightSource: "manufacturer", verified: true, verifiedBy: admin });
+    expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 470_000 })).status).toBe("proposed");
+    expect((await proposeCorrection(db, { catalogItemId: other.id, newWeightMg: 410_000 })).status).toBe("proposed");
+    const done = await verify({ catalog_id: row.id, weight_g: 460, weight_source: "measured" });
+    expect(done.refused, done.text).toBe(false);
+    const statuses = async (id: number) => (await adminCall("get_catalog_edits", { catalog_id: id })).data.edits.map((e: Record<string, unknown>) => [e.kind, e.status]);
+    expect(await statuses(row.id)).toEqual([["verification", "applied"], ["correction", "superseded"]]);
+    expect(await statuses(other.id)).toEqual([["correction", "proposed"]]);
+    // undoing the verification doesn't reopen what it closed
+    expect((await adminCall("revert_catalog_edit", { edit_id: done.data.edit_id })).refused).toBe(false);
+    expect(await statuses(row.id)).toEqual([["verification", "reverted"], ["correction", "superseded"]]);
   });
 
   it("puts a community row's name right as it verifies it, and the undo puts the old name back", async () => {

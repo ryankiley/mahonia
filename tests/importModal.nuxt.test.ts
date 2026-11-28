@@ -3,8 +3,6 @@
 // top of the first made two lists, and Cancel left the import running and took you to its
 // result anyway. Nothing recalls a request already sent; what's pinned here is what
 // happens to the steps after it.
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
@@ -250,15 +248,12 @@ describe("the import dialog's buttons", () => {
   // way the header's "Import map file" says which map files it reads.
   it("keeps the formats behind a question mark beside Choose a file", () => {
     const w = dialog();
-    expect(w.find(".import__hint").exists()).toBe(false);
     const row = w.get(".import__pick");
     expect(row.find("button.filepick").exists()).toBe(true);
     const why = row.get("button.import__why");
     expect(why.attributes("aria-label")).toBe("Which files and columns can be imported");
     // the icon scale's full step: the small one was a speck beside a 40px button
-    expect(readFileSync(resolve(__dirname, "../app/components/ImportModal.vue"), "utf8")).toContain(
-      '<SvgIcon :icon="IconQuestionmarkCircle" aria-hidden="true" />',
-    );
+    expect(why.get("svg").classes()).toContain("svgicon--md");
     expect(w.findComponent({ name: "Tooltip" }).props("text")).toContain(
       "A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable.",
     );
@@ -276,9 +271,6 @@ describe("the import dialog's buttons", () => {
     // named for what it is, in the editor's own words for its title field
     expect(name.attributes("placeholder")).toBe("List name");
     expect(name.element.nextElementSibling?.tagName).toBe("TEXTAREA");
-    const source = readFileSync(resolve(__dirname, "../app/components/ImportModal.vue"), "utf8");
-    const styles = source.slice(source.indexOf("<style"));
-    expect(styles).not.toMatch(/margin-(top|bottom): var\(--space-2\)/);
   });
 });
 

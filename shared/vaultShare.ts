@@ -55,6 +55,7 @@ export function sharedGear(
     if (e.entryUnit) out.entryUnit = e.entryUnit;
     if (e.owned) out.owned = e.owned;
     if (e.classification) out.classification = e.classification;
+    if (e.specs) out.specs = e.specs;
     if (e.kind === "kit") {
       out.kind = "kit";
       out.ownWeightMg = e.ownWeightMg ?? 0;

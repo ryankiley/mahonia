@@ -167,6 +167,29 @@ watch(linkEmail, () => (linkNote.value = ""));
 // back.
 const sentLine = useTemplateRef<HTMLElement>("sentLine");
 const linkField = useTemplateRef<HTMLInputElement>("linkField");
+// THE ADDRESS FIELD TAKES THE CARET AS THE DIALOG OPENS, under a pointer that can hover.
+// The card is one field and Continue, and it opened with nothing to type into until the
+// field was clicked or tabbed to. Focusing it is also what brings up the browser's own
+// passkey list (the field is marked for it, above), so someone who has a passkey is
+// offered it as the dialog arrives and everyone else just types.
+// NOT ON TOUCH: focus there raises the keyboard over half the card before it has been
+// read. And only in the DIALOG: the same form set into a page (/account signed out, the
+// consent step) is one thing among others, and the page keeps its own focus.
+// On the node, post, for the reason BaseModal's move-in is: the field reaches the page
+// later than a tick after the dialog opens, on its first open. It yields to focus that is
+// already on something inside the card.
+watch(
+  linkField,
+  (el) => {
+    const dialog = el?.closest<HTMLElement>('[role="dialog"]');
+    if (!el || !dialog) return;
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    const held = document.activeElement;
+    if (held && held !== dialog && dialog.contains(held)) return;
+    el.focus({ preventScroll: true });
+  },
+  { flush: "post" },
+);
 /** The card says no to what was typed (shake-x, main.scss): for an address that isn't
  *  one, and only that. Offline or "try again" is not about what was typed, and a shake
  *  for them would send someone back to an address that was fine.
@@ -449,13 +472,9 @@ async function exportEverything() {
 }
 // The confirmation, shown after the account is gone and the panel has flipped back to
 // the sign-in screen (the dialog is still open then, as the sign-in card).
-// Longer-lived than the usual toast (8s, not useToast's two): there is nothing to act
-// on, and it's the only acknowledgement that an irreversible thing succeeded. Its
-// markup went missing when the account became this panel (#174), and for months the
-// account was deleted in silence.
-const gone = ref("");
-let goneTimer: ReturnType<typeof setTimeout> | undefined;
-onBeforeUnmount(() => clearTimeout(goneTimer));
+// Longer-lived than the usual toast (8s, not 2s): there is nothing to act on, and it's
+// the only acknowledgement that an irreversible thing succeeded.
+const { toast: gone, flash: flashGone } = useToast();
 async function deleteAccount() {
   // ONE dialog, two decisions. It used to ask twice — "delete your account?" then
   // "delete your lists too?" — and a second modal arriving after you'd already
@@ -495,11 +514,10 @@ async function deleteAccount() {
     // need app-wide plumbing this is the only caller for.
     await refresh(true);
     const n = res?.listsDeleted ?? 0;
-    gone.value = n
-      ? `Account deleted, along with ${counted(n, "list")}.`
-      : "Account deleted. Your lists are untouched.";
-    clearTimeout(goneTimer);
-    goneTimer = setTimeout(() => (gone.value = ""), 8000);
+    flashGone(
+      n ? `Account deleted, along with ${counted(n, "list")}.` : "Account deleted. Your lists are untouched.",
+      8000,
+    );
   } catch {
     deleteNote.value = "Couldn’t delete the account. Check your connection and try again.";
   }

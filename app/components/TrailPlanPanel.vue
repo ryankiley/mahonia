@@ -530,7 +530,7 @@ function commitDayMetres(id: string, field: "distanceM" | "ascentM", e: Event) {
   // the server and JSON.stringify drops undefined keys, so clearing a day's figure
   // changed it locally and was overwritten by the very next echo — it looked like
   // the server refusing the edit, when the server was never told. See DayPatch;
-  // tests/dayClear.test.ts pins each field's literal to this sentinel shape.
+  // tests/planGhostDayRow.nuxt.test.ts clears each field and expects the "".
   c.updateDay(
     id,
     field === "distanceM"
@@ -618,10 +618,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
            feet: it counts no camp, no breaks, no waiting out weather — the tooltip on the
            day rows has always said so, and the label should not need the tooltip to stop
            being wrong. -->
-      <FigureChip v-if="tripHours > 0" class="chip--est" label="Walking time" :value="formatHours(tripHours)" />
+      <FigureChip v-if="tripHours > 0" label="Walking time" :value="formatHours(tripHours)" />
       <!-- formatKcal, as every other calorie figure: it pins the locale the share views
            are rendered in, where a bare toLocaleString() took the browser's -->
-      <FigureChip v-if="tripHours > 0" class="chip--est" label="Estimated burn" :value="formatKcal(roundKcal(tripKcal))" unit="kcal" />
+      <FigureChip v-if="tripHours > 0" label="Estimated burn" :value="formatKcal(roundKcal(tripKcal))" unit="kcal" />
     </div>
     <!-- Whose walk: the person chips, under the figures they choose, where the gear
          view has them under its own. The editor fills it; a list naming nobody leaves
@@ -824,7 +824,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                between unrelated columns. Sharing the cell puts them a hair apart and hands
                the column back to the figures after them, which the drop's own variable
                width had been shunting around anyway. -->
-          <span class="plan__cell plan__cell--climb" :class="{ 'is-derived': climbIsDerived(i) }">
+          <span class="plan__cell" :class="{ 'is-derived': climbIsDerived(i) }">
             <SvgIcon :icon="StairsGlyph" class="plan__gl" aria-hidden="true" />
             <input
               class="field field--num plan__num"
@@ -1056,7 +1056,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
          a footnote, and it retires its own "assuming" the moment a real number is set. -->
     <p v-if="tripHours > 0" class="plan__assume t-sm">
       <label :for="`${uid}-body`">Your weight</label>
-      <span class="plan__field">
+      <span>
         <input
           :id="`${uid}-body`"
           class="field field--num plan__num plan__bodynum"

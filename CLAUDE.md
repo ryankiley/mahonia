@@ -67,6 +67,16 @@ to the harness itself — vitest.config.ts, tests/helpers, scripts/typecheck.mjs
 Then open the PR and let it merge itself on green: `gh pr merge --auto --squash`. A red
 check is yours to fix; the desktop app's PR pane and `gh pr checks --watch` both show it.
 
+## A test runs the code; it doesn't read it
+
+A test imports or mounts the code and asserts what it does. It does not read an app or
+server source file to match its text — a declaration, a class in a template, a function
+body. A fix that is only CSS or a class gets no vitest test: its proof is the look in the
+Browser pane, before and after, and the PR says what was looked at. Fail-first applies to
+logic. The exceptions are the whole-tree lints with named exceptions (designTokens,
+designLiterals, printStyles, prose-dashes, bodyWeightPrivacy) and the canaries for things
+that can't execute (tidyText's regex syntax, localList's import graph).
+
 ## Catalog conventions are enforced, not described
 
 Adding or editing rows in `seed/_research/*.json`: the naming, size, unit, food-weight and

@@ -41,6 +41,9 @@ on:
       # and what those passes decide by: which rows the seed manages and the successor match
       - shared/catalogQuality.ts
       - shared/catalogLinks.ts
+      # what the upsert writes into the attributes column: the axis reader and its vocabulary
+      - scripts/catalogAttributes.ts
+      - shared/catalogAxes.ts
   # manual re-run (e.g. after setting the secret, or to force a resync)
   workflow_dispatch: {}
 

@@ -109,3 +109,18 @@ describe("a blank day's first figure", () => {
     expect(live.map((r) => r.element)).toContain(adopted);
   });
 });
+
+// A CLEARED FIGURE IS SENT AS "". The patch is JSON on its way to the server, where an
+// undefined key vanishes: the clear applied here and the next echo put the old figure
+// back. tests/dayClear.test.ts takes the "" through the wire and the reducer.
+describe("clearing a day's figure", () => {
+  it.each([
+    ["distance", distance, "distanceM"],
+    ["climb", climb, "ascentM"],
+  ] as const)("sends the %s as the clear sentinel, not undefined", async (_name, field, key) => {
+    mountPlan();
+    field(0).element.value = "  ";
+    await field(0).trigger("change");
+    expect(controller.updateDay).toHaveBeenCalledWith("d1", { [key]: "" });
+  });
+});

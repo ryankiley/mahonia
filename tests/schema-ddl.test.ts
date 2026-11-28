@@ -17,6 +17,7 @@ import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { CANDIDATES_DDL } from "../server/utils/candidates";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL } from "../server/utils/db";
+import { runDdl } from "../server/utils/ddl";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { createTestDb } from "./helpers/db";
 
@@ -97,5 +98,44 @@ describe("server/db/schema.ts and the DDL", () => {
     for (const name of built.keys()) if (!want.has(name)) drift.push(`${name}: made by the DDL, not declared in schema.ts`);
 
     expect(drift).toEqual([]);
+  });
+});
+
+describe("catalog_edits.status on a table made before 'superseded'", () => {
+  // the CREATE as it stood with four statuses, without the statement that upgrades it
+  const OLD_DDL = CATALOG_DDL.filter((s) => !s.startsWith("DO $superseded$")).map((s) =>
+    s.includes("CREATE TABLE IF NOT EXISTS catalog_edits") ? s.replace(",'superseded'", "") : s,
+  );
+  type Db = Awaited<ReturnType<typeof createTestDb>>;
+  const insert = (db: Db, status: string) =>
+    db.execute(sql`insert into catalog_edits (catalog_item_id, old_weight_mg, new_weight_mg, status) values (1, 1, 2, ${status})`);
+  const statusChecks = async (db: Db) =>
+    (
+      await db.execute<{ oid: number; def: string }>(
+        sql`select oid::int as oid, pg_get_constraintdef(oid) as def from pg_constraint where conrelid = 'catalog_edits'::regclass and contype = 'c'`,
+      )
+    ).rows;
+
+  it("takes 'superseded' once the DDL has run, and running it again changes nothing", async () => {
+    const db = await createTestDb(OLD_DDL);
+    expect(OLD_DDL.join()).not.toContain("superseded");
+    await expect(insert(db, "superseded")).rejects.toThrow();
+    await runDdl(db, CATALOG_DDL);
+    const [upgraded, ...more] = await statusChecks(db);
+    expect(more).toEqual([]);
+    expect(upgraded!.def).toContain("superseded");
+    await insert(db, "superseded");
+    await expect(insert(db, "bogus")).rejects.toThrow();
+    // a later cold start finds the CHECK current and leaves it as it is
+    await runDdl(db, CATALOG_DDL);
+    expect(await statusChecks(db)).toEqual([upgraded]);
+  });
+
+  it("is made with 'superseded' on a new table, which the upgrade then leaves alone", async () => {
+    const db = await createTestDb(CATALOG_DDL);
+    const made = await statusChecks(db);
+    await insert(db, "superseded");
+    await runDdl(db, CATALOG_DDL);
+    expect(await statusChecks(db)).toEqual(made);
   });
 });

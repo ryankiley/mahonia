@@ -8,6 +8,7 @@ import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
 import { brandOf, formatKcal, formatWeight, itemDisplayName, nameAfterBrand } from "~~/shared/weights";
 import { formatKcalDensity, kcalPerGram, vaultTabOf } from "~~/shared/vaultView";
+import { specParts } from "~~/shared/catalogSpecs";
 import { consumableIcon } from "~/utils/itemMarks";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 
@@ -80,13 +81,16 @@ const density = computed(() => {
   const perGram = isFood.value ? kcalPerGram(kcal.value, props.entry.weightMg) : null;
   return perGram == null ? "" : formatKcalDensity(perGram, props.unit);
 });
-// The sub-line: the short facts about a piece of gear that aren't its weight, the
-// calories before the price (on food they are what you came to read). The note is not
-// here — it is free text of any length, so it gets its own clamped line below.
+// The sub-line: the short facts about a piece of gear that aren't its weight: what it
+// is, then its specs from the catalog ("20°F · 900 fill", "R 4.5", "40 L"; only what its
+// own size doesn't already say), the calories before the price (on food they are what
+// you came to read). The note is not here — it is free text of any length, so it gets
+// its own clamped line below.
 const meta = computed(() => {
   const e = props.entry;
   const parts: string[] = [];
   if (e.commonName) parts.push(e.commonName);
+  parts.push(...specParts(e.specs, `${e.name} ${e.variant ?? ""}`, props.unit));
   if (kcal.value) parts.push(`${formatKcal(kcal.value)} kcal`);
   if (density.value) parts.push(density.value);
   if (e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));

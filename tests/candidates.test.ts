@@ -157,6 +157,27 @@ describe("community intake — corroborateCatalog", () => {
     expect(row.searchTerms).toContain("shelter");
   });
 
+  // the catalog says where a gear type it carries is filed; the hand table's last-word
+  // guess ("bag" is sleep) is only for a label no verified row has
+  it("files a typed gear type the catalog carries where the catalog files it", async () => {
+    await cited(db, { brand: "Sea to Summit", name: "Big River", commonName: "Dry bag", categoryHint: "other", weightMg: 80_000 });
+    await cited(db, { brand: "Hyperlite", name: "Roll-Top Stuff Sack", commonName: "Dry bag", categoryHint: "other", weightMg: 40_000 });
+    for (const [i, w] of [60_000, 61_000, 62_000].entries())
+      await stageCandidates(db, i + 1, [{ name: "Frobozz Hydroseal 20", commonName: "Dry bag", weightMg: w }]);
+    expect((await corroborateCatalog(db)).promoted).toBe(1);
+    const [row] = await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.name, "Frobozz Hydroseal 20"));
+    expect(row).toMatchObject({ commonName: "Dry bag", categoryHint: "other" });
+  });
+
+  it("reads a typed pack by the pack band when the catalog carries no row of that label", async () => {
+    for (const [i, w] of [1_700_000, 1_710_000, 1_720_000].entries())
+      await stageCandidates(db, i + 1, [{ name: "Frobozz Hauler 9000", commonName: "pack", weightMg: w }]);
+    const r = await corroborateCatalog(db);
+    expect(r.promoted).toBe(1);
+    const [row] = await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.name, "Frobozz Hauler 9000"));
+    expect(row).toMatchObject({ commonName: "pack", categoryHint: "pack" });
+  });
+
   it("still rejects a weight no gear type can explain", async () => {
     await stageOnLists(db, 3, { name: "Frobozz Palace 9000", weightMg: 1_700_000 }); // no gear type, base: "other"
     await stageCandidates(db, 4, [{ name: "Frobozz Palace 9000", weightMg: 1_720_000 }]);

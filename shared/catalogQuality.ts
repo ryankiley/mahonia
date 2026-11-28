@@ -129,8 +129,13 @@ export function classificationToCategory(c: string | null | undefined): string {
 // The typed gear type, read for a plausibility band. A base row's class says nothing
 // about what it is, and "other" tops out at 1.6 kg, so a corroborated 1.7 kg tent or
 // pack typed by hand was rejected for good; "Tent" in the gear type field says which
-// band applies. Matched on the last word ("Trail runners", "Rain jacket", "Cook pot"),
-// then the whole phrase, lowercased; anything unrecognised falls back to the class.
+// band applies. The verified catalog answers first, for a label it carries (catalogCategories):
+// this table guesses by a word, and guessed wrong for dozens of the catalog's own gear types
+// ("Dry bag" isn't sleep, "Sunglasses" aren't clothing), after which the catalog audit
+// refused the row as filed apart from its siblings. The table is for a label no verified
+// row has yet ("pack", "Frame pack"): matched on the whole phrase, then the last word
+// ("Trail runners", "Rain jacket", "Cook pot"), lowercased; anything unrecognised falls
+// back to the class.
 const GEAR_TYPE_CATEGORY: Record<string, string> = {
   tent: "shelter", tarp: "shelter", shelter: "shelter", bivy: "shelter", footprint: "shelter", groundsheet: "shelter", hammock: "shelter",
   quilt: "sleep", bag: "sleep", pad: "sleep", mattress: "sleep", pillow: "sleep", liner: "sleep",
@@ -144,11 +149,32 @@ const GEAR_TYPE_CATEGORY: Record<string, string> = {
   "first aid kit": "firstaid", "first aid": "firstaid",
   food: "consumable", fuel: "consumable", canister: "consumable", snack: "consumable", meal: "consumable", tablets: "consumable",
 };
-export function categoryForGearType(commonName: string | null | undefined): string | null {
+export function categoryForGearType(commonName: string | null | undefined, catalog?: ReadonlyMap<string, string>): string | null {
   const phrase = normKey(commonName);
   if (!phrase) return null;
+  const filed = catalog?.get(phrase);
+  if (filed) return filed;
   const last = phrase.split(" ").pop()!;
   return GEAR_TYPE_CATEGORY[phrase] ?? GEAR_TYPE_CATEGORY[last] ?? null;
+}
+
+/** Where the verified catalog files each gear type it carries, keyed by the search fold
+ *  (normKey) categoryForGearType reads a label through. A gear type filed two ways goes
+ *  where most of its rows are, a tie to the first category alphabetically, so the answer
+ *  never hangs on the order rows come back in. A row with no category counts as "other",
+ *  as the audit counts it. Pass verified rows only: a community row's category was typed. */
+export function catalogCategories(rows: readonly { commonName: string | null; categoryHint: string | null }[]): Map<string, string> {
+  const counts = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    const key = normKey(r.commonName);
+    if (!key) continue;
+    const m = counts.get(key) ?? counts.set(key, new Map()).get(key)!;
+    const category = r.categoryHint ?? "other";
+    m.set(category, (m.get(category) ?? 0) + 1);
+  }
+  return new Map(
+    [...counts].map(([key, m]) => [key, [...m].sort(([a, na], [b, nb]) => nb - na || (a < b ? -1 : a > b ? 1 : 0))[0]![0]]),
+  );
 }
 
 // Generic gear nouns that are NOT branded products — a bare one of these (even

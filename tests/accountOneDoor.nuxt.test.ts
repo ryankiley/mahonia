@@ -4,8 +4,6 @@
 // there is one form, titled for both: an address and Continue. A passkey has no button or
 // link of its own: the browser offers it from the address field's autofill list
 // (passkeyAutofill covers the request).
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
@@ -189,15 +187,6 @@ describe("when a link can't be sent", () => {
   it("says it in the red callout that points at the field", async () => {
     const view = await tried("sam@gmail");
     expect(line(view).classes()).toContain("errtip");
-    const css = readFileSync(resolve(__dirname, "../app/assets/styles/atoms/controls.scss"), "utf8");
-    const at = css.indexOf("\n.errtip {");
-    const bubble = css.slice(at, css.indexOf("}", at));
-    expect(bubble).toContain("background: var(--danger-solid)");
-    expect(bubble).toContain("color: var(--danger-foreground)");
-    expect(css).toContain(".errtip::before {");
-    // white on the light theme's red in BOTH themes: on dark's lighter red it is 4.0:1
-    const tokens = readFileSync(resolve(__dirname, "../app/assets/styles/foundations/tokens.scss"), "utf8");
-    expect(tokens).toContain("--danger-solid: oklch(0.55 0.22 25);");
   });
 
   it("makes the callout afresh on a second failed press, so the press is seen to land", async () => {
@@ -221,23 +210,6 @@ describe("when a link can't be sent", () => {
     expect(field.classes()).not.toContain("is-shaking");
     await view.get("form").trigger("submit");
     expect(field.classes()).toContain("is-shaking");
-  });
-
-  it("shakes as one spring, not as separate legs that each stop", () => {
-    const css = readFileSync(resolve(__dirname, "../app/assets/styles/main.scss"), "utf8");
-    expect(css).toContain("animation: shake-x var(--spring-shake-dur) var(--spring-shake);");
-    const tokens = readFileSync(resolve(__dirname, "../app/assets/styles/foundations/tokens.scss"), "utf8");
-    const curve = /--spring-shake: linear\(([^)]*)\)/.exec(tokens)![1]!.split(",").map(Number);
-    // starts and ends at rest, and crosses it on the way: both sides, shrinking
-    expect(curve[0]).toBe(0);
-    expect(curve.at(-1)).toBe(0);
-    const max = Math.max(...curve);
-    const min = Math.min(...curve);
-    expect(max).toBeGreaterThan(0.95);
-    expect(min).toBeLessThan(-0.4);
-    expect(Math.abs(min)).toBeLessThan(max);
-    // smooth: no sample jumps more than half the reach from the one before
-    for (let i = 1; i < curve.length; i++) expect(Math.abs(curve[i]! - curve[i - 1]!)).toBeLessThan(0.5);
   });
 
   it("does not shake for a failure that isn't about the address", async () => {

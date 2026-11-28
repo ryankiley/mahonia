@@ -119,17 +119,22 @@ function figureBy(q: string, re: RegExp): number | null {
 
 export function runResearchChecks(files: ResearchFile[], commonNames: Map<string, string> = new Map()): Finding[] {
   const out: Finding[] = [];
-  const err = (code: string, message: string) => out.push({ level: "error", code, message });
-  const warn = (code: string, message: string) => out.push({ level: "warning", code, message });
+  // a finding is about a file, and within it a row (its identity in the key); the file is
+  // kept apart from the message, and the audit prints it in front (findingText)
+  const push = (level: Finding["level"], code: string, file: string, about: string, message: string) =>
+    out.push({ level, code, message, key: `${code}|${file}|${about}`, file });
   const identity = new Map<string, { g: number; where: string }>();
 
   for (const { file, rows, parseError } of files) {
     if (parseError) {
-      err("json", `${file}: ${parseError}`);
+      push("error", "json", file, "", parseError);
       continue;
     }
     for (const r of rows) {
-      const where = `${file}: ${gearLabel(r)}`;
+      const where = gearLabel(r);
+      const key = identityKey(r.brand ?? "", r.name ?? "", r.variant ?? "");
+      const err = (code: string, message: string) => push("error", code, file, key, message);
+      const warn = (code: string, message: string) => push("warning", code, file, key, message);
 
       // hygiene: provenance enum + a real citation URL
       if (!isWeightSource(r.weight_source ?? "")) err("source", `${where}: weight_source="${r.weight_source}"`);
@@ -204,13 +209,12 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
       // The same identity cited twice: a conflicting weight is a real error; an
       // agreeing copy is dead research the build silently drops (kept-first), and
       // the copy that ships may not be the one someone later edits — an error too.
-      const key = identityKey(r.brand ?? "", r.name ?? "", r.variant ?? "");
       const prev = identity.get(key);
       if (prev) {
         if (Math.abs(prev.g - g) > Math.max(8, 0.02 * g)) err("dup", `${where}: ${g.toFixed(0)} g conflicts with ${prev.g.toFixed(0)} g from ${prev.where}`);
         else err("dup-row", `${where}: same identity already cited in ${prev.where} — delete one`);
       } else {
-        identity.set(key, { g, where });
+        identity.set(key, { g, where: `${file}: ${where}` });
       }
 
       // KCAL CROSS-CHECK — the calorie figure is held to the same bar as the weight:

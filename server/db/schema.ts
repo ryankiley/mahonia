@@ -144,6 +144,10 @@ export const catalogItems = pgTable(
     // The maker's own words for the weight, kept from an in-app verification so
     // `catalog:graduate` can write the row back out as research with its quote.
     sourceQuote: text("source_quote"),
+    // The row's typed axes, the CSV's `attributes` cell as written ("length=Regular;
+    // temp_f=20; fill_power=950"): what My Gear shows as a piece's specs. Seeded rows
+    // only; a community or in-app row has none.
+    attributes: text("attributes"),
     usageCount: integer("usage_count").notNull().default(0), // ranks autocomplete
     status: text("status").notNull().default("active"), // active|merged|removed
     // Where a retired row's links now point: the row the research replaced it with
@@ -199,7 +203,8 @@ export const catalogEdits = pgTable(
     newWeightMg: bigint("new_weight_mg", { mode: "number" }).notNull(),
     sourceUrl: text("source_url"), // citation; validated against a domain allowlist for auto-promote
     reason: text("reason"),
-    status: text("status").notNull().default("applied"), // applied|proposed|reverted|rejected
+    // applied|proposed|reverted|rejected|superseded (a proposed fix closed by a verification of its row)
+    status: text("status").notNull().default("applied"),
     // set on an in-app verification only: the row's fields before it (CatalogEditUndo)
     undo: jsonb("undo").$type<CatalogEditUndo>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

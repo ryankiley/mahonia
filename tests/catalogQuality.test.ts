@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normKey, normalizeVariant, quoteBacksWeight, splitKnownBrand, weightsInQuote } from "../shared/catalogQuality";
+import { catalogCategories, categoryForGearType, emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normKey, normalizeVariant, quoteBacksWeight, splitKnownBrand, weightsInQuote } from "../shared/catalogQuality";
 
 describe("normKey — a candidate's identity is the search fold", () => {
   it("keeps a name in any script, and folds an accent as the search does", () => {
@@ -184,5 +184,24 @@ describe("weightsInQuote — the figures verify_catalog_item holds a quote to", 
     expect(read("Weight: 539 g / 19 oz")).toEqual([539, 539]);
     expect(read("36 oz/1022 g")).toEqual([1022, 1021]);
     expect(quoteBacksWeight("Fabric: DCF 1.0 oz/yd²", 28)).toBe(false);
+  });
+});
+
+describe("categoryForGearType and catalogCategories: the catalog first, the hand table after", () => {
+  const row = (commonName: string | null, categoryHint: string | null) => ({ commonName, categoryHint });
+  it("files a gear type where most of its verified rows are, a tie the same whatever the order", () => {
+    const filed = catalogCategories([row("Dry bag", "other"), row("dry bag", "other"), row("Dry bag", "sleep"), row("Stuff sack", null), row(null, "cook")]);
+    expect(filed).toEqual(new Map([["dry bag", "other"], ["stuff sack", "other"]]));
+    const tie = [row("Pillow", "sleep"), row("Pillow", "other")];
+    expect(catalogCategories(tie).get("pillow")).toBe("other");
+    expect(catalogCategories([...tie].reverse()).get("pillow")).toBe("other");
+  });
+
+  it("answers from the catalog for a label it carries, and by the label's words for one it lacks", () => {
+    const filed = catalogCategories([row("Sunglasses", "other")]);
+    expect(categoryForGearType("sunglasses", filed)).toBe("other");
+    expect(categoryForGearType("Sunglasses")).toBe("clothing");
+    expect(categoryForGearType("Frame pack", filed)).toBe("pack");
+    expect(categoryForGearType("", filed)).toBeNull();
   });
 });

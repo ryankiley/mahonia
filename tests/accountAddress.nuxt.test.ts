@@ -4,13 +4,13 @@
 // on asked its questions as centred lines on a bare page. The address now opens the
 // dialog over the bare address's page, and the link's questions are asked in the same
 // sign-in card over the page the link was asked from.
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, mountSuspended, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, flushPromises } from "@vue/test-utils";
 import { createError } from "h3";
+import { createSSRApp } from "vue";
+import { renderToString } from "vue/server-renderer";
 import Account from "~/pages/account.vue";
 import SignInLinkDialog from "~/components/SignInLinkDialog.vue";
 import Callback from "~/pages/auth/callback.vue";
@@ -24,6 +24,7 @@ mockNuxtImport("navigateTo", () => navigateTo);
 // the server's answer to a sign-in link: whatever a test says, a spent link otherwise
 type Verify =
   | { fails: true }
+  | { hangs: true }
   | { ok: true; sweep: boolean }
   | { ok: false; reason: "invalid" }
   | { ok: false; reason: "confirm"; email: string; asked: boolean; evicts: boolean };
@@ -34,6 +35,7 @@ registerEndpoint("/api/auth/verify", {
   method: "POST",
   handler: () => {
     verifyAsked++;
+    if ("hangs" in verify) return new Promise<never>(() => {});
     if ("fails" in verify) throw createError({ statusCode: 500, statusMessage: "No" });
     return verify;
   },
@@ -64,13 +66,6 @@ describe("/account", () => {
     expect(page.find(".acct").exists()).toBe(false);
     expect(page.find("form").exists()).toBe(false);
   });
-
-  it("mounts the form nowhere but the dialog and the /authorize step", () => {
-    const read = (path: string) => readFileSync(resolve(__dirname, "..", path), "utf8");
-    expect(read("app/pages/account.vue")).not.toContain("<AccountView");
-    expect(read("app/components/AccountModal.vue")).toContain("<AccountView");
-    expect(read("app/pages/authorize.vue")).toContain("<AccountView as-step />");
-  });
 });
 
 // A LINK'S QUESTIONS ARE ASKED OVER THE PRIOR VIEW. The link opens in a fresh tab with
@@ -87,15 +82,46 @@ describe("the page a sign-in link lands on", () => {
     return page;
   }
 
-  it("draws no question of its own, and its one card only from a timer in the browser", async () => {
+  it("draws no question of its own", async () => {
     verify = { fails: true };
     const page = await arrived();
     expect(page.find('[role="dialog"]').exists()).toBe(false);
     expect(page.get("main").text()).toBe("");
-    // open during the server render, the dialog shell answered every link with a 500
-    const source = readFileSync(resolve(__dirname, "../app/pages/auth/callback.vue"), "utf8");
-    expect(source).toContain('<BaseModal :open="slow"');
-    expect(source).toMatch(/onMounted\(\(\) => \{\s*waiting = setTimeout\(\(\) => \(slow\.value = true\), SLOW_MS\);/);
+  });
+
+  // Open during the server render, the dialog shell answered every link with a 500. This
+  // is Vue's server render with the test's Nuxt app lent to it, in happy-dom (a page
+  // can't be built outside Nuxt's environment): it shows what the server draws, not
+  // whether a document is touched while drawing it.
+  it("draws no card in the server render", async () => {
+    const nuxt = useNuxtApp().vueApp;
+    const app = createSSRApp(Callback);
+    Object.assign(app._context.provides, nuxt._context.provides);
+    app.config.globalProperties = nuxt.config.globalProperties;
+    for (const [name, c] of Object.entries(nuxt._context.components)) app.component(name, c);
+    const html = await renderToString(app);
+    expect(html).toContain('<main id="main-content"');
+    expect(html).not.toContain('role="dialog"');
+  });
+
+  // Its one card comes from a timer in the browser, past a second of waiting: the
+  // straight run is over sooner, and a card then was a flash over an empty page.
+  describe("while the server is slow to answer", () => {
+    // the first mount of a page stalls under fake timers (loading it waits on one): once for real
+    beforeAll(async () => (await arrived()).unmount());
+    beforeEach(() => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }));
+    afterEach(() => vi.useRealTimers());
+
+    it("shows nothing at first, then says it is signing you in", async () => {
+      verify = { hangs: true };
+      const page = await arrived();
+      vi.advanceTimersByTime(900);
+      await nextTick();
+      expect(page.find('[role="dialog"]').exists()).toBe(false);
+      vi.advanceTimersByTime(200);
+      await nextTick();
+      expect(page.get('[role="dialog"]').attributes("aria-label")).toBe("Signing you in…");
+    });
   });
 
   it("signs in and goes straight back when there is nothing to ask", async () => {
@@ -294,6 +320,51 @@ describe("the dialog a sign-in link asks in", () => {
     expect(failed.classes()).toEqual(expect.arrayContaining(["errtip", "errtip--nopoint"]));
     expect(failed.text()).toMatch(/^Couldn’t add (it|them)\. Try again\.$/);
     s.addFailed = false;
+  });
+
+  // The title is also the card's accessible name, so it has to count the way the body and
+  // the button do.
+  it("says list or lists in the title, the body and the button alike", async () => {
+    const made = (n: number) => ({
+      editToken: `tok${n}`,
+      shareCode: `C0DE0000000${n}`,
+      slug: `s${n}`,
+      title: `L${n}`,
+      totalMg: 0,
+      version: 1,
+      lastOpened: n,
+      origin: "created" as const,
+    });
+    // device lists would turn the next test's sign-in into the lists question
+    onTestFinished(() => void (useMyLists().entries.value = []));
+    const w = await asked({ fails: true });
+    const s = useSignInLink().state;
+    s.asking = { email: "a@example.com", asked: true };
+    s.question = "lists";
+    const read = () => ({
+      title: w.get(".signin__head h2").text(),
+      name: w.get('[role="dialog"]').attributes("aria-label"),
+      body: w.get(".signin__body p").text(),
+      button: w.get(".signin__actions .btn--primary").text(),
+    });
+
+    useMyLists().entries.value = [made(1)];
+    await nextTick();
+    expect(read()).toEqual({
+      title: "Add this browser’s list to your account?",
+      name: "Add this browser’s list to your account?",
+      body: "It’ll open anywhere you sign in as a@example.com.",
+      button: "Add list",
+    });
+
+    useMyLists().entries.value = [made(1), made(2)];
+    await nextTick();
+    expect(read()).toEqual({
+      title: "Add this browser’s lists to your account?",
+      name: "Add this browser’s lists to your account?",
+      body: "They’ll open anywhere you sign in as a@example.com.",
+      button: "Add lists",
+    });
   });
 
   it("signs in on a retry that works, and stays on the page it was asked over", async () => {
