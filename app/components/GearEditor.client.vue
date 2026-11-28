@@ -1702,7 +1702,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link
-   voice (ink-3, darkens on hover, no chrome). */
+   voice (--foreground-tertiary, darkens on hover, no chrome). */
 /* reveal wrapper: carries the tuck + the grid-rows height/fade slide (shared recipe
    with ItemRow's .reveal). The tuck lives here, not on the inner .packbar, so the
    inner line isn't clipped by the wrapper's overflow as it slides. */

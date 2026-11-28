@@ -1162,11 +1162,11 @@ const hlVersion = (text: string) => highlightParts(text, sizingText.value);
 }
 /* THE VERSION STEP: the product heading names what the rows share, and each row leads
    with its size. The heading is set as a row's name would be — same padding,
-   same type, brand in ink-2 and model in foreground — because it IS that name, said once; it
+   same type, brand in --foreground-secondary and model in primary foreground — because it IS that name, said once; it
    just isn't a target (no hover, no active, nothing to press). The sizes under it step
    in by --space-3, which is what says "these belong to that" without a rule or a box.
    The size is the row's subject now, so it drops the trailing-qualifier dress (italic,
-   ink-3) a variant wears after a model name and takes the row's primary foreground, with
+   --foreground-tertiary) a variant wears after a model name and takes the row's primary foreground, with
    the whole width before the weight to itself. */
 .ac__product {
   padding: var(--space-2);

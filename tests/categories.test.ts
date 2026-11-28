@@ -22,7 +22,7 @@ describe("dayColorSequence", () => {
     // green. Day 1 used to open on volt green, i.e. the one hue its background already
     // owns, which no amount of white casing under the line can rescue.
     const seq = dayColorSequence(9);
-    expect(seq.some((c) => c.includes("cat-shelter"))).toBe(false);
+    expect(seq.some((c) => c.includes("--category-shelter"))).toBe(false);
   });
 
   it("gives every day of a long trip its own colour", () => {
