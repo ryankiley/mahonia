@@ -557,8 +557,12 @@ const exporter = () => import("~~/shared/exporters/vault");
 const importOpen = ref(false);
 const importEverOpened = useLatch(() => importOpen.value);
 const { open: openFeedback } = useFeedback();
+// the read-only link to this gear (VaultShareModal), mounted on first use like import
+const shareOpen = ref(false);
+const shareEverOpened = useLatch(() => shareOpen.value);
 function onMenuPick(action: string) {
   if (action === "feedback") return openFeedback();
+  if (action === "share") return void (shareOpen.value = true);
   if (action !== "import") return void exportGear(action);
   importOpen.value = true;
 }
@@ -870,6 +874,8 @@ async function exportGear(kind: string) {
         />
       </template>
     </LazyVaultItemModal>
+
+    <LazyVaultShareModal v-if="shareEverOpened" :open="shareOpen" @close="shareOpen = false" />
 
     <!-- Same lazy idiom: nobody who never imports downloads the parser. -->
     <LazyVaultImportModal

@@ -35,6 +35,12 @@ const props = withDefaults(
     /** offline, showing this device's copy: nothing on the row can change (a change to My
      *  Gear needs the server). The controls keep their room, so nothing shifts. */
     readonly?: boolean;
+    /** someone else's gear, through its read-only link (/g/{code}): read-only, and the
+     *  controls column goes altogether, since a reader has no controls to line up */
+    bare?: boolean;
+    /** a kit's part on that page: how many the kit holds, where a piece shows how many
+     *  you own */
+    qty?: number;
   }>(),
   { marks: true },
 );
@@ -89,7 +95,7 @@ const meta = computed(() => {
 </script>
 
 <template>
-  <li class="vault__row" :class="{ 'is-readonly': readonly }">
+  <li class="vault__row" :class="{ 'is-readonly': readonly || bare, 'is-bare': bare }">
     <!-- the kind of gear, before its name: a fixed column whether or not this row has
          one, so every name starts at the same x. The gear type says the same thing in
          words on the line below.
@@ -100,7 +106,7 @@ const meta = computed(() => {
          stop per row would double the keyboard walk down a page of a hundred. -->
     <GearIconPicker
       class="vault__type"
-      :inert="readonly || undefined"
+      :inert="readonly || bare || undefined"
       :model-value="entry.icon ?? null"
       :auto="autoIcon"
       :label="`Icon for ${displayName}`"
@@ -155,13 +161,16 @@ const meta = computed(() => {
       <!-- how many you own, when it's more than one, beside the weight it multiplies:
            three of the same bottle is one piece wearing ×3, not three rows. Before the
            figure, so the weights still line up down a right-aligned column. -->
-      <span v-if="entry.owned" class="vault__owned" :title="`You own ${entry.owned}`">
+      <span v-if="qty && qty > 1" class="vault__owned" :title="`${qty} in the kit`">
+        <span aria-hidden="true">×{{ qty }}</span><span class="visually-hidden">{{ qty }} in the kit, </span>
+      </span>
+      <span v-else-if="entry.owned" class="vault__owned" :title="bare ? `${entry.owned} owned` : `You own ${entry.owned}`">
         <span aria-hidden="true">×{{ entry.owned }}</span><span class="visually-hidden">{{ entry.owned }} owned, </span>
       </span>
       <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
       <OptionMenu
         class="vault__unitwrap"
-        :inert="readonly || undefined"
+        :inert="readonly || bare || undefined"
         :options="WEIGHT_UNIT_OPTIONS"
         :current="rowUnit"
         :label="`Weight unit for ${displayName}`"
@@ -193,7 +202,7 @@ const meta = computed(() => {
         <span class="visually-hidden">Consumable</span>
       </span>
     </span>
-    <div class="vault__actions">
+    <div v-if="!bare" class="vault__actions">
       <!-- a kit's item puts its count stepper first (#lead) and swaps the bin for
            taking it out of the kit (#remove); Edit is the row's either way -->
       <slot name="lead" />

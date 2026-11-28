@@ -228,6 +228,11 @@ useHead({
             “Remove” takes a piece out of My Gear and keeps it out, even if a list still has it. To
             bring it back, add it again in My Gear.
           </li>
+          <li>
+            “Share my gear” in My Gear’s menu turns on a read-only link to your gear and kits, without
+            prices or food. Turning it off stops the link at once, and turning it on again makes a new
+            one.
+          </li>
           <li>“Download everything” in your account downloads your filed lists and My Gear.</li>
           <li>
             “Delete account” erases your email, passkeys, and My Gear. Your lists stay, with their

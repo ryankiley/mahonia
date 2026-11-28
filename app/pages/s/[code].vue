@@ -34,7 +34,7 @@ useHead({
     <!-- The top bar: the site bar, packed compact, carrying the one thing a reader is
          most likely to want (a list of their own) and the ⋯ of everything else. -->
     <SiteTopbar compact>
-      <NuxtLink to="/e" class="btn btn--link">Make a list</NuxtLink>
+      <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
       <!-- ⋯ goes in #end so it lands after the account glyph, matching the editor's
            bar (vault, account, share, ⋯). The reader's one text action keeps the
            lead; the two glyphs close the row. -->

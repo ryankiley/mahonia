@@ -37,6 +37,7 @@ describe("a page that is one message and one way on", () => {
   it.each([
     ["the 404", "app/error.vue"],
     ["a shared list that isn't there", "app/components/ReadonlyListView.vue"],
+    ["a gear link that's off", "app/pages/g/[code].vue"],
   ])("is what %s wears", (_name, path) => {
     expect(read(path)).toMatch(/<main[^>]*class="wrap page page--alone"/);
   });

@@ -315,6 +315,9 @@ export const vaults = pgTable(
     // after a grace window. Cleared whenever a vault is used (touchVaultByUser), so a
     // mark on an account's vault never outlives its next request.
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // The read-only link to this vault's gear (/g/{code}), or null when it is off:
+    // turning it off clears it, turning it on mints a new one (server/utils/vaultShare).
+    shareCode: text("share_code"),
   }
 );
 

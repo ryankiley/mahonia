@@ -42,10 +42,12 @@ describe("robots.txt", () => {
     // tag, the header on everything else a share code resolves (the API, the Markdown
     // twin, the social-card image), and a sitemap that lists no list at all. Remove any
     // one of them and the open robots rule above becomes a leak, so they fail together.
-    const page = readFileSync(`${ROOT}app/pages/s/[code].vue`, "utf8");
-    expect(page).toMatch(/name: "robots", content: "noindex"/);
+    for (const p of ["app/pages/s/[code].vue", "app/pages/g/[code].vue"]) {
+      expect(readFileSync(`${ROOT}${p}`, "utf8"), p).toMatch(/name: "robots", content: "noindex"/);
+    }
     for (const file of [
       "server/api/s/[code].get.ts",
+      "server/api/g/[code].get.ts",
       "server/middleware/shareMarkdown.ts",
       "server/routes/og/s/[code].get.ts",
       "server/routes/mcp.get.ts",
