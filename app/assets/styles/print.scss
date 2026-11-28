@@ -44,6 +44,10 @@
   .acct__signin,
   .syncstatus,
   .menu,
+  // the view switcher (Gear, Packing, Trip) and the editor's My Gear button: two more
+  // ways to somewhere else, which were printing above the title on every sheet
+  .modebar,
+  .editor__vault,
   .editor__addfolder,
   .folder__add,
   .item-nest__add,
@@ -66,6 +70,22 @@
   // (It was .topbar__actions, a wrapper the read bar no longer renders — the rule had
   // quietly stopped hiding anything, and "Make a list" was printing on shared lists.)
   .topbar__trail {
+    display: none !important;
+  }
+
+  // A UNIT PICKER IS A FIGURE YOU CAN ALSO PRESS, and `.menu` above took it with the
+  // real menus: it is an OptionMenu, whose root wears .menu. So the list's total, which
+  // IS the picker's trigger, was missing from every printed sheet (editor and share
+  // page), and the editor's rows printed "887" with no unit. These are the pickers
+  // whose trigger is a value: they print, and only their chevron goes. After the rule
+  // above, because both are a single class and !important and the later one wins.
+  .headline__amount,
+  .item__unitwrap,
+  .vault__unitwrap,
+  .plan__bodyunit {
+    display: inline-flex !important;
+  }
+  .optmenu .chev {
     display: none !important;
   }
 

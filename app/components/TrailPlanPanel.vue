@@ -1069,6 +1069,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              only, absent follows the weight system this device works in, the stored
              grams never move). A body in ounces is not a thing anyone wants to read. -->
         <OptionMenu
+          class="plan__bodyunit"
           :options="BODY_WEIGHT_UNIT_OPTIONS"
           :current="bodyUnit"
           label="Body weight unit"
@@ -1248,7 +1249,31 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: var(--space-3);
+    /* a cell that took a second line (below) leaves its neighbour on the first, not
+       floating between the two */
+    align-items: start;
   }
+  /* A CELL TOO FULL FOR ITS COLUMN BREAKS BETWEEN ITS PARTS, NEVER INSIDE ONE. The climb
+     cell holds the climb, its unit and the day's descent, and at 375px that is a few px
+     more than half the row: the flex line squeezed every part at once and the units
+     broke mid-word ("4500 f / t", "6,180 / ft"). The parts keep their width now, and
+     the one that doesn't fit (the descent) takes a line of its own under the climb. */
+  .plan__cell {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+  .plan__cell > * {
+    flex: none;
+  }
+  /* on its own line the descent starts at the climb's edge, glyph under glyph */
+  .plan__cell > .plan__drop {
+    margin-left: 0;
+  }
+}
+/* a unit never breaks from its figure, or in two, at any width */
+.plan__cell .t-muted,
+.plan__drop {
+  white-space: nowrap;
 }
 /* the day's forecast link: a word and its leaving arrow, at the row's size, sized to
    itself rather than to a figure column (nothing lines up under it but itself) */
