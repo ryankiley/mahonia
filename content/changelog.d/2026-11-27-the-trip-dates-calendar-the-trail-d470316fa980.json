@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "The trip dates calendar and the trail link panels open above their button when there isn't room below.",
+    "The trip dates calendar no longer runs past the right edge of a narrow window."
+  ]
+}

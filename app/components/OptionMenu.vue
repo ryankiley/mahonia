@@ -54,18 +54,10 @@ const emit = defineEmits<{ pick: [key: string] }>();
 
 const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
-// which sides to hang from, measured rather than declared — see useMenuPlacement.
-// On open, because a menu can't change size while it's up. The card is MenuList's
-// element, handed out through its exposed `el`.
-const menuList = useTemplateRef<{ el: HTMLElement | null }>("menuList");
-// `within`: an option list can be long (a folder picker holds every folder), and these
-// pickers sit inside clipping cards (the My Gear sheet, a dialog), so it fits the card
-// it lives in and scrolls when neither side has room.
-const { atStart, above, maxHeight, place } = useMenuPlacement(
-  computed(() => menuList.value?.el ?? null),
-  { within: true },
-);
-watch(open, (o) => o && nextTick(place));
+// The card places itself on open (MenuList, useMenuPlacement), `within`: an option list
+// can be long (a folder picker holds every folder), and these pickers sit inside
+// clipping cards (the My Gear sheet, a dialog), so it fits the card it lives in and
+// scrolls when neither side has room.
 
 // The list is position:absolute, so a clipping ancestor crops it — the unit menu on
 // a folder's LAST row opened downward into the collapse clip (overflow:hidden on the
@@ -98,14 +90,7 @@ function pick(key: string) {
       <slot name="trigger" :active="active" :open="open" />
     </button>
     <Transition name="menu">
-      <MenuList
-        v-if="open"
-        ref="menuList"
-        class="optmenu__list"
-        :class="{ 'menu__list--start': atStart, 'menu__list--above': above, 'optmenu__list--capped': maxHeight != null }"
-        :style="maxHeight != null ? { maxHeight: `${maxHeight}px` } : undefined"
-        :aria-label="label"
-      >
+      <MenuList v-if="open" within class="optmenu__list" :aria-label="label">
         <li v-for="o in options" :key="o.key" role="none">
           <button
             type="button"
@@ -178,14 +163,6 @@ function pick(key: string) {
 }
 .optmenu__list {
   min-width: 7rem;
-}
-/* Capped to the room its clipping card leaves (useMenuPlacement's `within`): the rows
-   scroll inside the card. The travelling plate is a child of the list, so it scrolls
-   with the row it sits on, and `contain` keeps a scroll that reaches the end from
-   carrying on into the sheet or the page underneath. */
-.optmenu__list--capped {
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 /* icon · label · check is .menu__item's own row (atoms/controls.scss), the check is the
    shared .menu__check, and both glyphs are pinned by the atom's `flex: none` — without

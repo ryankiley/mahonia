@@ -570,7 +570,8 @@ input[type="search"]::-webkit-search-decoration {
 // Anchored to the LEADING edge instead. The default hangs a menu off its anchor's
 // right, which is right for the ⋯ and account menus at the end of a toolbar — but a
 // trigger near the left of the page (the editor's total, whose menu is wider than the
-// figure) then extends leftward off the screen. Opt in where the anchor is on the left.
+// figure) then extends leftward off the screen. Measured per open, like --above
+// (useMenuPlacement; MenuList's `side="start"` makes it the side a menu prefers).
 .menu__list--start {
   right: auto;
   left: 0;
@@ -603,6 +604,14 @@ input[type="search"]::-webkit-search-decoration {
 }
 .menu__list--above.menu__list--center {
   transform-origin: bottom center;
+}
+// Capped to the room its clipping card leaves (useMenuPlacement's `within`, which sets
+// the max-height): the rows scroll inside the card. The travelling plate is a child of
+// the list, so it scrolls with the row it sits on, and `contain` keeps a scroll that
+// reaches the end from carrying on into the sheet or the page underneath.
+.menu__list--capped {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 // ONE GLYPH COLUMN down every menu in the app. A row is icon · label, centred, and
 // the glyph is PINNED to its column: an <svg> is a shrinkable flex item by default,
@@ -982,10 +991,13 @@ input[type="search"]::-webkit-search-decoration {
 // A menu flipped above its trigger has to arrive from BELOW, or it enters moving
 // away from the thing that opened it — the 4px is the same distance, only its sign
 // follows the side the menu is on (which transform-origin above already does).
-.menu__list--above.menu-enter-from {
+// `.is-above` is the same flip on a popover that isn't a .menu__list but rides this
+// transition (the row's class card, the list header's panels), which sets its own
+// position for it.
+:is(.menu__list--above, .is-above).menu-enter-from {
   transform: translateY(4px) scale(0.98);
 }
-.menu__list--above.menu-leave-to {
+:is(.menu__list--above, .is-above).menu-leave-to {
   transform: translateY(2px);
 }
 

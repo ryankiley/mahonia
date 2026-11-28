@@ -21,16 +21,24 @@ import { typeScale } from "~/utils/typeScale";
 // travelling plate (see useMenuPlate, which reads offsetTop inside the list) and scroll
 // with the page, and both of those would have to be rebuilt to make them fixed.
 //
-// Usage — measure on open; the composable measures again itself if the window resizes
-// while the menu is up:
+// A menu built on <MenuList> doesn't call this: the card places itself as it mounts, and
+// its props are these options. Call it for a popover that is its own element (sharing,
+// the row's class card, the list header's panels, the icon picker). Measure on open; the
+// composable measures again itself if the window resizes while the menu is up:
 //   const { atStart, above, place } = useMenuPlacement(listRef);
 //   watch(open, (o) => o && nextTick(place));
 //   <ul ref="listRef" :class="{ 'menu__list--start': atStart, 'menu__list--above': above }">
 //
+// It assumes the atom's anchoring: flush to an edge of the offsetParent, --space-1 below
+// it. A card its own CSS nudges off that (the editor's ⋯ and sharing, and the offline
+// account card on a phone, each a few px in from the end of the bar) is judged as if it
+// sat flush, which at the trailing end of a toolbar never changes the answer.
+//
 // HORIZONTALLY there are two answers to "it doesn't fit", and the caller picks:
 //  • `flip` (the default) hangs the menu from the leading edge instead — right for
 //    a menu whose trigger sits at one edge of a toolbar, where the other side is
-//    all room.
+//    all room. With `side: "start"` the leading edge is the usual one and the
+//    trailing edge the flip.
 //  • `center` sets the menu UNDER THE MIDDLE of its trigger, and slides it only as far
 //    as it must to stay on screen. For a menu that hangs off a small icon in the middle
 //    of something (a row's marks): flush to one of the icon's edges, the card reads as
@@ -85,7 +93,15 @@ const ANCHOR_GAP = 4;
 
 export function useMenuPlacement(
   listRef: Readonly<Ref<HTMLElement | null>>,
-  opts: { fit?: "flip" | "shift" | "center"; within?: boolean } = {},
+  opts: {
+    fit?: "flip" | "shift" | "center";
+    within?: boolean;
+    /** under `flip`: the edge the card hangs from when both fit. "end" is the atom's
+     *  default; "start" is for a card whose trigger opens the bar or the row (the lists
+     *  switcher, the trip dates), which flips to the trailing edge only when it would
+     *  run off the right */
+    side?: "end" | "start";
+  } = {},
 ): {
   atStart: Ref<boolean>;
   /** under `fit: "center"`: the menu is set on the trigger's middle (always, unless it
@@ -180,10 +196,12 @@ export function useMenuPlacement(
       // the moment the root font size isn't 16, and drifts if the rule is retuned
       shift.value = trailingLeft < edge ? edge - trailingLeft : 0;
     } else {
-      // Prefer the default. Only flip when it would overrun the leading edge AND the
+      // Prefer the side asked for. Only flip when it would overrun its edge AND the
       // flip actually fits — a menu wider than the viewport is beyond helping, and
       // flipping it would just move which edge it's cut off at.
-      atStart.value = trailingLeft < edge && leadingRight <= viewportWidth - edge;
+      const startFits = leadingRight <= viewportWidth - edge;
+      const endFits = trailingLeft >= edge;
+      atStart.value = opts.side === "start" ? startFits || !endFits : !endFits && startFits;
     }
 
     // Same rule downward, and the same preference: below unless below doesn't fit and
