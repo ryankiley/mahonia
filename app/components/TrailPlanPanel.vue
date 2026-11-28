@@ -711,9 +711,12 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
         <!-- The SAME formatter the day's own row uses, not formatDistance. The two sat a
              decimal place apart — "8.6 mi" in the key against "8.63 mi" in the row it keys —
              and one number written two ways reads as two numbers. distanceValue is what the
-             day's field shows, so the key quotes the row rather than recomputing it. -->
+             day's field shows, so the key quotes the row rather than recomputing it.
+             And a day nobody has given a distance says what its own field says, "—": the
+             key read "0.0 mi", a measurement of a day that has none yet. -->
         <span class="t-muted daykey__dist">
-          {{ distanceValue(dayDistancesM[i]) }} {{ distanceUnit }}
+          <template v-if="dayDistancesM[i]">{{ distanceValue(dayDistancesM[i]) }} {{ distanceUnit }}</template>
+          <template v-else>—</template>
         </span>
       </li>
     </ul>

@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "Importing a map file over a distance you typed now says so, with a button to keep your figure.",
+    "In a kit, the choices under Add an item float like a list's, and the arrow keys pick one."
+  ],
+  "fixed": [
+    "The day key under the trip map shows a dash for a day with no distance, not 0.0 mi."
+  ]
+}

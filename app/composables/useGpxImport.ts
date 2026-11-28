@@ -25,11 +25,17 @@ import type { ListSnapshot, WaypointKind } from "~~/shared/types";
  * It FILLS IN the route's distance and shape; it does not take them over. The
  * distance stays an editable field afterwards, so a mangled track can't quietly
  * rewrite a number somebody typed — the same conservatism trailLink.ts applies to
- * deriving names.
+ * deriving names. And when it does write over one somebody typed, it says so and
+ * holds the old figure for one tap (`replaced`, below).
  */
 
 /** How close two pins have to be before the second one is just the first one again. */
 const PIN_DEDUP_M = 60;
+/** How far a file's distance has to be from the typed one before the swap is worth a
+ *  word: 2% of it, and never less than 100 m. Two honest measurements of one trail
+ *  differ by about that much. */
+const REPLACED_MIN_SHARE = 0.02;
+const REPLACED_MIN_M = 100;
 
 /** The slice of the editor this needs. Narrow on purpose: everything it can reach is
  *  everything it could break, and a route import has no business anywhere else.
@@ -75,6 +81,33 @@ export function useGpxImport(c: GpxTarget) {
     /** the list the offer was made for — a yes given to another list is no answer */
     epoch: number | undefined;
   } | null>(null);
+
+  /**
+   * A typed distance the file's own just took the place of, held until it is answered.
+   *
+   * A list with no route yet can still have a distance: the one read off a sign or a
+   * trip report and typed in. Importing a file wrote its measurement over that without a
+   * word (18 mi became 8.2), and the only way to notice was to remember the old number.
+   * So the swap is SAID, with the old figure one tap away. Only for a distance nobody's
+   * file put there: replacing one file with another changes the distance as a matter of
+   * course. And only when the two differ by more than a track's own noise, so a typed
+   * "8.2" beside a measured 8.23 says nothing.
+   */
+  const replaced = ref<{ wasM: number; nowM: number; epoch: number | undefined } | null>(null);
+  function keepTyped() {
+    const r = replaced.value;
+    replaced.value = null;
+    if (!r || r.epoch !== targetEpoch()) return;
+    c.setMeta({ trailDistanceM: r.wasM });
+  }
+  // The notice is about the figure the file wrote. Once the distance is anything else
+  // (typed over, cleared, or changed by someone else on the list) it has nothing to say.
+  watch(
+    () => c.snapshot.value?.trailDistanceM,
+    (d) => {
+      if (replaced.value && d !== replaced.value.nowM) replaced.value = null;
+    },
+  );
 
   async function confirmPins() {
     const p = pending.value;
@@ -129,6 +162,7 @@ export function useGpxImport(c: GpxTarget) {
     gpxError.value = "";
     gpxBusy.value = true;
     pending.value = null;
+    replaced.value = null;
     try {
       // The reader arrives HERE, on the one interaction that needs it — several hundred
       // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
@@ -189,6 +223,9 @@ export function useGpxImport(c: GpxTarget) {
       const stats = gpxStats(points);
       if (!stats) throw new Error("no track");
       const geometry = routeGeometryFromPoints(points) ?? "";
+      // read before the write below: a distance with no file behind it is one somebody typed
+      const before = c.snapshot.value;
+      const typedM = before && !before.trailProfile && !before.routeGeometry ? before.trailDistanceM : undefined;
       c.setMeta({
         trailDistanceM: stats.distanceM,
         trailProfile: profileToString(stats.profile) ?? "",
@@ -211,6 +248,10 @@ export function useGpxImport(c: GpxTarget) {
       const room = Math.max(0, MAX_WAYPOINTS - (c.snapshot.value?.waypoints?.length ?? 0));
       const offered = pins.slice(0, room);
       pending.value = geometry && offered.length ? { geometry, pins: offered, kindOf: pinKind, epoch } : null;
+      // what the list holds now, which is the reducer's clamped figure and not ours
+      const nowM = c.snapshot.value?.trailDistanceM;
+      if (typedM && nowM && Math.abs(nowM - typedM) > Math.max(REPLACED_MIN_M, typedM * REPLACED_MIN_SHARE))
+        replaced.value = { wasM: typedM, nowM, epoch };
     } catch {
       if (current()) gpxError.value = "Couldn’t read a route out of that file.";
     } finally {
@@ -226,10 +267,11 @@ export function useGpxImport(c: GpxTarget) {
     watch(c.epochRef, () => {
       reads++;
       pending.value = null;
+      replaced.value = null;
       gpxError.value = "";
       gpxBusy.value = false;
     });
   }
 
-  return { gpxError, gpxBusy, pending, confirmPins, onGpx };
+  return { gpxError, gpxBusy, pending, confirmPins, replaced, keepTyped, onGpx };
 }
