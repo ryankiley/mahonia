@@ -12,14 +12,13 @@ import { pickListMeta, type ListData, type ListMeta, type ListSnapshot } from "~
  */
 export async function createAndRegisterList(
   body: Partial<ListMeta> & { data: ListData },
-  totalMg = 0,
 ): Promise<{ snapshot: ListSnapshot; token: string }> {
   const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
     method: "POST",
     body,
   });
   useVaultCapture().captureNewList(res.snapshot, res.editToken);
-  const token = useMyLists().registerCreated(res, totalMg);
+  const token = useMyLists().registerCreated(res);
   return { snapshot: res.snapshot, token };
 }
 
@@ -31,7 +30,7 @@ export function useCopyList() {
   const copying = ref(false);
 
   /** Returns true once navigation to the new list's editor has begun. */
-  async function copyList(src: ListSnapshot, totalMg = 0): Promise<boolean> {
+  async function copyList(src: ListSnapshot): Promise<boolean> {
     if (copying.value) return false;
     copying.value = true;
     try {
@@ -42,14 +41,11 @@ export function useCopyList() {
       // measured against that route. pickListMeta walks LIST_META_KEYS, so what a
       // copy keeps can't drift from what a list holds.
       // Title last: a copy is named after its source, not by it.
-      const { snapshot, token } = await createAndRegisterList(
-        {
-          ...pickListMeta(src),
-          title: `${src.title || "Untitled list"} (copy)`,
-          data: cloneListData(src),
-        },
-        totalMg,
-      );
+      const { snapshot, token } = await createAndRegisterList({
+        ...pickListMeta(src),
+        title: `${src.title || "Untitled list"} (copy)`,
+        data: cloneListData(src),
+      });
       await navigateTo(editLinkPath(snapshot.shareCode, token));
       return true;
     } catch {

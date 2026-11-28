@@ -44,7 +44,7 @@ const rows = (w: ReturnType<typeof mount>) =>
 
 async function openMenu(over: Parameters<typeof blankList>[0] = {}) {
   const w = mount(ReadonlyMenu, {
-    props: { snapshot: blankList(over), totals: null },
+    props: { snapshot: blankList(over) },
     attachTo: document.body,
   });
   await w.get('[aria-label="More actions"]').trigger("click");

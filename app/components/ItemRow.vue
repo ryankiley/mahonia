@@ -34,9 +34,7 @@ export const ROW_FLASH: InjectionKey<(message: string) => void> = Symbol("flash"
 // one stable empty array for every leaf row, so `children` never mints a fresh
 // identity per row per render
 const NO_ITEMS: ItemT[] = [];
-// Per-item nest-collapse: usePersistedCollapse's module-level cache, keyed
-// gear.nest.<id> — one blocking storage read per row per remount was the cost this
-// cache retired (its header carries the reasoning and the cross-tab invalidation).
+// Per-item nest-collapse, remembered on this device under gear.nest.<id>
 const nestCollapse = usePersistedCollapse("gear.nest.");
 
 // What a row can count as, in the totals bar's order and its words. `name` is the

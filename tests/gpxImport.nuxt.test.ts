@@ -43,11 +43,11 @@ function fileOf(text: string, hold?: (release: (t: string) => void) => void) {
 
 describe("a route file read that outlives its list", () => {
   it("drops a parse that finishes after the controller has loaded another list", async () => {
-    let epoch = 1;
+    const epochRef = shallowRef(1);
     const current = ref<ListSnapshot | null>(snapshot("First list"));
     const setMeta = vi.fn();
     const importer = useGpxImport({
-      get epoch() { return epoch; },
+      epochRef,
       snapshot: current,
       setMeta,
       addWaypoint: vi.fn(),
@@ -60,7 +60,7 @@ describe("a route file read that outlives its list", () => {
     expect(importer.gpxBusy.value).toBe(true);
 
     // the same controller loads a second list before the browser finishes the read
-    epoch++;
+    epochRef.value++;
     current.value = snapshot("Second list");
     release!(track);
     await reading;
@@ -105,7 +105,7 @@ describe("the pin offer is bounded by the room the list has", () => {
   it("offers only as many pins as fit after the route's own ends", async () => {
     const current = ref<ListSnapshot | null>(snapshot("Empty list"));
     const importer = useGpxImport({
-      epoch: 1,
+      epochRef: shallowRef(1),
       snapshot: current,
       // the reducer seeds the ends when the geometry lands; the offer must count them
       setMeta: vi.fn(() => { current.value!.waypoints = routeEnds; }),
@@ -120,7 +120,7 @@ describe("the pin offer is bounded by the room the list has", () => {
     const current = ref<ListSnapshot | null>(snapshot("Empty list"));
     const addWaypoint = vi.fn();
     const importer = useGpxImport({
-      epoch: 1,
+      epochRef: shallowRef(1),
       snapshot: current,
       setMeta: vi.fn(() => { current.value!.waypoints = routeEnds; }),
       addWaypoint,

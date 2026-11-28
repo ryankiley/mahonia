@@ -48,14 +48,16 @@ function weightColumns(totals: Totals) {
 
 /** Cap, normalize, first id wins (the reducer's add rule), keyed by id in the incoming
  *  order. A normalizer answers null for a row to drop rather than repair, and a row that
- *  is no object at all (a null in a create body) is dropped before one reads it. */
+ *  is no object at all (a null in a create body) is dropped before one reads it. A list
+ *  that is no array (the create route checks only folders and items) reads as none. */
 function firstById<R, T extends { id: string }>(
   raw: readonly R[] | undefined,
   cap: number,
   normalize: (r: R) => T | null,
 ): Map<string, T> {
   const out = new Map<string, T>();
-  for (const r of (raw ?? []).slice(0, cap)) {
+  const rows: readonly R[] = Array.isArray(raw) ? raw : [];
+  for (const r of rows.slice(0, cap)) {
     if (!isRecord(r)) continue;
     const row = normalize(r);
     if (row && !out.has(row.id)) out.set(row.id, row);

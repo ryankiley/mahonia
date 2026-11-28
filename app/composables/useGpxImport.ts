@@ -44,9 +44,8 @@ interface GpxTarget {
   /** The controller's list lifetime (useGearList's epoch): a file is read
    *  asynchronously through a SINGLETON, so a parse that finishes after the editor
    *  has moved on must not write its route into the list opened next. Optional —
-   *  a focused caller without a controller has nothing to outlive. The ref is the
-   *  same count for the one thing that has to react to it (the held pin offer). */
-  readonly epoch?: number;
+   *  a focused caller without a controller has nothing to outlive. A ref, because
+   *  the held pin offer has to react to it, not only compare it. */
   readonly epochRef?: Readonly<Ref<number>>;
   snapshot: Ref<ListSnapshot | null>;
   addWaypoint: (alongM: number, kind: WaypointKind) => void;
@@ -60,7 +59,7 @@ export function useGpxImport(c: GpxTarget) {
   // Which read owns the outcome: a second file chosen while the first is still
   // parsing supersedes it, and so does the list changing underneath (see GpxTarget).
   let reads = 0;
-  const targetEpoch = () => c.epochRef?.value ?? c.epoch;
+  const targetEpoch = () => c.epochRef?.value;
 
   /**
    * Pins the file offered, held until someone says yes.

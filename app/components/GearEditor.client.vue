@@ -760,7 +760,7 @@ async function rotate() {
 const { copyList } = useCopyList();
 async function cloneList() {
   if (!snapshot.value) return;
-  const ok = await copyList(snapshot.value, totals.value?.totalMg ?? 0);
+  const ok = await copyList(snapshot.value);
   flash(ok ? "List duplicated" : "Couldn’t duplicate. Try again.");
 }
 
