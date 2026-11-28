@@ -3,6 +3,7 @@ import { IconDotGrid2x3, IconTrashCan } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import { MAX_FOLDER_NAME_LEN } from "~~/shared/ops";
+import { tidyText } from "~~/shared/tidyText";
 import { bySortOrder } from "~~/shared/weights";
 
 // The editor's folder — editable by default, a checklist in packing mode. The
@@ -68,9 +69,14 @@ const { collapsed, toggle: toggleCollapsed } = usePersistedCollapse("gear.fold."
 // (retyping "Ryan's" over a stored "Ryan’s"), nothing reactive changes, Vue re-patches
 // nothing, and the straight apostrophe sits there looking committed. Same resync, and
 // the same reason, as the weight and qty fields in ItemRow.
+//
+// A name cleared, or typed again as it is, is not an edit: the reducer ignores the one
+// and stores the other unchanged, and sending either would save the list for nothing.
+// Compared tidied, as the reducer stores it.
 function onName(e: Event) {
   const el = e.target as HTMLInputElement;
-  c.updateFolder(props.folder.id, { name: el.value });
+  const name = tidyText(el.value);
+  if (name && name !== tidyText(props.folder.name)) c.updateFolder(props.folder.id, { name: el.value });
   el.value = props.folder.name;
 }
 </script>

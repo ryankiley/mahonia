@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { normalizeFolder } from "../shared/ops";
+import { encodePolyline } from "../shared/polyline";
 import type { ListData, ListSnapshot } from "../shared/types";
 import { LISTS_DDL } from "../server/utils/db";
 import { createList } from "../server/utils/listRepo";
@@ -64,6 +65,41 @@ describe("importing a JSON backup, then creating the list", () => {
     expect((await importAndCreate(backup({ trailProfile: "1000,not-a-number,1400" }))).trailProfile).toBeUndefined();
     expect((await importAndCreate(backup({ trailProfile: "1000,99999,1400" }))).trailProfile).toBeUndefined();
     expect((await importAndCreate(backup({ trailProfile: "1000,1200,1150" }))).trailProfile).toBe("1000,1200,1150");
+  });
+
+  // A pin is a distance along the route it was placed on. A route the create can't read
+  // is dropped, and its pins go with it, as they do when a restore drops one: kept, they
+  // sat in the list unseen (the plan draws pins only on a route) and went out again in
+  // its backup and its copies.
+  it("drops the pins of a route it can't read, and keeps the pins of one it can", async () => {
+    const route = encodePolyline([
+      { lat: 45.33, lon: -121.71 },
+      { lat: 45.36, lon: -121.68 },
+      { lat: 45.4, lon: -121.6 },
+    ]);
+    // the same points with the last value written one chunk longer than it needs
+    const respelled = `${route.slice(0, -1)}${String.fromCharCode(route.charCodeAt(route.length - 1) + 0x20)}?`;
+    const waypoints = [
+      { id: "a", kind: "trailhead", alongM: 0 },
+      { id: "b", kind: "water", alongM: 1_500, label: "Spring" },
+      { id: "c", kind: "end", alongM: 9_000 },
+    ];
+    const pins = (s: ListSnapshot) => (s.waypoints ?? []).map((w) => `${w.kind}@${w.alongM}`);
+    const all = ["trailhead@0", "water@1500", "end@9000"];
+
+    const unread = await importAndCreate(backup({ routeGeometry: "??", waypoints }));
+    expect(unread.routeGeometry).toBeUndefined();
+    expect(pins(unread)).toEqual([]);
+
+    const read = await importAndCreate(backup({ routeGeometry: route, waypoints }));
+    expect(read.routeGeometry).toBe(route);
+    expect(pins(read)).toEqual(all);
+    // stored as this codec writes it, and still the same line
+    const sameLine = await importAndCreate(backup({ routeGeometry: respelled, waypoints }));
+    expect(sameLine.routeGeometry).toBe(route);
+    expect(pins(sameLine)).toEqual(all);
+    // a list can hold pins with no route at all
+    expect(pins(await importAndCreate(backup({ waypoints })))).toEqual(all);
   });
 
   it("heals a hostile file", async () => {
