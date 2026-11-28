@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { IconExpand45, IconMinimize45, IconQuestionmarkCircle } from "~/icons/central";
-import { isLoneRouteEnd, MAX_LABEL_LEN } from "~~/shared/ops";
+import { isLoneRouteEnd, isRouteEnd, MAX_LABEL_LEN } from "~~/shared/ops";
 import { formatLatLon, nearestAlongM, pointAlong, sliceAlong } from "~~/shared/polyline";
 import { SvgIcon, type IconNode } from "~/utils/icon";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
@@ -562,7 +562,7 @@ function renderPins() {
       // The route's own two ends invert — see the CSS. They are not a category of thing
       // found along the walk, they are where it starts and stops, and a solid mark says
       // that without needing a fifth hue.
-      icon: pinIcon(w.kind, w.kind === "trailhead" || w.kind === "end" ? " routemap__pin--dark" : ""),
+      icon: pinIcon(w.kind, isRouteEnd(w) ? " routemap__pin--dark" : ""),
     }).addTo(map!);
     // NO TOOLTIP. It said what the pin's own glyph already says and what its row says
     // again, and it did so by covering the terrain around the thing you were pointing at —

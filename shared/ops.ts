@@ -540,10 +540,13 @@ export function seedRouteEnds(geo: string): Waypoint[] {
   return out;
 }
 
+/** One of the route's own ends, a trailhead or a finish, which seedRouteEnds makes. */
+export const isRouteEnd = (w: { kind: string }) => w.kind === "trailhead" || w.kind === "end";
+
 /** The route's ONLY trailhead or finish, which the plan and the map never offer to remove.
  *  A spare one can go, which is how a list copied into two of each gets back to one. */
 export const isLoneRouteEnd = (w: { kind: string }, all: readonly { kind: string }[]) =>
-  (w.kind === "trailhead" || w.kind === "end") && all.filter((p) => p.kind === w.kind).length < 2;
+  isRouteEnd(w) && all.filter((p) => p.kind === w.kind).length < 2;
 
 /** A day's or a pin's label as stored: capped, tidied like every other one-line field
  *  (cleanText), and absent rather than empty. */

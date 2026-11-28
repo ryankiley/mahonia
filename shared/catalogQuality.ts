@@ -51,17 +51,21 @@ const JOIN = String.raw`,\s+|\/|[-–—]|\s+to\s+`;
 
 /** The figures before each `unit` in `q`, a list or range read whole. A comma list
  *  counts only from three figures up, so "Size 10, 11.5 oz" is one weight; a range only
- *  when it rises; a list glued to a word ("SP129/85 g") only by its last figure. */
+ *  when it rises, and by half at most, so "UK size 8.5-264g" is a size and a weight (a
+ *  maker's ranges span a few sizes: "36-39 oz"); a list glued to a word ("SP129/85 g")
+ *  only by its last figure. Two single digits across a slash are a fraction ("1/2 oz"),
+ *  which it doesn't read. */
 function figuresBefore(q: string, fig: string, unit: string, start: string): QuoteWeight[][] {
   const out: QuoteWeight[][] = [];
   const re = new RegExp(`${start}((?:${fig})(?:(?:${JOIN})(?:${fig}))*)\\s*${unit}${NOT_A_RATE}`, "gi");
   for (const m of q.matchAll(re)) {
     const run = m[1]!;
+    if (/^\d\/\d$/.test(run)) continue;
     const nums = [...run.matchAll(new RegExp(fig, "g"))].map((n) => parseFloat(n[0].replace(/,/g, "")));
     const joins = run.split(new RegExp(fig)).slice(1, -1);
     const last = nums.at(-1)!;
     const glued = /[a-z\d]/i.test(q[m.index! - 1] ?? "");
-    const isRange = nums.length === 2 && /^(?:[-–—]|\s+to\s+)$/.test(joins[0]!) && nums[0]! < last;
+    const isRange = nums.length === 2 && /^(?:[-–—]|\s+to\s+)$/.test(joins[0]!) && nums[0]! < last && last <= 1.5 * nums[0]!;
     const isList = joins.length > 0 && !glued && (joins.every((j) => j === "/") || (nums.length >= 3 && joins.every((j) => /^,\s+$/.test(j))));
     if (isRange && !glued) out.push([{ lo: nums[0]!, hi: last }]);
     else if (isList) out.push(nums.map((n) => ({ lo: n, hi: n })));

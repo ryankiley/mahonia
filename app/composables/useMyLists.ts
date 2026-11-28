@@ -179,17 +179,14 @@ export function useMyLists() {
 
   /**
    * Drop this device's "is this gear mine?" answer for the list behind a link that is
-   * gone for good (see clearVaultDecisionFor for when). The answer is filed under the
-   * list's share code: `shareCode` when the caller has it, else this link's row's.
-   *
-   * Kept while another row here opens the same list under a different link: a link
-   * that died because the list was rotated elsewhere leaves the list itself alive, and
-   * the answer is that row's too.
+   * gone for good (see clearVaultDecisionFor for when): the answer filed under this
+   * link's row's share code, and one still under the link itself. Called before the row
+   * is forgotten. A link that died because the list was rotated elsewhere, while this
+   * device holds the new one too, has no row left by then (forgetSuperseded drops it on
+   * the 404), so the list's answer stays with the live row.
    */
-  function clearVaultAnswer(editToken: string, shareCode?: string): void {
-    const code = shareCode || entries.value.find((x) => x.editToken === editToken)?.shareCode || "";
-    const reachable = !!code && entries.value.some((x) => x.editToken !== editToken && x.shareCode === code);
-    clearVaultDecisionFor(reachable ? "" : code, editToken);
+  function clearVaultAnswer(editToken: string): void {
+    clearVaultDecisionFor(entries.value.find((x) => x.editToken === editToken)?.shareCode ?? "", editToken);
   }
 
   // The registry row a snapshot maps to — the ONE place the field list lives.

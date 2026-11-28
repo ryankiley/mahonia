@@ -122,9 +122,10 @@ export function researchIdentity(r: { brand?: unknown; name?: unknown; variant?:
 /**
  * A research file's rows with those of these identities (researchIdentity) given the weight
  * and citation an admin verified in the app: the weight in grams, its source, link and quote
- * (no quote if the graduated row has none), and no weight_secondary, which would be stale.
- * Every other key of the row stays, and every other row is the one passed in. Answers the
- * rows, the identities it replaced, and what each replaced row said before.
+ * (no quote if the graduated row has none), and no weight_secondary or quote_unchecked, which
+ * were about the figure and quote it replaces. Every other key of the row stays, and every
+ * other row is the one passed in. Answers the rows, the identities it replaced, and what
+ * each replaced row said before.
  */
 export function rewriteResearchRows(
   rows: readonly unknown[],
@@ -151,6 +152,7 @@ export function rewriteResearchRows(
     if (graduated.quote) next.quote = graduated.quote;
     else delete next.quote;
     delete next.weight_secondary;
+    delete next.quote_unchecked;
     out[i] = next;
     replaced.add(key);
     const r = row as Record<string, unknown>;

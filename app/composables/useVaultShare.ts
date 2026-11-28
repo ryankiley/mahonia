@@ -11,7 +11,7 @@ import { ref } from "vue";
  * would have nobody to say how it went.
  */
 export function useVaultShare(flash: (msg: string) => void) {
-  const { confirm, showLinkFallback } = useDialogs();
+  const { confirm, copyLink } = useDialogs();
   /** Whether the link is on: null until asked, so the panel offers no Stop sharing it
    *  can't stand behind. */
   const sharing = ref<boolean | null>(null);
@@ -38,20 +38,16 @@ export function useVaultShare(flash: (msg: string) => void) {
     return code;
   }
 
-  async function copy() {
-    // the write starts inside the click (copyTextWhen), whether the link is known or
-    // is being made by this same click
+  function copy() {
+    // the link as it is, or as this same click turns it on (copyLink starts the write
+    // inside the click either way)
     const link = code
-      ? Promise.resolve(urlOf(code))
+      ? urlOf(code)
       : setOn(true).then((c) => {
           if (!c) throw new Error("no code");
           return urlOf(c);
         });
-    const copied = await copyTextWhen(link);
-    const text = await link.catch(() => "");
-    if (!text) return flash("Couldn’t make the link. Try again.");
-    if (copied) flash("Read-only link copied");
-    else showLinkFallback(text, "Read-only link");
+    return copyLink(link, { flash, done: "Read-only link copied", title: "Read-only link" });
   }
 
   async function stop() {

@@ -24,25 +24,21 @@ describe("dayFacts", () => {
     );
   });
 
-  it("reads the camp, the high and low points and the height over the trailhead off the profile", () => {
+  it("reads the camp, the high point and the height over the trailhead off the profile", () => {
     const d1 = dayFacts(profile, ROUTE_M, ranges[0]!)!;
     expect(d1.campM).toBe(1600);
     expect(d1.highM).toBe(1600);
-    expect(d1.lowM).toBe(1000);
     expect(d1.aboveTrailheadM).toBe(600);
     const d2 = dayFacts(profile, ROUTE_M, ranges[1]!)!;
     expect(d2.campM).toBe(1200);
     expect(d2.highM).toBe(1600);
-    expect(d2.lowM).toBe(1200);
     expect(d2.aboveTrailheadM).toBe(200);
   });
 
-  it("names the longest climb: where it starts, how long it runs, what it gains", () => {
+  it("names the longest climb: how long it runs, what it gains", () => {
     const d1 = dayFacts(profile, ROUTE_M, ranges[0]!)!;
     expect(d1.climb).toBeDefined();
     // the smoothing rounds the foot and the top of the climb by a sample or two
-    expect(d1.climb!.startM).toBeGreaterThanOrEqual(5_800);
-    expect(d1.climb!.startM).toBeLessThanOrEqual(6_200);
     expect(d1.climb!.gainM).toBeGreaterThanOrEqual(560);
     expect(d1.climb!.gainM).toBeLessThanOrEqual(600);
     expect(d1.climb!.lengthM).toBeGreaterThanOrEqual(5_600);
@@ -55,11 +51,10 @@ describe("dayFacts", () => {
     // The ±4 m the ascent filter is calibrated against (tests/gpx.test.ts), on the same
     // ground. The run opens wherever the flat last touched a new low, which under noise
     // is a wobble anywhere in the first 6 km; the foot has to be read off the series
-    // against the threshold, or the climb reads as starting at the trailhead.
+    // against the threshold, or the climb reads as running from the trailhead, twice as
+    // long as it is.
     const noisy = profile.map((e, i) => e + (i % 2 ? 4 : -4));
     const d1 = dayFacts(noisy, ROUTE_M, ranges[0]!)!;
-    expect(d1.climb!.startM).toBeGreaterThanOrEqual(5_500);
-    expect(d1.climb!.startM).toBeLessThanOrEqual(6_200);
     expect(d1.climb!.lengthM).toBeGreaterThanOrEqual(5_600);
     expect(d1.climb!.lengthM).toBeLessThanOrEqual(6_800);
     expect(d1.climb!.gainM).toBeGreaterThanOrEqual(560);

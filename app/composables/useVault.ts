@@ -121,8 +121,7 @@ export function adoptTokenKeyedAnswer(list: VaultList): void {
  * this list" on a list that is still online: there the edit link may well bring
  * the list back, so "no, that gear isn't mine" is an answer worth keeping —
  * clearing it would re-ask a question already answered. Callers go through
- * useMyLists.clearVaultAnswer, which keeps the answer while another of this
- * device's rows still opens the list.
+ * useMyLists.clearVaultAnswer, which finds the share code from the link's row.
  */
 export function clearVaultDecisionFor(shareCode: string, editToken = ""): void {
   if (shareCode) {

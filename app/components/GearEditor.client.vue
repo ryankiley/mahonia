@@ -53,7 +53,7 @@ const session = useSession();
 const accountModal = useAccountModal();
 const { names: gearTypes, load: loadGearTypes } = useGearTypes();
 // app-wide dialogs (replace native confirm()/the copy dead-end) — see useDialogs
-const { confirm: askConfirm, showLinkFallback } = useDialogs();
+const { confirm: askConfirm, copyLink } = useDialogs();
 const { toast, flash } = useToast();
 
 const snapshot = c.snapshot;
@@ -699,37 +699,25 @@ function toggleShare() {
 // saved yet (nothing in it, or its first save hasn't landed) is saved by this click,
 // since asking for its link is asking for it to exist (useGearList.saveDraft), and
 // the link is copied when the save answers: the write starts inside the click and is
-// handed the link as a promise, see copyTextWhen. `url` is read late for that reason;
-// both links are built from what the save returns.
+// handed the link as a promise (useDialogs.copyLink, which also shows the link to copy
+// by hand when the clipboard refuses it). `url` is read late for that reason; both
+// links are built from what the save returns.
 //
 // Clipboard writes fire from real button clicks (the sharing panel's rows), so the
-// async Clipboard API has the user gesture iOS Safari demands. The async-first write +
-// synchronous execCommand fallback lives in the shared copyText() util
-// (app/utils/clipboard.ts); flash() just reports the outcome.
-async function copyLink(url: () => string, msg: string, title: string) {
-  let text: string;
-  let copied: boolean;
-  if (c.editToken || c.claimCode) {
-    tally("share_link_copied");
-    text = url();
-    copied = await copyText(text);
-  } else {
-    const link = c.saveDraft().then((saved) => {
-      if (!saved) throw new Error("not saved");
-      return url();
-    });
-    copied = await copyTextWhen(link);
-    text = await link.catch(() => "");
-    if (!text) return flash("Couldn’t make the link. Try again.");
-    tally("share_link_copied"); // after the save: a link that was never made is not a copy
-  }
-  // a blocked clipboard write shouldn't dead-end: show the link selectable so it can
-  // be copied by hand
-  if (copied) flash(msg);
-  else showLinkFallback(text, title);
+// async Clipboard API has the user gesture iOS Safari demands.
+async function copyListLink(url: () => string, done: string, title: string) {
+  const link =
+    c.editToken || c.claimCode
+      ? url()
+      : c.saveDraft().then((saved) => {
+          if (!saved) throw new Error("not saved");
+          return url();
+        });
+  // counted once there is a link: a link that was never made is not a copy
+  if (await copyLink(link, { flash, done, title })) tally("share_link_copied");
 }
 function copyShare() {
-  void copyLink(() => readUrl.value, "Read-only link copied", "Read-only link");
+  void copyListLink(() => readUrl.value, "Read-only link copied", "Read-only link");
 }
 async function copyEditLink() {
   // a claimed open holds no edit link to copy — the server only ever stored its
@@ -743,7 +731,7 @@ async function copyEditLink() {
   }))) return;
   // after the confirm: a cancelled copy is not a copy, and saves nothing
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
-  void copyLink(() => editUrl.value, "Edit link copied", "Edit link");
+  void copyListLink(() => editUrl.value, "Edit link copied", "Edit link");
 }
 async function rotate() {
   if (!(await askConfirm({
@@ -827,7 +815,7 @@ async function forgetThisList() {
   // A dead token's vault decision can never be asked again once the copy is gone —
   // it goes the way deleteList and forgetMissingList send it. A live list's stays:
   // its edit link may well bring the list back (see clearVaultDecisionFor).
-  if (dead) my.clearVaultAnswer(token, snapshot.value?.shareCode);
+  if (dead) my.clearVaultAnswer(token);
   my.forget(token);
   newList({ replace: true });
 }
@@ -949,7 +937,7 @@ async function forgetMissingList() {
   c.dispose(ownedEpoch);
   // Unlike forgetThisList: this token is dead server-side, so the vault decision
   // reached through it goes the way deleteList sends it.
-  my.clearVaultAnswer(entry.editToken, entry.shareCode);
+  my.clearVaultAnswer(entry.editToken);
   my.forget(entry.editToken);
   newList({ replace: true });
 }
