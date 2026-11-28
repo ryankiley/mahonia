@@ -44,6 +44,9 @@ const props = defineProps<{
   authHeaders: Record<string, string>;
   /** the READ-ONLY link the plain-text export appends — see the note in GearEditor */
   shareUrl: string;
+  /** Put the list back to a recovery point and show it (the controller's restore). A
+   *  function rather than an event: it is called after the panel has closed. */
+  restore: (snapshotId: number) => Promise<boolean>;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -271,6 +274,30 @@ function whoLabel(by: ChangeAuthor | null): string | null {
 // or only an assistant, would say so on every line and tell nobody anything. An
 // unnamed change counts as a hand of its own: beside an assistant's, it's the
 // difference worth seeing.
+// RESTORE: each entry is the list as it stood just before that change, so pressing it
+// undoes the change and everything since. The server keeps the list as it is now as a
+// point of its own first ("Restored an earlier version"), which is what the dialog's
+// promise rests on. None of them is the list as it is now, so every entry offers it.
+// Offline it is absent, like the panel's other network acts.
+//
+// It closes the panel first, as the foot's rows do: the dialog it opens sits outside
+// the panel, and the press that answers it would close the panel anyway. So the
+// outcome is the editor's toast, not a line here, and the next open lists the change.
+const { confirm } = useDialogs();
+function restoreTo(s: SnapshotMeta, i: number) {
+  const label = changeLabel(i);
+  const when = timeAgo(new Date(s.createdAt).getTime(), now.value);
+  act(async () => {
+    const ok = await confirm({
+      title: "Restore this version?",
+      message: `Everyone with the link will see the list as it was before “${label}”, ${when}. The list as it is now is kept in Recent changes, so you can undo this the same way.`,
+      confirmLabel: "Restore",
+    });
+    if (!ok) return;
+    flash((await props.restore(s.id)) ? "Restored" : "Couldn’t restore that version. Check your connection and try again.");
+  });
+}
+
 const whoKey = (by: ChangeAuthor | null) => (!by ? "" : by.kind === "named" ? `named:${by.name}` : by.kind);
 const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).size > 1);
 </script>
@@ -335,7 +362,8 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
         <!-- RECENT CHANGES folds out: the same MenuSection the read views' ⋯ uses, with
              entries in place of rows. Collapsed: it's reassurance you go looking for.
              These are the server's recovery points: WHAT changed, WHEN, and who when
-             anyone can be named ("You", "Assistant", or a name an editor chose). -->
+             anyone can be named ("You", "Assistant", or a name an editor chose), and a
+             Restore that puts the list back to just before that change. -->
         <MenuSection v-if="hasChanges" v-model:open="activityOpen" label="Recent changes" :icon="IconClock">
           <div class="share__activity">
             <p v-if="activityState === 'loading'" class="t-muted">Loading…</p>
@@ -346,7 +374,18 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
                 <span>{{ changeLabel(i) }}</span>
                 <span class="t-muted share__logwhen"
                   >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
-                  }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template></span
+                  }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template
+                  ><template v-if="online">
+                    ·
+                    <button
+                      type="button"
+                      class="btn btn--quiet share__restore"
+                      :aria-label="`Restore the list to how it was ${timeAgo(new Date(s.createdAt).getTime(), now)}`"
+                      @click="restoreTo(s, i)"
+                    >
+                      Restore
+                    </button></template
+                  ></span
                 >
               </li>
             </ul>
@@ -522,5 +561,9 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 }
 .share__logwhen {
   font-size: var(--text-chrome);
+}
+/* the quiet button at the size of the line it sits in (a .btn is --text-base) */
+.share__restore {
+  font-size: inherit;
 }
 </style>

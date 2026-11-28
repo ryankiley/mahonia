@@ -99,6 +99,9 @@ function create() {
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let flushFailures = 0;
   let inFlight = false;
+  // Waiting on the batch out now to answer, whichever way it goes (restore, which
+  // sends nothing until the queue is empty).
+  let flushWaiters: (() => void)[] = [];
   // The draft's create while one is out, so a link asked for mid-create (saveDraft)
   // waits on that one instead of starting a second.
   let creating: Promise<void> | undefined;
@@ -1004,6 +1007,7 @@ function create() {
         // retry a failing save about once a second for as long as it failed.
         if (!failed && pending.length) scheduleFlush();
       }
+      for (const done of flushWaiters.splice(0)) done();
     }
   }
 
@@ -1233,6 +1237,54 @@ function create() {
   }
 
 
+  /**
+   * Put the list back as it was at one of its recovery points, for everyone with the
+   * link, and show it here. The server keeps the list as it stands as a point of its
+   * own first, so this can be undone the same way.
+   *
+   * Edits still queued go first. Sent after the restore, they would land on top of the
+   * restored list and put back pieces of what it just undid; sent before, they are part
+   * of the state the server keeps, so nothing typed is lost either way.
+   *
+   * False when nothing changed: offline, a save that isn't landing, the point gone or
+   * the request refused. The list on screen is then left as it was.
+   */
+  async function restore(snapshotId: number): Promise<boolean> {
+    if (!holdsList() || remoteMissing() || !online.value || !snapshot.value) return false;
+    const myEpoch = epochRef.value;
+    while (pending.length || inFlight) {
+      const queued = pending.length;
+      if (inFlight) await new Promise<void>((done) => flushWaiters.push(done));
+      else {
+        clearTimeout(flushTimer);
+        await flush();
+      }
+      if (myEpoch !== epochRef.value) return false;
+      // no progress: the batch was refused, or there's no connection to send it over
+      if (pending.length && pending.length >= queued) return false;
+    }
+    let res: { snapshot?: ListSnapshot };
+    try {
+      res = await $fetch<{ snapshot: ListSnapshot }>("/api/edit/restore", {
+        method: "POST",
+        headers: authHeaders(),
+        body: { snapshotId },
+      });
+    } catch {
+      return false;
+    }
+    if (!res?.snapshot) return false;
+    // Restored either way; only the session that asked shows it.
+    if (myEpoch !== epochRef.value || !snapshot.value) return true;
+    // Anything typed while the request was out goes on top, as after a save.
+    const restored = res.snapshot;
+    if (pending.length) applyOps(restored, pending);
+    reconcileSnapshot(snapshot.value, restored);
+    syncRegistry();
+    persistLocal();
+    return true;
+  }
+
   async function rotate(): Promise<string | null> {
     // WHICH list is being rotated is read before the request, never after it. The
     // answer can land once the editor has moved on (the switcher, the back button and
@@ -1355,7 +1407,7 @@ function create() {
     keylessCode,
     startKeyless,
     authHeaders,
-    load, retryLoad, startDraft, saveDraft, dispose, rotate,
+    load, retryLoad, startDraft, saveDraft, dispose, rotate, restore,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     vaultAuto, vaultDeclined,

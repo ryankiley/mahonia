@@ -62,6 +62,13 @@ mockNuxtImport("useClaimedLists", () => () => ({
   refresh,
 }));
 
+// the app's confirm dialog, answered by each case
+let confirmAnswer = true;
+const confirm = vi.fn(async (_opts: { title?: string; message: string; confirmLabel?: string }) => confirmAnswer);
+mockNuxtImport("useDialogs", () => () => ({ confirm }));
+// the controller's restore, handed in by the editor
+const restore = vi.fn(async (_id: number) => true);
+
 const SHARE = "LOOWIT000001";
 const snapshot = snapshotFor({ shareCode: SHARE, slug: "loowit-aa11bb", title: "Loowit Traverse", version: 3 });
 
@@ -84,6 +91,7 @@ function mountPanel(over: { editToken?: string; shareCode?: string; version?: nu
       editToken: over.editToken ?? "held-token",
       authHeaders: { Authorization: "Bearer held-token" },
       shareUrl: `https://mahonia.app/s/${SHARE}`,
+      restore,
     },
     // the editor's toast, which the panel reaches by inject (ROW_FLASH)
     global: { provide: { [ROW_FLASH as symbol]: flash } },
@@ -107,6 +115,10 @@ beforeEach(() => {
   claimedLoaded.value = true;
   claimOne.mockClear();
   refresh.mockClear();
+  confirmAnswer = true;
+  confirm.mockClear();
+  restore.mockReset();
+  restore.mockImplementation(async () => true);
 });
 
 describe("SharePanel — adding a list to your account", () => {
@@ -210,6 +222,79 @@ describe("SharePanel — who made a change", () => {
     snapshotsData = [entry(2, "Added Pot", { kind: "assistant" }), entry(1, "Added Stakes", null)];
     const w = await openLog();
     expect(w.text()).toContain("· Assistant");
+  });
+});
+
+// Each entry is the list as it stood just before that change, so every one of them,
+// the newest included, is somewhere the list could go back to.
+describe("SharePanel — restoring a recent change", () => {
+  const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  const entry = (id: number, reason: string, m: number): SnapshotMeta => ({
+    id,
+    version: id,
+    reason,
+    by: null,
+    createdAt: minutesAgo(m),
+    itemCount: 1,
+  });
+  async function openLog() {
+    snapshotsData = [entry(12, "Added Pot", 5), entry(11, "Removed Stakes", 30)];
+    const w = mountPanel();
+    await flushPromises();
+    await w.findAll("button").find((b) => b.text().includes("Recent changes"))!.trigger("click");
+    await flushPromises();
+    return w;
+  }
+  const restoreButtons = (w: ReturnType<typeof mountPanel>) => w.findAll("button").filter((b) => b.text() === "Restore");
+
+  it("offers Restore on every entry, named by its time", async () => {
+    const w = await openLog();
+    expect(restoreButtons(w).map((b) => b.attributes("aria-label"))).toEqual([
+      "Restore the list to how it was 5 minutes ago",
+      "Restore the list to how it was 30 minutes ago",
+    ]);
+  });
+
+  it("offers none offline", async () => {
+    online.value = false;
+    const w = await openLog();
+    expect(w.text()).toContain("Added Pot");
+    expect(restoreButtons(w)).toHaveLength(0);
+  });
+
+  it("closes, asks first, and restores nothing when the answer is no", async () => {
+    confirmAnswer = false;
+    const w = await openLog();
+    await restoreButtons(w)[1]!.trigger("click");
+    await flushPromises();
+    expect(w.emitted().close).toHaveLength(1);
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(confirm.mock.calls[0]![0]).toMatchObject({ title: "Restore this version?", confirmLabel: "Restore" });
+    // says which change it goes back past, and that it can be undone
+    expect(confirm.mock.calls[0]![0].message).toContain("before “Removed Stakes”, 30 minutes ago");
+    expect(confirm.mock.calls[0]![0].message).toContain("kept in Recent changes");
+    expect(restore).not.toHaveBeenCalled();
+    expect(flash).not.toHaveBeenCalled();
+  });
+
+  // The panel is gone by the time the dialog is answered (the press lands outside it),
+  // so the outcome is the editor's toast.
+  it("restores that entry once confirmed, and says so", async () => {
+    const w = await openLog();
+    await restoreButtons(w)[1]!.trigger("click");
+    w.unmount();
+    await flushPromises();
+    expect(restore).toHaveBeenCalledWith(11);
+    expect(flash).toHaveBeenCalledWith("Restored");
+  });
+
+  it("says so when the restore doesn't happen", async () => {
+    restore.mockImplementation(async () => false);
+    const w = await openLog();
+    await restoreButtons(w)[0]!.trigger("click");
+    await flushPromises();
+    expect(restore).toHaveBeenCalledWith(12);
+    expect(flash).toHaveBeenCalledWith("Couldn’t restore that version. Check your connection and try again.");
   });
 });
 
