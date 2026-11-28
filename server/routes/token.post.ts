@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
 import { issueAppTokens, refreshAppTokens } from "../utils/accessTokens";
-import { useAccountDb } from "../utils/db";
+import { useDb } from "../utils/db";
 import { setNoStore } from "../utils/http";
 import { isCodeVerifier, oauthError, pkceChallenge, readFormBody, redeemAuthCode, wrongResource } from "../utils/oauth";
 import { trustedOrigin } from "../utils/origin";
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   setNoStore(event);
   await rateLimit(event, "oauth-token");
   const body = await readFormBody(event);
-  const db = await useAccountDb();
+  const db = await useDb();
 
   if (body.grant_type === "refresh_token") {
     const next = await refreshAppTokens(db, body.refresh_token, body.client_id);

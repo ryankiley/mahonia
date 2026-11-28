@@ -22,7 +22,7 @@ vi.mock("../server/utils/catalog", async (importOriginal) => ({
 }));
 vi.mock("../server/utils/db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../server/utils/db")>()),
-  useCatalogDb: async () => ({}),
+  useDb: async () => ({}),
 }));
 
 const post = (body: unknown) => handler(makeEvent("/api/catalog/correct", { method: "POST", body }));

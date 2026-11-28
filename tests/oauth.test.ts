@@ -17,7 +17,7 @@ import { APP_ACCESS_PREFIX, APP_ACCESS_TTL_S, APP_REFRESH_PREFIX, listAccessToke
 import { deleteAccount } from "../server/utils/accountRepo";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { sweepExpiredAuth } from "../server/utils/authSession";
-import { LISTS_DDL } from "../server/utils/db";
+import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
 import { pkceChallenge, redirectWith } from "../server/utils/oauth";
 import { REGISTERED_CLIENT_PREFIX, _forgetClientDocuments, redirectUriAllowed } from "../server/utils/oauthClients";
 import { randomSecret, sha256Hex } from "../server/utils/tokens";
@@ -138,7 +138,7 @@ let other = 0;
 let cookie = "";
 
 beforeAll(async () => {
-  db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
+  db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL, VAULT_DDL);
   dbState.db = db;
   [me, other] = (await db.insert(schema.users).values([{ email: "me@example.com" }, { email: "other@example.com" }]).returning()).map((u) => u.id);
   cookie = (await signInCookie(db, me)).cookie;

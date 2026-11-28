@@ -3,7 +3,7 @@ import { BUDGET_WAIT, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSION
 import { setNoIndex, setNoStore } from "../utils/http";
 import { APP_ACCESS_PREFIX, connectorToken, resolveBearer } from "../utils/accessTokens";
 import { anyAdmin, isAdmin } from "../utils/admin";
-import { useAccountDb } from "../utils/db";
+import { useDb } from "../utils/db";
 import { bearerChallenge } from "../utils/oauth";
 import { trustedOrigin } from "../utils/origin";
 import { rateLimit } from "../utils/rateLimit";
@@ -188,7 +188,7 @@ export default defineEventHandler(async (event) => {
       // a database fault here would otherwise leave as the framework's 500 page, which
       // a connector reads as the server gone, not as a call to try again
       try {
-        identity = await resolveBearer(await useAccountDb(), bearer);
+        identity = await resolveBearer(await useDb(), bearer);
       } catch (e) {
         console.error("[mcp bearer]", e);
         return result(id, toolFailure("Mahonia couldn't check the sign-in just now, so nothing was run. Try again in a minute."));
@@ -244,7 +244,7 @@ async function listingAccount(event: H3Event): Promise<number | undefined> {
   const bearer = connectorToken(event);
   if (!bearer || !anyAdmin()) return undefined;
   try {
-    return (await withinMs((async () => resolveBearer(await useAccountDb(), bearer))(), BUDGET_WAIT.ms))?.userId;
+    return (await withinMs((async () => resolveBearer(await useDb(), bearer))(), BUDGET_WAIT.ms))?.userId;
   } catch {
     return undefined;
   }

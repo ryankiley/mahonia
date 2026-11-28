@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
 import { requireCron } from "../../../utils/auth";
-import { useAccountDb, useDb } from "../../../utils/db";
+import { useDb } from "../../../utils/db";
 import { purgeDeletedLists, reapAbandonedLists } from "../../../utils/listRepo";
 import { refreshStaleFavicons } from "../../../utils/trailFavicon";
 import { setNoIndex } from "../../../utils/http";
@@ -35,13 +35,6 @@ export default defineEventHandler(async (event) => {
 
   const db = await useDb();
   const reaped = await reapAbandonedLists(db);
-  // The purge drops the purged lists' claims, and list_claims is the account layer's
-  // table, made on first use: asked for here so a cold instance has it to delete from.
-  // It must not be able to fail list maintenance: if the account schema can't be
-  // ensured the purge still runs, and skips only the claims (purgeDeletedLists).
-  await useAccountDb().catch((e) => {
-    console.warn("[cron] account schema not ensured", (e as Error).message);
-  });
   const purged = await purgeDeletedLists(db);
   // outbound fetches to third-party hosts — never let a slow or dead one fail the
   // whole maintenance run, which is what keeps the reap/purge above meaningful

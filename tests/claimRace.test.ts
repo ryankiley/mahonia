@@ -19,7 +19,7 @@ import { dbState } from "./helpers/dbMock";
 import { makeEvent, setCookieValue } from "./helpers/http";
 import { PASSKEY } from "./helpers/session";
 
-// resolveSession reaches for useAccountDb() itself
+// resolveSession reaches for useDb() itself
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 
 const CLIENT: OAuthClient = { clientId: "https://client.example/metadata.json", label: "client.example", redirectUris: ["https://client.example/cb"], kind: "document" };

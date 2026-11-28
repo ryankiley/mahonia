@@ -27,7 +27,7 @@ import { normalizeDistanceUnit } from "../../shared/trailDistance";
 import { normalizeRouteGeometry } from "../../shared/polyline";
 import { tidyProse, tidyText } from "../../shared/tidyText";
 import { displayHost, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
-import { ensureSnapshotSchema, ensureTrailFaviconSchema, isUniqueViolation, useAccountDb, useDb, type Db } from "./db";
+import { isUniqueViolation, useDb, type Db } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
 import { liveCatalogRows } from "./catalog";
 import { unitOf } from "./vaultRepo";
@@ -220,8 +220,7 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
  * would freeze the other's field too, and a row with both may still need its link
  * handed on to a successor. liveCatalogRows dedupes, drops an id past the column's
  * range (rows written before the reducer refused one are left un-hydrated rather than
- * failing every read of the list), and ensures the catalog table before it queries:
- * this can be the first catalog query on a fresh database.
+ * failing every read of the list).
  */
 function catalogIdsOf(items: readonly Item[]): number[] {
   return items.flatMap((i) => (typeof i.catalogItemId === "number" ? [i.catalogItemId] : []));
@@ -266,12 +265,11 @@ function applyCatalogNames(snap: ListSnapshot, byId: Map<number, CatalogSearchRe
 }
 
 /** Attach the trail site's favicon from the per-host cache, if we have one. Never
- *  throws and never blocks: an unknown host, a missing table on a fresh Neon deploy, or
- *  a known-bad icon all just mean the link renders without a mark. */
+ *  throws and never blocks: an unknown host, a failed read or a known-bad icon all
+ *  just mean the link renders without a mark. */
 async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
   if (!snap.trailUrl) return snap;
   try {
-    await ensureTrailFaviconSchema(db);
     const url = safeUrl(snap.trailUrl);
     const dataUrl = url ? await getFavicon(db, displayHost(url)) : null;
     if (dataUrl) snap.trailFaviconDataUrl = dataUrl;
@@ -450,7 +448,6 @@ async function lookupEditor(editor?: EditorLookup): Promise<number | null> {
  */
 async function recentPointBy(db: Db, listId: number, actor: EditActor): Promise<boolean> {
   try {
-    await ensureSnapshotSchema(db);
     const [newest] = await db
       .select({ actor: listSnapshots.actor, createdAt: listSnapshots.createdAt })
       .from(listSnapshots)
@@ -475,7 +472,6 @@ async function captureSnapshot(
   by: { actor?: EditActor | null; editorUserId?: number | null } = {},
 ): Promise<void> {
   try {
-    await ensureSnapshotSchema(db);
     const cur = rowToState(row);
     // The newest snapshot is the chain anchor (a full `base`). We insert the new
     // full base on top and demote the previous anchor to a reverse-delta against
@@ -579,7 +575,6 @@ export async function listSnapshotsByEditHash(
   const d = db ?? (await useDb());
   const listId = await findIdByEditHash(editHash, d);
   if (listId === null) return null;
-  await ensureSnapshotSchema(d);
   // partial select: this listing never reads the `snapshot` JSONB (the largest
   // column — a full list payload per row), so don't pull it over the wire
   const rows = await d
@@ -599,8 +594,7 @@ export async function listSnapshotsByEditHash(
   // Other editors by the name they CHOSE, never their email, and nothing for an
   // account without one (chosenNames). Ids never leave the server.
   const others = rows.map((r) => r.editorUserId).filter((u): u is number => u != null && u !== viewerUserId);
-  // no account tables yet: nobody to name
-  const names = await chosenNames(d, others).catch(() => new Map<number, string>());
+  const names = await chosenNames(d, others);
   const byOf = (r: (typeof rows)[number]): ChangeAuthor | null => {
     if (r.actor === "assistant") return { kind: "assistant" };
     if (r.editorUserId == null) return null;
@@ -636,7 +630,6 @@ export async function restoreSnapshotByEditHash(
   // the version it writes against has to be read inside the retry.
   const ownerId = await findIdByEditHash(editHash, d);
   if (ownerId === null) return null;
-  await ensureSnapshotSchema(d);
   // reconstruct its full state from the reverse-delta chain — which is also what
   // verifies the snapshot is THIS caller's list (see reconstructSnapshotState)
   const s = await reconstructSnapshotState(d, ownerId, snapshotId);
@@ -1233,21 +1226,12 @@ export async function purgeDeletedLists(
   const ids = doomed.map((r) => r.id);
 
   // drop what hangs off the lists first (no DB-level FK, so this is manual), then the rows
-  await ensureSnapshotSchema(d);
   await d.delete(listSnapshots).where(inArray(listSnapshots.listId, ids));
   // The claims accounts held on them too. Every read of a claim joins a live list, so
   // one left behind is never seen again and nothing could ever remove it: it would
-  // sit in the table for good, one per account per purged list.
-  //
-  // Not allowed to fail the purge. list_claims is the account layer's table, made on
-  // first use, so a database nobody has signed in to has none (and no claims); and a
-  // delete that fails for any other reason costs a few stray rows, where stopping
-  // here would leave the lists themselves unpurged night after night.
-  try {
-    await d.delete(listClaims).where(inArray(listClaims.listId, ids));
-  } catch (e) {
-    console.warn("[purge lists] the purged lists' claims were not dropped", (e as Error).message);
-  }
+  // sit in the table for good, one per account per purged list. So the lists go last:
+  // if this fails they are still there for the next run to start from.
+  await d.delete(listClaims).where(inArray(listClaims.listId, ids));
   await d.delete(lists).where(inArray(lists.id, ids));
   return { purged: ids.length };
 }
@@ -1279,10 +1263,7 @@ export async function rotateEditHash(
   keepUserId?: number,
   db?: Db,
 ): Promise<string | null> {
-  // useAccountDb, not useDb: list_claims lives in the account schema, and on Neon
-  // that's ensured on first use rather than migrated. Injectable like the other repo
-  // functions here, so tests can drive a throwaway database.
-  const d = db ?? (await useAccountDb());
+  const d = db ?? (await useDb());
   const next = randomEditToken();
   // One atomic UPDATE keyed on the OLD token (not find-by-token then update-by-id):
   // when two rotates race — owner vs leaked-token holder, or the owner's own two

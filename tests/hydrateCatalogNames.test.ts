@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CATALOG_DDL, ensureCatalogSchema } from "../server/utils/catalog";
+import { CATALOG_DDL } from "../server/utils/catalog";
 import { hydrateCatalogNames } from "../server/utils/listRepo";
 import type { Item, ListSnapshot } from "../shared/types";
 import { seedCatalogRow } from "./helpers/catalog";
@@ -86,17 +86,5 @@ describe("hydrateCatalogNames (trickle-down)", () => {
       { name: "Discontinued Thing", brand: "OldCo", catalogItemId: 99999 },
     ]));
     expect(out.items[0]).toMatchObject({ brand: "OldCo", name: "Discontinued Thing" });
-  });
-
-  it("bootstraps the catalog table on first use (Neon request-path)", async () => {
-    // a database where no catalog endpoint has ever run: hydration must ensure
-    // the table itself, not 500 every list read until some other endpoint does
-    // no DDL groups at all — an empty database is the point of this case
-    const db = await createTestDb();
-    ensureCatalogSchema.reset();
-    const out = await hydrateCatalogNames(db, snap([
-      { name: "Copied Thing", catalogItemId: 1 },
-    ]));
-    expect(out.items[0]!.name).toBe("Copied Thing");
   });
 });

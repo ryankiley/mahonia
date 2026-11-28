@@ -28,7 +28,7 @@ const repo = vi.hoisted(() => ({
 vi.mock("../server/utils/listRepo", () => repo);
 const catalog = vi.hoisted(() => ({ searchCatalog: vi.fn(), productVariants: vi.fn(), catalogRowsById: vi.fn(async () => new Map()) }));
 vi.mock("../server/utils/catalog", () => catalog);
-vi.mock("../server/utils/db", () => ({ useCatalogDb: async () => ({}) }));
+vi.mock("../server/utils/db", () => ({ useDb: async () => ({}) }));
 const limiter = await vi.hoisted(async () => {
   // the shared KV the replay window lives in: it keeps the TTL each write asked for, so
   // a test can see the window is bounded in the store, and expires nothing (a case that

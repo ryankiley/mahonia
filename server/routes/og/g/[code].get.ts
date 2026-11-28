@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam } from "h3";
 import { gearCardModel } from "../../../../shared/ogGearCard";
-import { useVaultDb } from "../../../utils/db";
+import { useDb } from "../../../utils/db";
 import { notFound, setNoIndex } from "../../../utils/http";
 import { sendOgCardModel } from "../../../utils/ogCard";
 import { rateLimit } from "../../../utils/rateLimit";
@@ -13,7 +13,7 @@ import { sharedGearByCode } from "../../../utils/vaultShare";
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
   await rateLimit(event, "public-read");
-  const gear = await sharedGearByCode(await useVaultDb(), getRouterParam(event, "code") || "");
+  const gear = await sharedGearByCode(await useDb(), getRouterParam(event, "code") || "");
   if (!gear) throw notFound();
   return sendOgCardModel(event, gearCardModel(gear), "none");
 });

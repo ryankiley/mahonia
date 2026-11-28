@@ -1,5 +1,5 @@
 // DDL for the vault. A LEAF module: it imports nothing from db.ts, so db.ts can
-// spread it into the local dev DDL while vaultRepo.ts imports its connection back
+// spread it into its schema list while vaultRepo.ts imports its connection back
 // from db.ts — the same shape as CATALOG_DDL, minus the import cycle that would
 // follow from putting the statements in the repo module itself.
 //

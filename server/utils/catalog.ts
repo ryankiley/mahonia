@@ -1,10 +1,7 @@
 // Catalog (Phase 2) — schema bootstrap + fuzzy autocomplete search.
 //
-// Kept out of the hot lists path in db.ts on purpose. The catalog table DDL is
-// single-sourced here (CATALOG_DDL) and spread into db.ts's idempotent local
-// DDL, so the dev server auto-creates it; the seed script and search endpoint
-// also call ensureCatalogSchema() so they work on Neon, where db.ts ensures only
-// the lists DDL on first use and the catalog's is ensured here.
+// The catalog table DDL is single-sourced here (CATALOG_DDL) and spread into
+// db.ts's one schema list, which useDb() ensures.
 //
 // FUZZY SEARCH — pg_trgm vs ILIKE/JS, decided empirically:
 //   • Neon (prod): pg_trgm is available → word_similarity gives typo-tolerant
@@ -23,8 +20,6 @@ import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
 import { enoughToSearch, foldForSearch, foldWidth } from "../../shared/searchText";
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
-import { memoized } from "./memoize";
-import { runDdl } from "./ddl";
 import { toIso } from "./time";
 import type { Db } from "./db";
 import {
@@ -42,7 +37,6 @@ async function verifiedLabels(
   db: Db,
   col: typeof catalogItems.commonName | typeof catalogItems.brand,
 ): Promise<string[]> {
-  await ensureCatalogSchema(db);
   const rows = await db.selectDistinct({ label: col })
     .from(catalogItems)
     .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
@@ -68,7 +62,6 @@ export const catalogBrands = (db: Db): Promise<string[]> => verifiedLabels(db, c
 /** Where the verified catalog files each gear type it carries (catalogCategories), for
  *  categoryForGearType: the same verified-and-active rows, their two label columns only. */
 export async function catalogGearTypeCategories(db: Db): Promise<Map<string, string>> {
-  await ensureCatalogSchema(db);
   const rows = await db
     .select({ commonName: catalogItems.commonName, categoryHint: catalogItems.categoryHint })
     .from(catalogItems)
@@ -78,8 +71,8 @@ export async function catalogGearTypeCategories(db: Db): Promise<Map<string, str
 
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 
-// Safe on BOTH PGlite and Neon. Single source of truth; also spread into db.ts's
-// local idempotent DDL. The pg_trgm and unaccent extensions are created separately (Neon only).
+// Safe on BOTH PGlite and Neon. The pg_trgm and unaccent extensions are created
+// separately (Neon only).
 export const CATALOG_DDL: string[] = [
   // search_terms — derived noun + locale/synonym aliases (scripts/searchTerms.ts),
   // folded into the fuzzy match.
@@ -148,17 +141,12 @@ export const CATALOG_DDL: string[] = [
 // matches its plain spelling — mirrors the fold in shared/catalogSearch.ts's
 // trigrams(). It is used in WHERE/ORDER expressions, not an index, so its STABLE
 // volatility is fine.
-const CATALOG_NEON_DDL: string[] = [
+export const CATALOG_NEON_DDL: string[] = [
   `CREATE EXTENSION IF NOT EXISTS pg_trgm`,
   `CREATE EXTENSION IF NOT EXISTS unaccent`,
   // No trigram index: the search's word_similarity() call is a function over a
   // different expression, which a GIN trigram index cannot serve.
 ];
-
-/** Idempotently create the catalog table + indexes (memoized per process). */
-export const ensureCatalogSchema = memoized((db: Db) =>
-  runDdl(db, isNeon() ? [...CATALOG_DDL, ...CATALOG_NEON_DDL] : CATALOG_DDL),
-);
 
 function normalizeQuery(q: unknown): string {
   return typeof q === "string" ? q.trim() : "";
@@ -361,7 +349,6 @@ async function liveRowsById(db: Db, ids: readonly number[]): Promise<Map<number,
   const asked = [...new Set(ids.filter(isCatalogId))];
   const out = new Map<number, typeof catalogItems.$inferSelect>();
   if (!asked.length) return out;
-  await ensureCatalogSchema(db);
   const rows = await db.select().from(catalogItems).where(inArray(catalogItems.id, asked));
   const byId = new Map(rows.map((r) => [r.id, r]));
   const successorOf = (r: (typeof rows)[number]) => (r.status === "merged" && isCatalogId(r.mergedIntoId) ? r.mergedIntoId : null);

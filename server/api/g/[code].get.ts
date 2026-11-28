@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam } from "h3";
 import { openPrivate } from "../../utils/authSession";
-import { useVaultDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { notFound } from "../../utils/http";
 import { sharedGearByCode } from "../../utils/vaultShare";
 
@@ -11,7 +11,7 @@ import { sharedGearByCode } from "../../utils/vaultShare";
 // window. So each view is one small read, under the same per-IP budget as a list share.
 export default defineEventHandler(async (event) => {
   await openPrivate(event, "public-read");
-  const gear = await sharedGearByCode(await useVaultDb(), getRouterParam(event, "code") || "");
+  const gear = await sharedGearByCode(await useDb(), getRouterParam(event, "code") || "");
   if (!gear) throw notFound();
   return gear;
 });

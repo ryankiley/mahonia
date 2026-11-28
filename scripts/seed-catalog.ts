@@ -19,7 +19,6 @@
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
-import { ensureCatalogSchema } from "../server/utils/catalog";
 import { backfillSeedColumns } from "./seedBackfill";
 import { renameMovedVariants } from "./seedRenames";
 import { retireOrphans } from "./seedRetire";
@@ -36,7 +35,6 @@ async function main() {
   console.log(`Loaded ${rows.length} rows from seed/catalog.csv`);
 
   const db = await useDb();
-  await ensureCatalogSchema(db);
 
   const backfilled = await backfillSeedColumns(db, rows);
   if (backfilled) {

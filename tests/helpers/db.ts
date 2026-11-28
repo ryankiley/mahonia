@@ -31,18 +31,14 @@ let pglite: Promise<PGlite> | undefined;
  * DB files went from 88 s to 7 s on the change, and the 20 s timeouts in
  * vitest.config.ts stopped being the first thing to fail under load.
  *
- * What makes the reuse safe, since the earlier version of this comment said it
- * wasn't: the schema-ensure helpers memoize "already built" per process
- * (server/utils/memoize.ts), and a memo that ran against one instance is exactly as
- * stale against the next fresh instance as it is against a wiped one — either way
- * the table it remembers is gone, and either way it is this function's DDL, run
- * directly, that puts the schema back. A case that wants the ensure itself to run
- * resets its memo (see snapshots.test.ts, hydrateCatalogNames.test.ts), which works
- * the same on a wiped database. Tests within a file run one at a time (nothing here
- * is `.concurrent`), so no case sees another's wipe; a case that builds a second
- * database mid-way (auth.test.ts) gets the same instance rebuilt, and the handle it
- * held before is the same database with the new schema — fine as long as it uses
- * only the new handle from there, which is what those cases do.
+ * What makes the reuse safe: nothing a repo calls makes a table, so the groups handed
+ * in here are the whole schema a case sees, and a table a case reads has to be in
+ * them. (The one ensure is useDb()'s, on Neon; schemaEnsure.test.ts drives it.) Tests
+ * within a file run one at a time (nothing here is `.concurrent`), so no case sees
+ * another's wipe; a case that builds a second database mid-way (auth.test.ts) gets the
+ * same instance rebuilt, and the handle it held before is the same database with the
+ * new schema — fine as long as it uses only the new handle from there, which is what
+ * those cases do.
  */
 export async function createTestDb(...ddlGroups: string[][]): Promise<TestDb> {
   pglite ??= PGlite.create();

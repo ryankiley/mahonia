@@ -2,9 +2,9 @@
 // covers what the redeemed link BUYS: the cookie-backed session, its sliding
 // expiry, and the two ways out (this device, every device).
 //
-// The lifecycle functions read their connection through useAccountDb() and their
+// The lifecycle functions read their connection through useDb() and their
 // identity through a real H3 event's cookies, so the tests fabricate both: a
-// PGlite database swapped in for useAccountDb, and events built over bare node
+// PGlite database swapped in for useDb, and events built over bare node
 // req/res mocks. That keeps the CODE under test unchanged — resolveSession is
 // exercised exactly as a request would, cookie parsing and cookie re-setting
 // included, which is where the sliding-expiry bug the refresh comment warns
@@ -36,7 +36,7 @@ import { dbState } from "./helpers/dbMock";
 import { makeEvent, setCookieValue } from "./helpers/http";
 import { signInCookie } from "./helpers/session";
 
-// resolveSession/endSession/endAllSessions reach for useAccountDb() themselves,
+// resolveSession/endSession/endAllSessions reach for useDb() themselves,
 // so point it at this file's throwaway database.
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 

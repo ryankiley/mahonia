@@ -30,7 +30,7 @@ import { makeEvent, setCookieValue } from "./helpers/http";
 import { memoryKv } from "./helpers/kv";
 import { PASSKEY, signInCookie } from "./helpers/session";
 
-// The endpoints reach for useAccountDb() themselves — point it at this file's
+// The endpoints reach for useDb() themselves — point it at this file's
 // throwaway database.
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 

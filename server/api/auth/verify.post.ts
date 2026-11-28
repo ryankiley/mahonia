@@ -6,7 +6,7 @@ import {
   redeemMagicLink,
   startSession,
 } from "../../utils/authSession";
-import { useAccountDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
   const body = await readJsonBodyCapped<{ token?: unknown; confirmed?: unknown }>(event, 2_000);
   const token = typeof body?.token === "string" ? body.token.trim().slice(0, 200) : "";
 
-  const db = await useAccountDb();
+  const db = await useDb();
   const redeemed = await redeemMagicLink(db, token, {
     browserHash: askingBrowserHash(event),
     confirmed: body?.confirmed === true,

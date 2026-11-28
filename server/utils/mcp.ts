@@ -59,7 +59,7 @@ import { catalogRowsById, productVariants, recentChanges, searchCatalog } from "
 import { sizeConflict } from "./catalogSizes";
 import { undoCatalogEdit, VERIFY_NOTES_MAX, VERIFY_QUOTE_MAX, VERIFY_SOURCES, VERIFY_URL_MAX, verifyCatalogItem, type VerifyIdentity } from "./catalogVerify";
 import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
-import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
+import { useDb, type Db } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
 import { trustedOrigin } from "./origin";
 import { rateLimit, rateLimitSubject, useKv } from "./rateLimit";
@@ -1018,7 +1018,7 @@ async function catalog(args: Record<string, unknown>): Promise<ToolResult> {
   const brand = typeof args.brand === "string" ? args.brand.trim().slice(0, LOOKUP_TEXT_MAX) : undefined;
   const name = typeof args.name === "string" ? args.name.trim().slice(0, LOOKUP_TEXT_MAX) : undefined;
   if (id || name) {
-    const found = await productVariants(await useCatalogDb(), { id, brand, name });
+    const found = await productVariants(await useDb(), { id, brand, name });
     if (!found) return fail("No active catalog product matches that. Search first and pass a product_id from the results.");
     return ok({
       product: withoutEmpty({ brand: found.brand, name: found.name, gear_type: found.commonName, category: found.categoryHint }),
@@ -1028,7 +1028,7 @@ async function catalog(args: Record<string, unknown>): Promise<ToolResult> {
   const query = typeof args.query === "string" ? args.query.trim().slice(0, SEARCH_QUERY_MAX) : "";
   if (!enoughToSearch(query)) return fail("Give a query of two characters or more (one is enough in Chinese), or a product_id from an earlier search.");
   const limit = clampInt(args.limit, 1, SEARCH_LIMIT_MAX, SEARCH_LIMIT_DEFAULT);
-  const rows = await searchCatalog(await useCatalogDb(), query, limit);
+  const rows = await searchCatalog(await useDb(), query, limit);
   return ok({ query, results: rows.map((r) => catalogResult(r, r)) });
 }
 
@@ -1077,7 +1077,7 @@ async function writeHashFrom(event: H3Event, args: Record<string, unknown>): Pro
   const caller = event.context.connector;
   if (!caller || caller.scope !== "write") return "Naming a list by share_code takes a sign-in with read-and-change access, which the MCP endpoint asks for first; or pass the edit link.";
   await rateLimitSubject("mcp-write", `lists:${caller.userId}`);
-  const hash = await claimedEditHash(await useAccountDb(), caller.userId, code);
+  const hash = await claimedEditHash(await useDb(), caller.userId, code);
   return hash ? { hash } : NO_CLAIMED;
 }
 
@@ -1180,7 +1180,7 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
 async function linkCatalog(items: Item[], folders: Folder[]): Promise<string | null> {
   const ids = items.map((i) => i.catalogItemId).filter(isCatalogId);
   if (!ids.length) return null;
-  const rows = await catalogRowsById(await useCatalogDb(), ids);
+  const rows = await catalogRowsById(await useDb(), ids);
   for (const item of items) {
     if (!isCatalogId(item.catalogItemId)) continue;
     const row = rows.get(item.catalogItemId);
@@ -1434,7 +1434,7 @@ const madeEcho = (snap: ListSnapshot, origin: string) => ({
  */
 async function madeBefore(event: H3Event, userId: number, hit: Record<string, unknown>): Promise<ToolResult | null> {
   const code = typeof hit.share_code === "string" ? hit.share_code : "";
-  const hash = code ? await claimedEditHash(await useAccountDb(), userId, code) : null;
+  const hash = code ? await claimedEditHash(await useDb(), userId, code) : null;
   const snap = hash ? await getByEditHash(hash) : null;
   if (!snap) return null;
   const structured = { ...madeEcho(snap, trustedOrigin(event)), saved_to_account: true, repeated: true };
@@ -1472,10 +1472,8 @@ async function fileUnderAccount(event: H3Event, editToken: string, snapshot: Lis
     // the claim budget is the account's, as it is for the browser, rather than the
     // shared address every claude.ai call arrives from
     await rateLimitSubject("list-claim", `claim:${caller.userId}`);
-    await claimLists(await useAccountDb(), caller.userId, [editToken]);
-    // the vault tables as well as the account's: on Neon they're ensured on first use
-    // rather than migrated, and the capture below writes them
-    const db = await useVaultDb();
+    const db = await useDb();
+    await claimLists(db, caller.userId, [editToken]);
     const vaultId = await vaultIdOrMint(db, caller.userId);
     // no folders: they only name the folder a capture sat in, which the vault drops
     await captureVaultItems(db, vaultId, captureFromList(snapshot.items)).catch((e) => {
@@ -1925,7 +1923,7 @@ async function planUpdates(entries: unknown[], book: FolderBook, { work, ops, pl
   // the catalog rows the relinks name, in one read; an id that isn't one is refused
   // row by row below, as a catalog_id on a new row is
   const linkIds = rows.map((r) => r.catalog_id).filter(isCatalogId);
-  const catalogRows: CatalogRows = linkIds.length ? await catalogRowsById(await useCatalogDb(), linkIds) : new Map();
+  const catalogRows: CatalogRows = linkIds.length ? await catalogRowsById(await useDb(), linkIds) : new Map();
 
   let updated = 0;
   for (const r of rows) {
@@ -2145,7 +2143,7 @@ async function readMyLists(event: H3Event): Promise<ToolResult> {
   // the budget is the account's, as get_my_gear's is, never the shared address
   await rateLimitSubject("mcp-read", `lists:${caller.userId}`);
   const origin = trustedOrigin(event);
-  const lists = await listClaimedLists(await useAccountDb(), caller.userId);
+  const lists = await listClaimedLists(await useDb(), caller.userId);
   return ok({
     lists: lists.map((l) => ({
       title: l.title,
@@ -2197,7 +2195,7 @@ async function verifyCatalog(event: H3Event, args: Record<string, unknown>): Pro
       const mismatch = gearMismatch(piece, identity);
       return mismatch && `gear_id ${piece.id}: ${mismatch} Nothing was written. Check the id; if it really is this product, put the piece's name or size right with edit_my_gear first, then send gear_id again.`;
     });
-  const done = await verifyCatalogItem(await useCatalogDb(), userId, args, precheck);
+  const done = await verifyCatalogItem(await useDb(), userId, args, precheck);
   if (typeof done === "string") return fail(done);
   const answer = { created: done.created, revived: done.revived, unchanged: done.unchanged, row: catalogRowResult(done.row), edit_id: done.editId, ...(done.warnings.length ? { warnings: done.warnings } : {}) };
   if (!gear) return ok(answer);
@@ -2247,7 +2245,7 @@ async function getCatalogEdits(event: H3Event, args: Record<string, unknown>): P
   const limit = args.limit == null ? EDITS_DEFAULT : args.limit;
   if (!Number.isInteger(limit) || (limit as number) < 1 || (limit as number) > EDITS_MAX) return fail(`limit is a whole number from 1 to ${EDITS_MAX}.`);
   await rateLimitSubject("mcp-read", `admin:${userId}`);
-  const edits = await recentChanges(await useCatalogDb(), limit as number, args.catalog_id as number | undefined);
+  const edits = await recentChanges(await useDb(), limit as number, args.catalog_id as number | undefined);
   return ok({
     edits: edits.map((c) => ({
       id: c.id,
@@ -2269,7 +2267,7 @@ async function revertCatalogEdit(event: H3Event, args: Record<string, unknown>):
   const userId = adminId(event);
   if (!userId) return fail("Unknown tool: revert_catalog_edit");
   await rateLimitSubject("mcp-write", `admin:${userId}`);
-  const done = await undoCatalogEdit(await useCatalogDb(), args.edit_id);
+  const done = await undoCatalogEdit(await useDb(), args.edit_id);
   if (typeof done === "string") return fail(done);
   const { row, rejected } = done;
   return ok({ edit_id: args.edit_id, rejected, retired: row == null || row.status !== "active", row: row && catalogRowResult(row) });
@@ -2290,7 +2288,7 @@ async function openGear(event: H3Event, need: AccessScope): Promise<GearHandle |
   // the budget is the account's, as a list tool's is the list's: one busy assistant
   // runs down its own allowance and nobody else's, whatever address it calls from
   await rateLimitSubject(need === "write" ? "mcp-write" : "mcp-read", `gear:${caller.userId}`);
-  const db = await useVaultDb();
+  const db = await useDb();
   return { db, userId: caller.userId, vaultId: await vaultIdOfUser(db, caller.userId) };
 }
 
@@ -2605,7 +2603,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   const named = [...add, ...updates].map((e) => argsOf(e).catalog_id);
   for (const id of named) if (id != null && !isCatalogId(id)) return fail(`catalog_id must be a catalog id, a whole number from search_catalog; ${JSON.stringify(id)} isn't one.`);
   const linkIds = named.filter(isCatalogId);
-  const catalogRows: CatalogRows = linkIds.length ? await catalogRowsById(await useCatalogDb(), linkIds) : new Map();
+  const catalogRows: CatalogRows = linkIds.length ? await catalogRowsById(await useDb(), linkIds) : new Map();
   const { db, userId } = gear;
   let vaultId = gear.vaultId;
 
@@ -2677,7 +2675,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
     .filter((e) => e.catalog_id !== undefined || e.variant !== undefined)
     .map((e) => facts.get(e.id as number)?.catalogItemId)
     .filter((cid): cid is number => isCatalogId(cid));
-  const linkedBefore: CatalogRows = touching.length ? await catalogRowsById(await useCatalogDb(), touching, true) : new Map();
+  const linkedBefore: CatalogRows = touching.length ? await catalogRowsById(await useDb(), touching, true) : new Map();
   // a piece linked earlier in this call is linked to a row the call named
   const linkedTo = (cid: number | undefined) => (cid == null ? undefined : (linkedBefore.get(cid) ?? catalogRows.get(cid)));
   for (const [n, e] of updates.entries()) {

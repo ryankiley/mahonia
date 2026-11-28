@@ -16,7 +16,7 @@
 
 import { eq, lt, sql } from "drizzle-orm";
 import { trailFavicons } from "../db/schema";
-import { ensureTrailFaviconSchema, type Db } from "./db";
+import type { Db } from "./db";
 import { displayHost, safeUrl } from "../../shared/trailLink";
 // the streaming, cancel-at-the-cap body reader — it started life in this file and
 // now lives beside its sibling readJsonBodyCapped, since /api/import needs it too
@@ -183,7 +183,6 @@ export function warmFavicon(db: Db, trailUrl: string | null | undefined): void {
  */
 export async function cacheFaviconForHost(db: Db, host: string): Promise<string | null> {
   try {
-    await ensureTrailFaviconSchema(db);
     // select the VALUE, not just the key: on the common (cached) path this is the only
     // query the whole request needs
     const existing = await db
@@ -223,7 +222,6 @@ export async function refreshStaleFavicons(
   db: Db,
   now = new Date(),
 ): Promise<{ checked: number; updated: number }> {
-  await ensureTrailFaviconSchema(db);
   const cutoff = new Date(now.getTime() - FAVICON_TTL_MS);
   const stale = await db
     .select({ host: trailFavicons.host, dataUrl: trailFavicons.dataUrl })

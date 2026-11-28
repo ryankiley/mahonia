@@ -2,7 +2,7 @@ import type { H3Event } from "h3";
 import { createError } from "h3";
 import { eq } from "drizzle-orm";
 import { vaults } from "../db/schema";
-import { useVaultDb, type Db } from "./db";
+import { useDb, type Db } from "./db";
 import { resolveSession } from "./authSession";
 
 /**
@@ -38,7 +38,7 @@ async function vaultFor(
   const user = await resolveSession(event);
   if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in to use your vault" });
 
-  const db = await useVaultDb();
+  const db = await useDb();
   return { db, vaultId: await vaultIdOfUser(db, user.id), userId: user.id };
 }
 

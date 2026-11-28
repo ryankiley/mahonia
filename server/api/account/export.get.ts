@@ -1,6 +1,5 @@
 import { defineEventHandler, setHeader } from "h3";
 import { requireAccount } from "../../utils/authSession";
-import { useVaultDb } from "../../utils/db";
 import { exportClaimedLists } from "../../utils/listRepo";
 import { vaultIdOfUser } from "../../utils/vaultAuth";
 import { listVaultItems } from "../../utils/vaultRepo";
@@ -15,7 +14,6 @@ import { everythingExport } from "../../../shared/exporters/everything";
 // requireAccount, since this is one person's everything.
 export default defineEventHandler(async (event) => {
   const { user, db } = await requireAccount(event, "account-export");
-  await useVaultDb(); // the vault tables are ensured separately, see db.ts
   // a fresh account has no vault row until its first capture: an empty gear half,
   // not an error, the same reading the /gear page makes
   const vaultId = await vaultIdOfUser(db, user.id);

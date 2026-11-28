@@ -1,8 +1,8 @@
-// Point the server's own connection accessors at a suite's throwaway database.
+// Point the server's own connection accessor at a suite's throwaway database.
 //
-// Endpoints and the session/edit gates reach for useAccountDb()/useVaultDb()/
-// useDb()/useCatalogDb() themselves rather than taking a handle, so a suite that
-// drives them has to swap the module. The one-liner each suite keeps is
+// Endpoints and the session/edit gates reach for useDb() themselves rather than
+// taking a handle, so a suite that drives them has to swap the module. The one-liner
+// each suite keeps is
 //
 //   vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 //
@@ -15,9 +15,9 @@
 import type { TestDb } from "./db";
 
 export const dbState = {
-  /** what every accessor resolves to — set it in beforeEach, after createTestDb */
+  /** what useDb() resolves to — set it in beforeEach, after createTestDb */
   db: undefined as TestDb | undefined,
-  /** when true every accessor throws — a case proving a path never touches the
+  /** when true useDb() throws — a case proving a path never touches the
    *  database (editAuthGate's bearer path) flips it on */
   throwIfTouched: false,
 };
@@ -30,5 +30,5 @@ export async function mockDbModule(
     if (dbState.throwIfTouched) throw new Error("this path must not touch the database");
     return dbState.db;
   };
-  return { ...mod, useDb: grab, useCatalogDb: grab, useVaultDb: grab, useAccountDb: grab };
+  return { ...mod, useDb: grab };
 }

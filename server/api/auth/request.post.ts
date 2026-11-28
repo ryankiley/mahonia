@@ -6,7 +6,7 @@ import {
   normalizeEmail,
   sweepExpiredAuth,
 } from "../../utils/authSession";
-import { useAccountDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { canSendEmail } from "../../utils/email";
 import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit, rateLimitSubject } from "../../utils/rateLimit";
@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
   await rateLimitSubject("auth-request", email);
 
   try {
-    const db = await useAccountDb();
+    const db = await useDb();
     const user = await findOrCreateUser(db, email);
     // Only where a link is about to exist. Set any earlier and an ask that mailed
     // nothing (a mistyped address, a throttled one) would replace the nonce the

@@ -2,7 +2,7 @@ import { createError, defineEventHandler } from "h3";
 import { buildCatalogNameIndex, lookupImported, type ImportedName } from "../../../shared/catalogMatch";
 import { MAX_BRAND_LEN, MAX_ITEMS, MAX_ITEM_NAME_LEN, MAX_VARIANT_LEN } from "../../../shared/ops";
 import { activeCatalogRows } from "../../utils/catalog";
-import { useCatalogDb } from "../../utils/db";
+import { useDb } from "../../utils/db";
 import { isObjectLike, readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
@@ -26,6 +26,6 @@ export default defineEventHandler(async (event) => {
     return { name: str(o.name, MAX_ITEM_NAME_LEN) ?? "", brand: str(o.brand, MAX_BRAND_LEN), variant: str(o.variant, MAX_VARIANT_LEN) };
   });
 
-  const index = buildCatalogNameIndex(await activeCatalogRows(await useCatalogDb()));
+  const index = buildCatalogNameIndex(await activeCatalogRows(await useDb()));
   return { matches: names.map((n) => lookupImported(index, n)) };
 });

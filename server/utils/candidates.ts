@@ -23,8 +23,7 @@ import {
 import { buildSearchTerms } from "../../scripts/searchTerms";
 import { itemDisplayName } from "../../shared/weights";
 import { trigramScore, type CatalogSearchResult } from "../../shared/catalogSearch";
-import { bumpUsage, catalogGearTypeCategories, ensureCatalogSchema, searchCatalog } from "./catalog";
-import { ensureOf } from "./ddl";
+import { bumpUsage, catalogGearTypeCategories, searchCatalog } from "./catalog";
 import type { Db } from "./db";
 
 // app/pages/legal.vue tells visitors "three or more different lists": change both together.
@@ -51,8 +50,6 @@ export const CANDIDATES_DDL: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_candidate_identity ON catalog_candidates (norm_key, list_id)`,
   `CREATE INDEX IF NOT EXISTS idx_candidate_open ON catalog_candidates (norm_key) WHERE promoted_into_id IS NULL AND rejected_at IS NULL`,
 ];
-
-const ensureCandidatesSchema = ensureOf(CANDIDATES_DDL);
 
 /** An observation still waiting on a verdict: neither promoted nor rejected. The
  *  predicate idx_candidate_open is built on, said once for every query that means it. */
@@ -96,7 +93,6 @@ export async function stageCandidates(
     }))
     .filter((r) => r.normKey);
   if (!rows.length) return;
-  await ensureCandidatesSchema(db);
   // Dedupe by the upsert key (last observation wins): two staged rows sharing a
   // normKey inside ONE multi-row INSERT would raise Postgres's "ON CONFLICT DO
   // UPDATE command cannot affect row a second time". listId is constant here, so
@@ -179,8 +175,6 @@ interface CorroborateResult {
 
 /** The nightly job: promote corroborated typed items into community catalog rows. */
 export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
-  await ensureCatalogSchema(db);
-  await ensureCandidatesSchema(db);
   const res: CorroborateResult = { scanned: 0, promoted: 0, merged: 0, rejected: 0, skipped: 0, purged: 0 };
 
   // norm_keys corroborated by >= K distinct lists

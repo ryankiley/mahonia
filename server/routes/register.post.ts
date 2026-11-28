@@ -1,5 +1,5 @@
 import { defineEventHandler, setResponseStatus } from "h3";
-import { useAccountDb } from "../utils/db";
+import { useDb } from "../utils/db";
 import { readJsonBodyCapped, setNoStore } from "../utils/http";
 import { oauthError } from "../utils/oauth";
 import { cleanClientName, cleanRedirectUris, registerOAuthClient } from "../utils/oauthClients";
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const method = body?.token_endpoint_auth_method;
   if (method !== undefined && method !== "none") return oauthError(event, "invalid_client_metadata", "Only public clients register here: token_endpoint_auth_method must be none.");
   const clientName = cleanClientName(body?.client_name);
-  const made = await registerOAuthClient(await useAccountDb(), { clientName, redirectUris });
+  const made = await registerOAuthClient(await useDb(), { clientName, redirectUris });
   setResponseStatus(event, 201);
   return {
     client_id: made.clientId,
