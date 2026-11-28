@@ -2,7 +2,7 @@
 import { IconFormSquare, IconSquareCheck } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 // The single mount point for the app-wide confirm + copy-link-fallback dialogs
-// (state in useDialogs). Rendered once in app.vue so every page — including the
+// (state in useDialogs). Rendered once by AppOverlays so every page — including the
 // layout-less editor — shares one instance. Both reuse BaseModal (scrim, rise,
 // Escape + click-outside), so they look and behave like every other dialog.
 const { confirmState, settleConfirm, linkState, closeLinkFallback } = useDialogs();

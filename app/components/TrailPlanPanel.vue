@@ -1388,13 +1388,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 /* Sized to CONTENT, and left-aligned. `.field--num` right-aligns inside a fixed box,
    which is right in the item grid where weights form a column — here the figures sit in
    a flex row behind their own glyph, so a fixed box just parked a gap between the icon
-   and its number. Nothing lines up vertically for that alignment to serve. */
-/* Sized to its CONTENT, with the column width living on the cell instead.
- *
- * The fixed width belongs one level up. Put on the input, it padded short values out to
- * the widest — "3130" in a 5ch box left a space before "ft", breaking the number away
- * from its own unit. On the cell, the slack lands at the END of the column where it is
- * just spacing, and the figure and its unit stay a single object. */
+   and its number, or between the number and its unit. */
 .plan__num {
   padding-inline: 0;
   width: auto;

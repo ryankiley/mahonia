@@ -1,7 +1,6 @@
 // The bundle report: what bundle-budget.mjs writes with `--report=` and what
 // bundle-delta.mjs reads back — the one place the two agree on its shape and on how
-// a byte count is shown. Plain .mjs, so both CLIs import it with no transpiler
-// (the changelog scripts keep a duplicate for the opposite reason: one is TypeScript).
+// a byte count is shown. Plain .mjs, so both CLIs import it with no transpiler.
 
 import { readFileSync } from "node:fs";
 
@@ -10,9 +9,7 @@ export const kb = (n) => (n / 1024).toFixed(1);
 
 /** Every key a report carries. The two `*Sources` maps are null when the build
  *  carried no hidden sourcemaps.
- *  Each entry of `files` is { file, br, raw, first }; `raw` is absent from reports
- *  written before the receipt learned to name compression noise, and a reader has
- *  to allow for that (main's stored baseline may be one). */
+ *  Each entry of `files` is { file, br, raw, first }. */
 const REPORT_KEYS = ["firstLoad", "total", "maxChunk", "budgets", "files", "firstLoadSources", "totalSources"];
 
 /**

@@ -41,11 +41,6 @@ type SessionAnswer =
 // like the state they guard is app-wide: every caller shares the one request.
 let asking: Promise<void> | null = null;
 let again: Promise<void> | null = null;
-// How many asks have started, and how many had when a re-read was last forced:
-// a forced re-read is owed an ask that started AFTER it was called for, and no
-// more than that (see refresh).
-let asks = 0;
-let forcedAt = 0;
 
 /** How long /api/auth/me may take. $fetch has no timeout of its own, and a forced
  *  re-read now waits for the ask in front of it: a socket that never answers (a
@@ -93,10 +88,9 @@ export function useSession() {
   const pending = useState<boolean>("session-pending", () => false);
   const askFailed = useAskFailed();
 
-  // Presence of the user, NOT of an email. An account created with a passkey has
-  // no address until someone attaches one, so keying this off `email` would read
-  // every one of them as signed out — and take the vault, capture and the byline
-  // down with it. The account is the identity; the address is only the way back in.
+  // Presence of the user, NOT of an email. Every account has an address (a passkey
+  // signup's is unverified until a link sent to it comes back), but the account is
+  // the identity; the address is only the way back in.
   const signedIn = computed(() => session.value.state === "signedIn");
 
   /**
@@ -142,13 +136,9 @@ export function useSession() {
     if (!import.meta.client) return Promise.resolve();
     if (asking) {
       if (!force) return Promise.resolve();
-      forcedAt = asks;
-      // If the ask in front turned out stale it has already asked again by itself;
-      // where that second ask started after this call, it IS the re-read, and a
-      // third request would only keep "Signing you in…" up for another round trip.
       const run = () => {
         again = null;
-        return asks > forcedAt ? undefined : refresh(true);
+        return refresh(true);
       };
       // on either outcome: an ask cannot reject as written, and if one ever did,
       // a re-read left hanging off it would fail every forced caller from then on
@@ -173,7 +163,6 @@ export function useSession() {
   /** `kept`: whose caches this tab holds, when the caller already knows. A stale
    *  answer's re-ask passes it on (see below). */
   async function ask(kept?: string | null): Promise<void> {
-    asks++;
     pending.value = true;
     // WHICH SESSION THE QUESTION IS ABOUT, read before the wait and not after. The
     // cookie can change while the request is out (a sign-in finishing in this tab,

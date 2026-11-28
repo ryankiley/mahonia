@@ -15,24 +15,23 @@ interface PressArmOptions<T> {
   /** Touch only: how long a finger must hold before movement means "drag". A
    *  finger that moves straight away is almost always scrolling the list, so
    *  distance alone would hijack every swipe — a short hold arms the drag, and a
-   *  swipe that starts before it elapses is left to the browser as a scroll.
-   *  Omit where distance alone is the right reading for every pointer. */
-  touchHoldMs?: number;
+   *  swipe that starts before it elapses is left to the browser as a scroll. */
+  touchHoldMs: number;
   /** The press travelled far enough: start the actual drag. Called with the
    *  arming move event, after the press record and listeners are already torn
    *  down — so a re-entrant press inside the handler starts clean. */
   onDrag: (payload: T, ev: PointerEvent) => void;
-  /** Touch, with a hold configured: the hold has elapsed, so the next move past the
+  /** Touch: the hold has elapsed, so the next move past the
    *  threshold is a drag. Called from a timer AT that moment rather than on the next
    *  move, because this is where the caller says the hold registered (a lifted row, a
    *  tick of vibration) and that has to reach a finger that is still holding still.
    *  A press-and-hold you can't feel take is a gesture you can't trust. */
-  onArm?: (payload: T) => void;
+  onArm: (payload: T) => void;
   /** A press that ARMED ended without becoming a drag — lifted, cancelled, replaced
    *  by another press, or torn down — so the caller can take its feedback back down.
    *  Not called for a press that never armed, nor once onDrag has the gesture: what a
    *  live drag looks like, and when it ends, is the caller's. */
-  onDisarm?: (payload: T) => void;
+  onDisarm: (payload: T) => void;
 }
 
 export function createPressArm<T>(opts: PressArmOptions<T>) {
@@ -59,7 +58,7 @@ export function createPressArm<T>(opts: PressArmOptions<T>) {
   /** The press ended without a drag: lifted, cancelled, replaced, or unmounted. */
   function end() {
     const p = teardown();
-    if (p?.armed) opts.onDisarm?.(p.payload);
+    if (p?.armed) opts.onDisarm(p.payload);
   }
 
   function onMove(ev: PointerEvent) {
@@ -75,7 +74,7 @@ export function createPressArm<T>(opts: PressArmOptions<T>) {
   function start(payload: T, ev: PointerEvent) {
     if (ev.button !== 0) return;
     end();
-    const hold = opts.touchHoldMs && ev.pointerType === "touch" ? opts.touchHoldMs : 0;
+    const hold = ev.pointerType === "touch" ? opts.touchHoldMs : 0;
     press = {
       x: ev.clientX,
       y: ev.clientY,
@@ -88,7 +87,7 @@ export function createPressArm<T>(opts: PressArmOptions<T>) {
       holdTimer = setTimeout(() => {
         if (!press) return;
         press.armed = true;
-        opts.onArm?.(press.payload);
+        opts.onArm(press.payload);
       }, hold);
     }
     window.addEventListener("pointermove", onMove);
@@ -97,7 +96,7 @@ export function createPressArm<T>(opts: PressArmOptions<T>) {
   }
 
   /** Whether a press is in flight that a move at `timeStamp` would turn into a drag —
-   *  its hold (if any) has elapsed. The question a scroll guard asks: once this is
+   *  its hold (a touch's) has elapsed. The question a scroll guard asks: once this is
    *  true, a finger moving over the list is carrying a row, not scrolling it, and the
    *  browser must not be handed the move (a touch scroll steals the pointer outright,
    *  pointercancel and all). Takes the asking event's own timestamp rather than

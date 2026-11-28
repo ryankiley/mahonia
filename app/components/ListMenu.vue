@@ -241,16 +241,6 @@ watch(open, (o) => {
     background: var(--background-selected-hover);
   }
 }
-/* the app's dropdown mark, and it turns over when the menu is open — it IS the ⋯
-   menu's section chevron (.chev, controls.scss), the same atom the sharing
-   panel's disclosure wears; the copy that lived here was byte-identical to it */
-/* The word STAYS on a phone now. It used to be hidden below $bp-stack, and the comment
-   here said why: "It's the topbar that forces this: with three mode segments the tool
-   cluster no longer fits 375px." Those segments have left the bar — the view switcher is
-   a row in the page now — which gave back ~116px, and the word costs ~30 of it. The
-   component's header argues for a word over a glyph; this is that argument no longer
-   having to be conceded on the surface where it matters most. */
-
 /* The hint hangs under the trigger, in the menu's own position space. Not the
    Prompt component: that one is a corner toast or an inline aside, and this is
    neither — it's tethered to a control. */

@@ -58,9 +58,9 @@ function accessRefs(): VaultAccessRefs {
 }
 
 /**
- * Call a vault endpoint. Same-origin, so the session cookie rides along; the
- * explicit `credentials` keeps that true if a call is ever made cross-origin by
- * accident rather than failing silently as an anonymous request.
+ * Call a vault endpoint. Same-origin, so the session cookie rides along.
+ * `credentials: "same-origin"` is fetch's own default, spelled out only to say so:
+ * a call made cross-origin would go without the cookie and answer as anonymous.
  *
  * The options are spelled out rather than borrowed as `Parameters<typeof
  * $fetch>[1]`. That looked tidier and cost the whole file: taking Parameters of

@@ -41,11 +41,7 @@ const { firstLoad: cap, maxChunk: maxBudget } = head.budgets;
 // size is the figure brotli can't move, so when the first load's did not grow, whatever
 // its brotli figure gained is the compressor placing its blocks differently and the
 // receipt says so, in bytes, where it would otherwise send someone looking for a cost.
-// Null when either report predates `raw` (bundle-budget.mjs): then nothing is claimed.
-const rawFirstLoad = (rep) => {
-  const first = rep.files.filter((f) => f.first);
-  return first.length && first.every((f) => typeof f.raw === "number") ? first.reduce((n, f) => n + f.raw, 0) : null;
-};
+const rawFirstLoad = (rep) => rep.files.filter((f) => f.first).reduce((n, f) => n + f.raw, 0);
 const signedBytes = (n) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-US")} B`;
 
 const lines = [];
@@ -54,7 +50,7 @@ const firstBase = base.firstLoad;
 const rawWas = rawFirstLoad(base);
 const rawNow = rawFirstLoad(head);
 // only where the table shows growth: a wobble that rounds to "—" needs no explaining
-const noise = rawWas !== null && rawNow !== null && rawNow <= rawWas && first > firstBase && delta(firstBase, first) !== "—";
+const noise = rawNow <= rawWas && first > firstBase && delta(firstBase, first) !== "—";
 lines.push(`### Bundle — first load ${kb(first)} KB (${delta(firstBase, first)} vs main${noise ? ", compression noise" : ""})`);
 lines.push("");
 lines.push("| | main | this PR | Δ |");

@@ -7,7 +7,7 @@ import { reactive } from "vue";
 // left you on a settings page whose top bar carries no list navigation to leave with,
 // which is exactly how people described it: lost.
 //
-// Module-level singleton driving ONE <AccountModal> mount in app.vue — the same shape
+// Module-level singleton driving ONE <AccountModal> mount in AppOverlays — the same shape
 // as useDialogs, so any component can open the account without wiring its own overlay.
 // Only ever mutated client-side, so SSR always renders it closed.
 //

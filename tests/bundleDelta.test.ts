@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 // first load whose uncompressed bytes did not grow has not been made heavier, whatever
 // brotli's figure for it did.
 
-type File = { file: string; br: number; raw?: number; first: boolean };
+type File = { file: string; br: number; raw: number; first: boolean };
 const report = (files: File[]) => ({
   firstLoad: files.filter((f) => f.first).reduce((n, f) => n + f.br, 0),
   total: files.reduce((n, f) => n + f.br, 0),
@@ -55,13 +55,6 @@ describe("the bundle receipt", () => {
   it("says nothing of the kind when the first load really grew", () => {
     const heavier = noisy.map((f) => (f.file === "entry.css" ? { ...f, raw: 53_900 } : f));
     const out = receipt(main, heavier);
-    expect(out).toContain("(+0.2 KB vs main)");
-    expect(out).not.toContain("ompression noise");
-  });
-
-  it("claims nothing against a baseline written before reports carried raw sizes", () => {
-    const old = main.map(({ raw: _raw, ...f }) => f);
-    const out = receipt(old, noisy);
     expect(out).toContain("(+0.2 KB vs main)");
     expect(out).not.toContain("ompression noise");
   });

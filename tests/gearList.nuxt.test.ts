@@ -1,5 +1,5 @@
-// The ONE suite here that needs a Nuxt app booted. Everything else in tests/ is
-// plain TS on the node environment and should stay that way — see vitest.config.ts.
+// Boots a Nuxt app, like every *.nuxt.test.ts file; the rest of tests/ is plain TS on
+// the node environment and should stay that way — see vitest.config.ts.
 //
 // Why this can't be plain TS: what is under test isn't a decision a pure function
 // makes, it's an ORDERING hazard between side effects that only exist inside the live

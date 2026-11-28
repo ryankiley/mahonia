@@ -274,6 +274,25 @@ describe("asking again", () => {
     expect(h.vm.offline).toBe(true);
   });
 
+  // The session's offline ends with its answer; the gear's own read is then only a load.
+  it("stops reading as offline once the session answers, while the gear is read", async () => {
+    setCookie("mh_signed_in", "1");
+    writeGearCopy(GEAR, OWNER);
+    const answer = deferred<{ items: VaultEntry[] }>();
+    access.read.mockReturnValue(answer.promise);
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.offline).toBe(true);
+
+    signIn();
+    await nextTick();
+    expect(h.vm.offline).toBe(false);
+    expect(h.vm.readonly).toBe(true);
+    answer.resolve({ items: GEAR });
+    await flushPromises();
+    expect(h.vm.readonly).toBe(false);
+  });
+
   // The same with no owner marker in the browser (a session from before the marker):
   // there is no account to load a copy under, so nothing about the load touches the
   // latch, and offline is simply true from the first moment.

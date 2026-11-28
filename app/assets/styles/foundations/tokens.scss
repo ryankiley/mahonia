@@ -491,7 +491,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      a curve of their own: a thing leaving gets no spring to land on.
      Interruptible by construction: these are CSS transitions, so a move caught by a
      second click retargets from the frame it is drawn at. Carrying its speed across
-     the catch as well is app/utils/spring.ts, the same table in JS. */
+     the catch as well is app/utils/spring.ts, which runs --spring-move in JS. */
   --spring-fade: #{spring-curve(200, 0, 1)};
   --spring-fade-dur: 300ms;
   --spring-step: #{spring-curve(260, 0)};

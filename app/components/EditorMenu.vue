@@ -218,11 +218,6 @@ function act(event: MenuEvent | FootEvent) {
 }
 /* The shared .menu__foot (controls.scss) separates list, site, and destructive
    actions. Its rule spans the same width as the travelling plate. */
-/* ...and its FOOT holds the one action that ends the list, ruled off from the rest —
-   the shared .menu__foot (controls.scss), which the switcher and the read views' menu
-   wear too. The rule sits on the <li> rather than on the row, so it spans the same
-   width the travelling plate does (both measure from the popover's padding box)
-   instead of the row's own inset. */
 /* THE ONE COLOURED ROW IN THE CHROME. It was --foreground-tertiary with the trash glyph
    doing the distinguishing, on the monochrome rule in tokens.scss; it now spends
    --danger, and the token's comment has been widened to say so rather than left asserting
@@ -236,9 +231,6 @@ function act(event: MenuEvent | FootEvent) {
    No hover deepen. The wash is the state — moving the foreground as well would say two
    things about one event, and there is nowhere darker for red to go that doesn't
    read as a different colour. */
-/* the glyph column, and the `flex: none` pinning the icon into it, are .menu__item's
-   own now (atoms/controls.scss) — including the section header's, which took its gap
-   from the copy that lived here */
 /* ...and forgetting stays in plain foreground. It is not a lesser action — it takes the
    default row colour, not the quiet one — it just isn't the irreversible one, and
    red is what this menu reserves for that. */
