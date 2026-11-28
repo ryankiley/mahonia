@@ -794,10 +794,10 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
                The field itself is still a URL and nothing else: type="url", https://
                placeholder. "Link", not "Page or URL", which offered a choice that isn't
                there. -->
-          <label class="head__panellabel" :for="`${fieldsId}-url`">Link</label>
+          <label class="well-label head__panellabel" :for="`${fieldsId}-url`">Link</label>
           <input
             :id="`${fieldsId}-url`"
-            class="well head__panelinput"
+            class="well well--compact head__panelinput"
             type="url"
             inputmode="url"
             placeholder="https://"
@@ -853,10 +853,10 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
                reads as a second thing to fill in, when most links name themselves from the
                URL anyway. It's here for the ones that can't (caltopo.com/m/ABC). -->
           <template v-if="mode === 'edit'">
-            <label class="head__panellabel" :for="`${fieldsId}-title`">Link title</label>
+            <label class="well-label head__panellabel" :for="`${fieldsId}-title`">Link title</label>
             <input
               :id="`${fieldsId}-title`"
-              class="well head__panelinput"
+              class="well well--compact head__panelinput"
               :placeholder="link?.name ?? ''"
               :value="labelField.value"
               @input="labelField.input"
@@ -878,14 +878,14 @@ useMenuDismiss(trailUp, trailEl, dismissTrail);
                have left it empty. The other two fields are optional too, but this is
                the one that reads as a thing the app needs — it's the only number in
                here, and a number in a form looks required. -->
-          <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
+          <label class="well-label head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
           <!-- The unit sits INSIDE the field's row rather than in the label, because
                it's a control and the label isn't. Same chevron-beside-an-abbreviation
                the totals bar and each item row use — one vocabulary for one gesture. -->
           <span class="head__distrow">
             <input
               :id="`${fieldsId}-dist`"
-              class="well head__panelinput head__distinput"
+              class="well well--compact head__panelinput head__distinput"
               inputmode="decimal"
               autocorrect="off"
               spellcheck="false"
@@ -1299,53 +1299,36 @@ img.head__icon {
    WORDS sit a step further in, on the edge a field's own text already starts on (its 8px
    inline padding). The labels and the file row used to start on the grounds' edge, so
    the panel's text had two left edges and the URL in the field missed the label above it.
-   That step is this one rule. */
-.head__panellabel,
+   The labels take that step from .well-label (atoms/controls.scss); the file row and its
+   error line take it here. */
 .head__gpx,
 .head__gpxerr {
   padding-inline: var(--space-2);
 }
-/* 12px + medium weight — the smaller of the two chrome steps, so the labels stay
-   subordinate to the fields and row beneath them. A label
-   belongs to the field UNDER it, so it sits closer to that field (8) than the field above
-   sits to it (16, set on the adjacent-sibling rule below). */
+/* The label's type is .well-label's, worn in the markup. A label belongs to the field
+   UNDER it, so it sits closer to that field (8) than the field above sits to it (16, set
+   on the adjacent-sibling rule below). */
 .head__panellabel {
   margin-block-end: var(--space-2);
-  color: var(--foreground-tertiary);
-  font-size: var(--text-micro);
-  font-weight: var(--font-weight-semibold); /* the type system's one strong weight — no 500 (typography.scss) */
-  line-height: var(--leading-tight); /* 14.4px — a tight box, so the label reads as attached to its field */
 }
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel
    there's no surrounding structure to imply where the input begins, so the fill IS the
    boundary. Each label sits above its own field, so a placeholder never has to stand in
    for one.
-   The fill is the .well atom (atoms/controls.scss), worn in the markup: its ground (an
-   amount of foreground, so it shows on this card in both themes, where the
-   --background-secondary this used sat at 1.10:1 on it), its foreground, its placeholder,
-   and its focus — the ground deepens a step and nothing is drawn round it, the one focus
-   every contained field on a floating surface takes. Only the geometry below is this
-   panel's. */
+   The fill is the .well atom and its box is .well--compact (atoms/controls.scss), both
+   worn in the markup: its ground (an amount of foreground, so it shows on this card in
+   both themes, where the --background-secondary this used sat at 1.10:1 on it), its
+   foreground, its placeholder, its focus (the ground deepens a step and nothing is drawn
+   round it, the one focus every contained field on a floating surface takes), its height,
+   padding and 16px type. Only the width and the corner are this panel's. */
 .head__panelinput {
   width: 100%;
-  /* 2em — a field twice the height of its own type, which is the proportion a compact
-     field wants. --field-h (36px) came out visibly taller because this input is locked to 16px (see
-     below); expressing it as a ratio keeps the proportion instead of the pixel. */
-  min-height: 2em;
-  /* the inherited 1.5 leading (24px here) plus padding and border already exceeds 2em,
-     so min-height never bound and the field came out 34px. Tightening the leading lets
-     the ratio above actually govern the height. */
-  line-height: 1.25;
-  padding: var(--space-1) var(--space-2);
   /* No outline, at rest or focused (the reset already gives inputs none — the old
      `1px solid transparent` was opting back IN so a focus ring could foreground it). The
      fill IS the field here; a ring on top said the same thing twice, and the site's
      own inputs carry no border at all — the caret carries focus. */
   /* smaller than the panel's own corner — derived, so it tracks --radius-3 */
   border-radius: calc(var(--radius-3) - var(--space-1));
-  /* stays at 16px while the labels above drop to 12px: 14 would sit better with them,
-     but anything under 16px makes iOS Safari zoom the page on focus (atoms/controls.scss) */
-  font-size: var(--text-input);
 }
 /* Every label after the first starts a new field and takes the step that separates one
    pair from the next. A rule about the panel's labels, not about what happens to sit
@@ -1446,7 +1429,7 @@ img.head__icon {
      12px gap. Only this panel's own geometry lives here. The radius comes out right
      because .head__panel keeps the .popover atom's corner — see there. */
   /* It bled out to 4px off the panel's edge, a third left edge beside the fields' 12 and
-     the words' 20. Now on the two the rest of the panel keeps (see .head__panellabel). */
+     the words' 20. Now on the two the rest of the panel keeps (TWO EDGES, at .head__gpx). */
   padding: var(--space-2);
   font-size: var(--text-chrome);
   line-height: var(--leading-tight);

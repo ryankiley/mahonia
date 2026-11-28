@@ -861,12 +861,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
-/* the mode bar's hover (--background-hover-subtle): /gear draws these same three tabs
-   with the mode bar itself, and here they answered the pointer in foreground alone */
+/* the mode bar's hovers: /gear draws these same three tabs with the mode bar itself.
+   --background-hover-subtle on a tab beside the chosen one, and on the chosen tab
+   --background-selected-hover, one step up from its plate, so it answers the pointer too. */
 @media (hover: hover) and (pointer: fine) {
   .vp__tab:hover {
     background: var(--background-hover-subtle);
     color: var(--foreground-primary);
+  }
+  .vp__tab.is-active:hover {
+    background: var(--background-selected-hover);
   }
 }
 /* A FINGER-SIZED TARGET for a chip drawn at text size. The tab is ~27px tall and sits
