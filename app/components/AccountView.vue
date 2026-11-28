@@ -167,12 +167,13 @@ watch(linkEmail, () => (linkNote.value = ""));
 // back.
 const sentLine = useTemplateRef<HTMLElement>("sentLine");
 const linkField = useTemplateRef<HTMLInputElement>("linkField");
-// THE ADDRESS FIELD TAKES THE CARET AS THE DIALOG OPENS, under a pointer that can hover.
+// THE ADDRESS FIELD TAKES THE CARET AS THE DIALOG OPENS, except on touch.
 // The card is one field and Continue, and it opened with nothing to type into until the
 // field was clicked or tabbed to. Focusing it is also what brings up the browser's own
 // passkey list (the field is marked for it, above), so someone who has a passkey is
 // offered it as the dialog arrives and everyone else just types.
-// NOT ON TOUCH: focus there raises the keyboard over half the card before it has been
+// NOT ON TOUCH (`pointer: coarse`, the test the list switcher's filter field makes for the
+// same reason): focus there raises the keyboard over half the card before it has been
 // read. And only in the DIALOG: the same form set into a page (/account signed out, the
 // consent step) is one thing among others, and the page keeps its own focus.
 // On the node, post, for the reason BaseModal's move-in is: the field reaches the page
@@ -183,7 +184,7 @@ watch(
   (el) => {
     const dialog = el?.closest<HTMLElement>('[role="dialog"]');
     if (!el || !dialog) return;
-    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (window.matchMedia("(pointer: coarse)").matches) return;
     const held = document.activeElement;
     if (held && held !== dialog && dialog.contains(held)) return;
     el.focus({ preventScroll: true });
@@ -1003,11 +1004,8 @@ async function onSignOut() {
 /* CONTAINED, by the same recipe as .acct__input above — one container language for
    every control on this surface.
    It recedes to --background-primary with a hairline rather than sitting on a raised
-   fill, and when this was written it had to: --surface-1 and the --background-tertiary
-   the .btn atom hovered in were the SAME value (#1f1f1f) in dark, so that fill was
-   literally invisible inside a dialog (the atom hovers in a tint now, which shows).
-   Going darker than the surface is the only fill that reads here, and the hairline
-   carries light mode, where --surface-1 and --background-primary are both #fff.
+   fill: darker than the surface is the fill that reads inside a dialog, and the
+   hairline carries light mode, where --surface-1 and --background-primary are both #fff.
    flex-start because the section is a flex column: a stretched button centres its
    label away from the line every other row starts on. The pill corner is .btn's own. */
 .acct__btn {
@@ -1015,13 +1013,13 @@ async function onSignOut() {
   border: 1px solid var(--border-primary);
   background: var(--background-primary);
 }
-/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+/* The atom's own hover (.btn:hover, controls.scss), named again only because the fill
+   above is this file's: the two weigh the same and this one comes later in the
+   cascade, so without this line the atom's tint would never show. Pointer-gated, as
+   the atom's is. */
 @media (hover: hover) and (pointer: fine) {
   .acct__btn:hover {
-    /* a step TOWARD the surface, visible in both modes — see above for why the atom's
-       own hover wasn't */
-    background: var(--background-secondary);
-    border-color: var(--border-strong);
+    background: var(--background-hover);
   }
 }
 .acct__btn:disabled {
@@ -1095,8 +1093,7 @@ async function onSignOut() {
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .acct__tokenrow :deep(.acct__scope:hover) {
-    background: var(--background-secondary);
-    border-color: var(--border-strong);
+    background: var(--background-hover);
     color: var(--foreground-primary);
   }
 }
