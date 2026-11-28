@@ -7,14 +7,12 @@ import { SvgIcon } from "~/utils/icon";
 // Escape + click-outside), so they look and behave like every other dialog.
 const { confirmState, settleConfirm, linkState, closeLinkFallback } = useDialogs();
 
+// The link is selected as its field reaches the page, so it's one keystroke to copy by
+// hand. On the field and not on `open`: this component mounts on first use with the
+// fallback already open, which a watch on `open` never hears, and the field is made anew
+// on every open (BaseModal's move-in follows its card the same way).
 const linkInput = useTemplateRef<HTMLInputElement>("linkInput");
-watch(
-  () => linkState.open,
-  (open) => {
-    // pre-select the link so it's one keystroke to copy by hand
-    if (open) nextTick(() => linkInput.value?.select());
-  },
-);
+watch(linkInput, (el) => el?.select(), { flush: "post" });
 </script>
 
 <template>

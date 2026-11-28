@@ -79,5 +79,5 @@ export function useItemRowClassification({
   // says WHICH row, as the stepper's and the grip's do: a list of twenty read "Base"
   // twenty times.
   const classAria = computed(() => `${classTitle.value} for ${item.value.name || "item"}`);
-  return { activeSplit, classAria, classTitle, isConsumable, isWorn, pickClass, rowClass, setWornCount, splitOffered, wornCount };
+  return { activeSplit, classAria, classTitle, isConsumable, pickClass, rowClass, setWornCount, splitOffered, wornCount };
 }

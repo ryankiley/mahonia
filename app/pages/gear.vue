@@ -567,6 +567,10 @@ const { toast, flash } = useToast();
 const share = useVaultShare(flash);
 const shareRef = useTemplateRef<HTMLElement>("shareRef");
 const shareOpen = ref(false);
+// gear to export, and (signed in, online) an account to share it from: the ⋯ menu reads
+// the first, the share glyph both
+const canExport = computed(() => hasGear.value && items.value.length > 0);
+const canShare = computed(() => hasVault.value && !offline.value && canExport.value);
 useMenuDismiss(shareOpen, shareRef);
 watch(shareOpen, (open) => open && share.refresh());
 function onMenuPick(action: string) {
@@ -630,7 +634,7 @@ async function exportGear(kind: string) {
           <!-- Sharing is a glyph in the bar, where the editor keeps its own (account,
                share, ⋯), not a row in the ⋯: one act, one place, on every page. Only
                when there is gear to share and an account to share it from. -->
-          <div v-if="hasVault && !offline && hasGear && items.length > 0" ref="shareRef" class="menu gear__sharemenu">
+          <div v-if="canShare" ref="shareRef" class="menu gear__sharemenu">
             <Tooltip text="Sharing" preferred-placement="bottom" :disabled="shareOpen">
               <button
                 type="button"
@@ -656,7 +660,7 @@ async function exportGear(kind: string) {
           </div>
           <VaultMenu
             :signed-in="hasVault && !offline"
-            :can-export="hasGear && items.length > 0"
+            :can-export="canExport"
             @open="exporter"
             @pick="onMenuPick"
           />

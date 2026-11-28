@@ -1,7 +1,7 @@
 import { defineEventHandler, getRouterParam } from "h3";
+import { openPrivate } from "../../utils/authSession";
 import { useDb } from "../../utils/db";
-import { notFound, setNoIndex, setPrivate } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { notFound } from "../../utils/http";
 import { sharedGearByCode } from "../../utils/vaultShare";
 
 // The read-only view of someone's My Gear, by its link code. Read capability only.
@@ -10,9 +10,7 @@ import { sharedGearByCode } from "../../utils/vaultShare";
 // working the moment they turn it off, and an edge copy would keep answering for its
 // window. So each view is one small read, under the same per-IP budget as a list share.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "public-read");
+  await openPrivate(event, "public-read");
   const gear = await sharedGearByCode(await useDb(), getRouterParam(event, "code") || "");
   if (!gear) throw notFound();
   return gear;

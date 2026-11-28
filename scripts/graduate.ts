@@ -3,8 +3,8 @@
 // research row corrected in the app, written back into its own row of its own file; and
 // the merge of the rest into the file they graduate to.
 
-import { and, asc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
-import { catalogEdits, catalogItems } from "../server/db/schema";
+import { and, eq, isNotNull } from "drizzle-orm";
+import { catalogItems } from "../server/db/schema";
 import type { Db } from "../server/utils/db";
 import { normalizeVariant, tidyQuote } from "../shared/catalogQuality";
 import { identity, specToMg } from "./catalogCsv";
@@ -55,40 +55,17 @@ export interface Cited {
 }
 
 /**
- * The stamp a verification leaves on a research row, as conditions on catalog_edits: an
- * applied edit whose undo snapshot has the row verified with no verifier (seedManaged).
- * Once a research row is corrected in the app its own fields no longer say where it came
- * from; its edit history does. The verifier is tested as a JSON null, not a missing key:
- * the snapshot of a product the tool added has neither field. An array to spread into
- * and(...), beside whichever rows the caller asks about (here, and wasResearchRow in
- * server/utils/catalogVerify.ts).
+ * For each in-app row that began as a research row, the research's weight and link when
+ * it was verified: the pair the seed last wrote on it (seed_weight_mg, seed_source_url),
+ * which no verification touches and the reseed leaves alone while the row is held. A
+ * product added in the app has none. Keyed by researchIdentity. If the research row
+ * differs from this today, the research changed after the verification, and graduating
+ * would write over that change.
  */
-export const researchStamp = (): SQL[] => [
-  eq(catalogEdits.status, "applied"),
-  sql`${catalogEdits.undo}->>'verified' = 'true'`,
-  sql`${catalogEdits.undo}->'verifiedBy' = 'null'::jsonb`,
-];
-
-/**
- * For each in-app row that began as a research row, the research's weight and link when a
- * verification first stamped it: the latest edit carrying the research stamp
- * (researchStamp). Keyed by researchIdentity. If the research row differs from this
- * today, the research changed after the verification, and graduating would write over
- * that change.
- */
-export async function researchWhenVerified(db: Db, rows: readonly Row[]): Promise<Map<string, Cited>> {
-  const byId = new Map(rows.map((r) => [r.id, r]));
+export function researchWhenVerified(rows: readonly Pick<Row, "brand" | "name" | "variant" | "seedWeightMg" | "seedSourceUrl">[]): Map<string, Cited> {
   const out = new Map<string, Cited>();
-  if (!byId.size) return out;
-  const stamps = await db
-    .select({ itemId: catalogEdits.catalogItemId, oldWeightMg: catalogEdits.oldWeightMg, sourceUrl: sql<string | null>`${catalogEdits.undo}->>'sourceUrl'` })
-    .from(catalogEdits)
-    .where(and(inArray(catalogEdits.catalogItemId, [...byId.keys()]), ...researchStamp()))
-    .orderBy(asc(catalogEdits.id));
-  // ascending, so the latest stamp of each row is the one left in the map
-  for (const { itemId, oldWeightMg, sourceUrl } of stamps) {
-    const row = byId.get(itemId)!;
-    out.set(researchIdentity(row), { weightMg: Number(oldWeightMg), sourceUrl });
+  for (const row of rows) {
+    if (row.seedWeightMg != null) out.set(researchIdentity(row), { weightMg: Number(row.seedWeightMg), sourceUrl: row.seedSourceUrl });
   }
   return out;
 }
@@ -122,9 +99,10 @@ export function researchIdentity(r: { brand?: unknown; name?: unknown; variant?:
 /**
  * A research file's rows with those of these identities (researchIdentity) given the weight
  * and citation an admin verified in the app: the weight in grams, its source, link and quote
- * (no quote if the graduated row has none), and no weight_secondary, which would be stale.
- * Every other key of the row stays, and every other row is the one passed in. Answers the
- * rows, the identities it replaced, and what each replaced row said before.
+ * (no quote if the graduated row has none), and no weight_secondary or quote_unchecked, which
+ * were about the figure and quote it replaces. Every other key of the row stays, and every
+ * other row is the one passed in. Answers the rows, the identities it replaced, and what
+ * each replaced row said before.
  */
 export function rewriteResearchRows(
   rows: readonly unknown[],
@@ -151,6 +129,7 @@ export function rewriteResearchRows(
     if (graduated.quote) next.quote = graduated.quote;
     else delete next.quote;
     delete next.weight_secondary;
+    delete next.quote_unchecked;
     out[i] = next;
     replaced.add(key);
     const r = row as Record<string, unknown>;
@@ -166,7 +145,7 @@ export interface Overwrite {
   key: string;
   research: Cited;
   app: Cited;
-  /** What the row held when the verification stamped it, where the edit history says. */
+  /** What the research said when the row was verified; null for a product added in the app. */
   whenVerified: Cited | null;
   researchMoved: boolean;
 }

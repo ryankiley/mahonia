@@ -125,8 +125,10 @@ const error = ref("");
 // A pick fills the form: what the product IS (brand, name, size, its catalog link)
 // always, and its gear type, weight and calories only where the field is empty or
 // still holds the last pick's, so a weight you typed first is kept (the one you
-// measured is the one My Gear keeps) and a second pick replaces the first's. The link
-// goes with the piece only while brand, name and size still say that product.
+// measured is the one My Gear keeps) and a second pick replaces the first's, emptying a
+// field it has nothing for: a size of your own has no cited weight, and the last
+// version's left in the field would be saved as this one's. The link goes with the
+// piece only while brand, name and size still say that product.
 const picked = ref<{ id: number; brand: string; name: string; variant: string } | null>(null);
 let pickFill = { commonName: "", weight: "", kcal: "" };
 function onPick(c: NameCommit) {
@@ -134,7 +136,7 @@ function onPick(c: NameCommit) {
   form.name = c.name;
   form.variant = c.variant ?? "";
   const fill = (field: "commonName" | "weight" | "kcal", value: string) => {
-    if (!value || (form[field] && form[field] !== pickFill[field])) return;
+    if (form[field] && form[field] !== pickFill[field]) return;
     form[field] = value;
     pickFill[field] = value;
   };
@@ -294,7 +296,7 @@ async function onSubmit() {
   // is dropped rather than saved unseen, and the next list to pick this row gets none.
   if (changed("kcal") && kcalCounts.value) {
     // read as the list row reads it (parseKcal): "2,700" is 2700, not not-a-number
-    const k = Math.max(0, Math.round(parseKcal(form.kcal) ?? 0));
+    const k = Math.max(0, parseKcal(form.kcal) ?? 0);
     patch.kcal = k > 0 ? k : null;
   }
   if (changed("price")) {

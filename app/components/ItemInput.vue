@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { IconDrop, IconSafeSimple } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
-import { typeScale } from "~/utils/typeScale";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { brandOf, formatWeight, itemDisplayName, nameAfterBrand } from "~~/shared/weights";
@@ -14,7 +13,6 @@ import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
 import { formatVolume, isWaterName, waterMenu, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
-import { menuRoom, visibleBand } from "~/utils/viewportRoom";
 
 // Maps-grade autocomplete for a gear name, in one of two places (`mode`):
 // - "row": a list row's own name, new or existing. It keeps what was committed (the
@@ -157,11 +155,11 @@ watch(draft, (v) => {
   active.value = -1;
   open.value = true;
 });
-// The menu's window listeners exist only WHILE `open` — click-outside, and the
-// viewport watch that sizes the menu (placeMenu, below). This component mounts once
-// per row (collapsed folders keep rows mounted), so an unconditional call would pile
-// half a dozen always-on window listeners per row, all running on every tap and
-// scroll, for a menu only the single focused row can have open.
+// The menu's click-outside exists only WHILE `open` (the viewport watch that sizes the
+// menu is useSuggestPlacement's, below, and keeps the same rule). This component mounts
+// once per row (collapsed folders keep rows mounted), so an unconditional call would pile
+// always-on window listeners per row, all running on every tap and scroll, for a menu
+// only the single focused row can have open.
 let openScope: EffectScope | null = null;
 watch(open, (v) => {
   if (v && !openScope) {
@@ -176,21 +174,6 @@ watch(open, (v) => {
       useWindowEvent("pointerdown", () => (sawPress = true), { passive: true });
       onClickOutside(rootRef, () => {
         if (sawPress) open.value = false;
-      });
-      // The room under the field moves while you type: the keyboard finishes rising
-      // (the visual viewport resizes), the editor lifts this field toward the top
-      // (GearEditor's onFocusIn scrolls the page), a finger scrolls it, the window
-      // turns. Each re-measures, once per frame at most.
-      useWindowEvent("scroll", schedulePlace, { passive: true });
-      useWindowEvent("resize", schedulePlace, { passive: true });
-      const vv = window.visualViewport;
-      vv?.addEventListener("resize", schedulePlace);
-      vv?.addEventListener("scroll", schedulePlace);
-      onScopeDispose(() => {
-        vv?.removeEventListener("resize", schedulePlace);
-        vv?.removeEventListener("scroll", schedulePlace);
-        cancelAnimationFrame(placeFrame);
-        placeFrame = 0;
       });
     });
   } else if (!v && openScope) {
@@ -421,58 +404,16 @@ const rows = computed(() =>
 // whose body clips overflow for the collapse animation; the body lifts that clip for
 // as long as a .popover is inside it (atoms/folder.scss)
 const menuVisible = computed(() => props.suggest && open.value && options.value.length > 0);
-watch(menuVisible, (v) => {
-  if (!v) return;
-  // placed BEFORE the menu renders (a pre-flush watcher), so it mounts on the right side
-  // at the right height and the pop-in grows from the edge it actually hangs off
-  placeMenu();
-});
-
-// WHERE THE MENU OPENS, and how tall it may be — measured against the screen that is
-// actually visible, which on a phone with the keyboard up is a strip above it.
-//
-// The list's own cap (10.5 rows, or 50dvh) can't see the keyboard: iOS doesn't shrink
-// dvh for it, so a menu under a field in the lower half of the screen opened at full
-// height behind the keyboard and showed nothing. GearEditor's onFocusIn lifts such a
-// field toward the top on touch; this sizes the menu to the room that leaves (as
-// --ac-room, the list's third cap) and flips it ABOVE the field only when below has less
-// than a few rows even then — the page had no more scroll to give. The arithmetic is
-// app/utils/viewportRoom's menuRoom, measured from the menu's anchor (the box its
-// `top: 100%` hangs from — ItemRow's name box, not this root, which defers to it).
-/** The menu's offset from its anchor: the --space-1 in `top: calc(100% + …)`. */
-const MENU_GAP = 4;
-/** Breathing room from the keyboard's top edge, or from the topbar when flipped. */
-const MENU_EDGE = 8;
-/** Below with less than this (three rows) flips above, if above has more. */
-const MENU_MIN = 120;
-/** Never shorter than about one row plus the scroller's padding. */
-const MENU_FLOOR = 56;
-const menuAbove = ref(false);
-const menuRoomPx = ref<number | null>(null);
-function placeMenu() {
-  const root = rootRef.value;
-  if (!root) return;
-  const anchor = getComputedStyle(root).position === "static" ? root.offsetParent : root;
-  if (!anchor) return;
-  // px at the base type size, growing with it past 1920px like the rows they measure
-  const scale = typeScale();
-  const r = menuRoom(anchor.getBoundingClientRect(), visibleBand(), {
-    gap: MENU_GAP * scale,
-    edge: MENU_EDGE * scale,
-    min: MENU_MIN * scale,
-    floor: MENU_FLOOR * scale,
-  });
-  menuAbove.value = r.above;
-  menuRoomPx.value = r.room;
-}
-let placeFrame = 0;
-function schedulePlace() {
-  if (placeFrame || !menuVisible.value) return;
-  placeFrame = requestAnimationFrame(() => {
-    placeFrame = 0;
-    if (menuVisible.value) placeMenu();
-  });
-}
+// WHERE THE MENU OPENS, and how tall it may be, in the room the keyboard leaves
+// (useSuggestPlacement): measured from the menu's anchor, the box its `top: 100%` hangs
+// from, which is ItemRow's name box and not this root, which defers to it.
+const { above: menuAbove, room: menuRoomPx } = useSuggestPlacement(
+  () => {
+    const root = rootRef.value;
+    return root && getComputedStyle(root).position === "static" ? root.offsetParent : root;
+  },
+  () => menuVisible.value,
+);
 
 // keyboard nav in a list taller than the scroller: keep the active option in
 // view. Called ONLY from the arrow-key handlers — never from hover-set active:
@@ -886,7 +827,7 @@ const hlVersion = (text: string) => highlightParts(text, sizingText.value);
          so the two floating menus arrive the same way. -->
     <Transition name="menu">
     <!-- sized to the room left on screen, and flipped above when there is none below:
-         see placeMenu -->
+         see useSuggestPlacement -->
     <div
       v-if="menuVisible"
       class="popover ac__menu"
@@ -1013,26 +954,15 @@ const hlVersion = (text: string) => highlightParts(text, sizingText.value);
      into view while editing (focused) */
   text-overflow: ellipsis;
 }
-/* The menu's surface (background/radius/shadow/forced-colors border) comes from
-   the shared .popover atom — this block only positions and sizes it.
+/* The card, its scroller and its rows are .ac__menu, .ac__list and .ac__opt
+   (atoms/controls.scss), shared with a kit's "Add an item"; what's here is this menu's
+   own: its width and its exit.
    In an item row the anchor is the name BOX (.item__namebox overrides .ac to
    position:static), so left:0 = the row's left edge and the width can safely run
    wider than the input: 40rem, capped by the page column so it can never cross
    the row's right edge or the viewport. */
 .ac__menu {
-  position: absolute;
-  left: 0;
-  top: calc(100% + var(--space-1));
-  z-index: var(--z-autocomplete);
   width: min(40rem, calc(min(100vw, var(--container-page)) - 2 * var(--space-4)));
-  /* inline padding only — the VERTICAL breathing room lives inside the scroller
-     (its padding-block scrolls with the content), so scrolled rows travel all
-     the way to the card's edge instead of clipping 8px early at a padding ledge */
-  padding: 0 var(--space-2);
-  /* clip those full-bleed rows (and the scrollbar's extremes) to the radius */
-  overflow: hidden;
-  /* the pop-in scales from where the menu hangs off the input (kebab: top right) */
-  transform-origin: top left;
   /* the rest state of the exit's wipe, below */
   clip-path: inset(-2px round var(--radius-4));
 }
@@ -1054,57 +984,12 @@ const hlVersion = (text: string) => highlightParts(text, sizingText.value);
   transform: none;
   clip-path: inset(-2px -2px 100% -2px round var(--radius-4));
 }
-/* FLIPPED ABOVE the field (placeMenu: the keyboard left no room below, even after the
-   editor lifted the field). Every motion mirrors with it, so the menu still grows out
-   of the field and folds back into it: it hangs from its anchor's top edge, pops in
-   rising from below (the shared menu entrance's 4px, sign flipped, as
-   .menu__list--above does), and its exit wipes DOWNWARD into the field. */
-.ac__menu--above {
-  top: auto;
-  bottom: calc(100% + var(--space-1));
-  transform-origin: bottom left;
-}
-.ac__menu--above.menu-enter-from {
-  transform: translateY(4px) scale(0.98);
-}
+/* FLIPPED ABOVE the field (useSuggestPlacement: the keyboard left no room below, even
+   after the editor lifted the field). It hangs from its anchor's top edge and pops in
+   rising from below (.ac__menu--above, atoms/controls.scss), and its exit mirrors too,
+   wiping DOWNWARD into the field. */
 .ac__menu--above.menu-leave-to {
   clip-path: inset(100% -2px -2px -2px round var(--radius-4));
-}
-/* the scroller — INSIDE the card's inline padding, so the (thin, transparent-
-   track) scrollbar sits inset from the edge, never over the rounded corners */
-.ac__list {
-  padding: var(--space-2) 0;
-  /* cap at 10.5 ROWS (+ the resting top padding), not a round length: the half-
-     cropped row at the fold is the scroll cue — glyphs sliced cleanly AT the
-     card's visual edge (the .popover outline-not-border fix keeps the overflow
-     clip flush; it was a 1px-inset ledge that made this crop read as broken).
-     A full-text fold read as a complete list and left the card too tall. One row
-     = 2×space-2 padding + a 1.5-line-height base-size line; phrasing it in the
-     same vars keeps the fold mid-row past the 1920px anchor where the type (and
-     the rows) scale fluidly. The dvh cap keeps it on-screen on small devices
-     (dvh tracks the collapsing mobile URL bar; vh line = older-browser fallback).
-     The THIRD cap is the one that sees the keyboard, which dvh doesn't on iOS:
-     --ac-room, the room actually left between the field and the keyboard (or the
-     topbar, when flipped above), measured live by placeMenu. Unset until it is. */
-  /* +2px: an eye-tuned crop point rather than a derived one — a hair more of the fold
-     row's glyphs, which is what makes the cut read as a fold and not a clip */
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 55vh);
-  max-height: min(
-    calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px),
-    50dvh,
-    var(--ac-room, 50dvh)
-  );
-  overflow-y: auto;
-  /* never a horizontal bar: overflow-y alone computes overflow-x to auto, and with
-     classic (always-shown) scrollbars the vertical bar narrows the rows, so any
-     sub-pixel x-overflow painted a horizontal TRACK across the menu's bottom —
-     stealing height so the fold crop landed mid-glyph with a dead band below it.
-     Width pressure is the rows' ellipses' job, never a scrollbar's. */
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-  /* reaching the end of the list must not hand the swipe to the page */
-  overscroll-behavior: contain;
 }
 @media (max-width: $bp-stack) {
   /* span the row's own edges — the content column — so the menu keeps the site's
@@ -1116,21 +1001,6 @@ const hlVersion = (text: string) => highlightParts(text, sizingText.value);
     right: 0;
     width: auto;
   }
-}
-.ac__opt {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-2);
-  cursor: pointer;
-  /* both track the shared .popover surface rather than being guessed: the concentric
-     radius is the token derived from its corner (tokens.scss), the hover tint below is
-     declared on .popover itself (atoms/controls.scss) */
-  border-radius: var(--popover-item-radius);
-}
-.ac__opt.is-active {
-  background: var(--background-hover);
 }
 .ac__name {
   display: flex;

@@ -61,9 +61,8 @@ export interface VaultCapture {
   catalogItemId?: number;
   productUrl?: string;
   /** What it cost, in whole cents of `currency`. Recorded on the gear rather than on
-   *  a list row, because a price is a fact about the thing you bought — and because
-   *  the list side has been waiting for it: NameCommit already declares priceCents
-   *  "when it came from the vault", against a vault that had nowhere to keep one. */
+   *  a list row, because a price is a fact about the thing you bought; a row picked
+   *  from My Gear carries it along (NameCommit's priceCents). */
   priceCents?: number;
   /** ISO 4217 for priceCents, when it's known. Moves with the price and is pinned
    *  with it — "$399" is one decision, not two. */
@@ -159,6 +158,28 @@ export interface VaultEntry extends VaultCapture, VaultKitFields {
    *  linked row the catalog holds no axes for. */
   specs?: string;
 }
+
+/** What a row of gear draws from a piece (VaultGearRow): its name, its kind, its weight
+ *  and the short facts beneath. A piece reaches the row as a whole entry on /gear, and as
+ *  only what a reader may see on a shared link (/g), where a kit's part is just its name
+ *  and weight. */
+export type VaultRowView = Pick<
+  VaultEntry,
+  | "brand"
+  | "name"
+  | "variant"
+  | "commonName"
+  | "icon"
+  | "kind"
+  | "weightMg"
+  | "entryUnit"
+  | "owned"
+  | "classification"
+  | "kcal"
+  | "specs"
+  | "priceCents"
+  | "currency"
+>;
 
 // ---------------------------------------------------------------------------
 // kits

@@ -610,17 +610,12 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 
 <template>
   <section class="plan" aria-label="Trip plan">
-    <!-- The headline is the DISTANCE, taking the slot weight holds in the other two
-         views: planning is a question about the route, and the route's length is what you
-         are moving around when you shuffle days.
-         It has earned the display size where an estimate would not have. This figure is
-         entered, or exactly summed from what was entered — no model, no assumption, no
-         default. When the burn estimates land they stay small on purpose; giving the
-         least certain number on the page the most typographic mass is the inversion this
-         whole panel is built to avoid. -->
-    <!-- The big distance used to live here. It is one Headline in GearEditor now, shared
-         with the weight the other two views show — the same element, so switching view
-         changes the number without the figure unmounting and re-counting under you. -->
+    <!-- The trip's distance is the one Headline in GearEditor, shared with the weight the
+         other two views show — the same element, so switching view changes the number
+         without the figure unmounting and re-counting under you. It has the display size
+         because it is entered, or exactly summed from what was entered; the burn
+         estimates stay small on purpose, so the least certain number on the page never
+         gets the most typographic mass. -->
 
     <!-- THE FIGURES ROW, in the seat the totals row holds in the other two views.
          Flipping between Gear and Trip should look like one number changing and one

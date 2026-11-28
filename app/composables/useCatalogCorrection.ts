@@ -33,8 +33,7 @@ export function useCatalogCorrection() {
     correction.value = null;
   }
   async function submit(payload: {
-    weight?: string;
-    weightMg?: number; // exact mg — preferred over the parsed string when present
+    weightMg: number; // read by the dialog in the unit it shows, so the server needs no unit
     sourceUrl?: string;
     reason?: string;
   }): Promise<CorrectionResult | null> {
@@ -48,7 +47,6 @@ export function useCatalogCorrection() {
         method: "POST",
         body: {
           catalogItemId: held.target.catalogItemId,
-          weight: payload.weight,
           weightMg: payload.weightMg,
           sourceUrl: payload.sourceUrl,
           reason: payload.reason,

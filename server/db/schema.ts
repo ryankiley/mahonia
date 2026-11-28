@@ -139,6 +139,12 @@ export const catalogItems = pgTable(
     // The maker's own words for the weight, kept from an in-app verification so
     // `catalog:graduate` can write the row back out as research with its quote.
     sourceQuote: text("source_quote"),
+    // What the research said the last time the seed wrote this row from it: its weight and
+    // its link. Written only by the seed's upsert (scripts/seedUpsert.ts), never by a
+    // correction or a verification, so they still say it after one of those has moved the
+    // row's own weight_mg and source_url. Null on a row the seed has never written.
+    seedWeightMg: bigint("seed_weight_mg", { mode: "number" }),
+    seedSourceUrl: text("seed_source_url"),
     // The row's typed axes, the CSV's `attributes` cell as written ("length=Regular;
     // temp_f=20; fill_power=950"): what My Gear shows as a piece's specs. Seeded rows
     // only; a community or in-app row has none.

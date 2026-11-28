@@ -2,23 +2,19 @@
 // The seeder and the CSV checks read the committed file, so
 // without this test a row added to the CSV by hand passed CI and then vanished at the next
 // build (14 rows nearly did in July 2026, PR #112). Here the committed file is held to a fresh
-// build, byte for byte, and every research row has to build.
+// build, byte for byte. A research error builds nothing, and tests/catalog-research.test.ts
+// names it, so the comparison waits for a build there is.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildCatalog, catalogCsvText } from "../scripts/catalogBuild";
-import { findingText } from "../scripts/catalogChecks";
 import { CATALOG_CSV, RESEARCH_DIR } from "../scripts/paths";
 import { readResearchFiles } from "../scripts/research";
 
 const build = buildCatalog(readResearchFiles(RESEARCH_DIR));
 
 describe("seed/catalog.csv is the research, built", () => {
-  it("builds every research row, each with a gear type", () => {
-    expect(build.errors.map(findingText)).toEqual([]);
-  });
-
-  it("matches a fresh `npm run catalog:build` (run it, and keep only the rows you meant to change)", () => {
+  it.skipIf(build.errors.length > 0)("matches a fresh `npm run catalog:build` (run it, and keep only the rows you meant to change)", () => {
     const built = catalogCsvText(build.rows);
     const committed = readFileSync(CATALOG_CSV, "utf8");
     if (built === committed) return;

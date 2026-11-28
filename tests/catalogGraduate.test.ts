@@ -5,7 +5,9 @@
 // Run on PGlite.
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
-import { CATALOG_DDL } from "../server/utils/catalog";
+import { CATALOG_DDL, proposeCorrection } from "../server/utils/catalog";
+import { verifyCatalogItem } from "../server/utils/catalogVerify";
+import { upsertSeedRows } from "../scripts/seedUpsert";
 import { specToMg } from "../scripts/catalogCsv";
 import {
   asResearchRow,
@@ -131,6 +133,15 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     expect(unquoted[0]).not.toHaveProperty("quote");
   });
 
+  it("drops quote_unchecked with the quote it was about", () => {
+    // a table the reader can't hold the weight to, then verified in the app on a line that states it
+    const exos: ResearchRow = { brand: "Osprey", name: "Exos 48", variant: "S/M", category_hint: "pack", common_name: "backpack", weight_value: 2.84, weight_unit: "lb", weight_secondary: "1.29 kg", weight_source: "manufacturer", source_url: "https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf", quote: "EXOS 48 MEN'S SPECS S/M L/XL ... Pounds 2.84 2.94 Kilograms 1.29 1.33", quote_unchecked: "table lists the unit before the figures" };
+    const verified: ResearchRow = { brand: "Osprey", name: "Exos 48", variant: "S/M", category_hint: "pack", common_name: "Backpack", weight_value: 1290, weight_unit: "g", weight_source: "manufacturer", source_url: "https://www.osprey.com/exos-48-exos48s22-418", quote: "S/M weight 1.29 kg" };
+    const { rows } = rewriteResearchRows([exos], by(verified));
+    expect(rows[0]).not.toHaveProperty("quote_unchecked");
+    expect(runResearchChecks([{ file: "packs-recovery.json", rows: rows as ResearchRow[] }]).filter((f) => f.level === "error")).toEqual([]);
+  });
+
   it("finds a row by the size as the build reads it, and lists what it replaced from the end of the file", () => {
     const elevate = { brand: "Hyperlite Mountain Gear", name: "Elevate 22", variant: "M", attributes: { volume_l: 22 }, category_hint: "pack", common_name: "backpack", weight_value: 502, weight_unit: "g", weight_secondary: "17.7 oz", weight_source: "manufacturer", source_url: "https://www.hyperlitemountaingear.com/products/elevate-22", quote: "Weight 17.7oz | 502g" };
     const hat = { brand: "Sunday Afternoons", name: "Adventure Hat", variant: "", category_hint: "clothing", common_name: "sun hat", weight_value: 85, weight_unit: "g", weight_secondary: "3.0 oz", weight_source: "manufacturer", source_url: "https://www.sundayafternoons.com/products/adventure-hat", quote: "Adjustable sizing Weight: 3.0 ounces/85.0 grams" };
@@ -206,32 +217,38 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     const then = { weightMg: 500_000, sourceUrl: research.sourceUrl };
     expect(planGraduation([corrected], files, new Map([[key, then]])).overwrites[0]).toMatchObject({ whenVerified: then, researchMoved: true });
     expect(planGraduation([corrected], files, new Map([[key, { ...research, sourceUrl: "https://zpacks.com/old" }]])).overwrites[0]!.researchMoved).toBe(true);
-    // no edit history to go by: listed, not marked
+    // a row the seed never wrote has nothing to go by: listed, not marked
     expect(planGraduation([corrected], files).overwrites[0]).toMatchObject({ whenVerified: null, researchMoved: false });
   });
 });
 
 describe("catalog:graduate, what the database says about the research", () => {
-  it("reads the research a row's latest verification stamp replaced, and nothing for a product the tool added", async () => {
+  it("reads the research's weight and link off a row the seed wrote, and nothing for a product the tool added", async () => {
     const db = await createTestDb(CATALOG_DDL);
-    const duplex = await seedCatalogRow(db, { brand: "Zpacks", name: "Duplex", weightMg: 524_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/products/duplex-tent-2026", verified: true, verifiedBy: 7 });
-    const pot = await seedCatalogRow(db, { brand: "Toaks", name: "Titanium 750 Pot", weightMg: 103_000, weightSource: "measured", verified: true, verifiedBy: 7 });
-    const edit = (catalogItemId: number, oldWeightMg: number, newWeightMg: number, undo: schema.CatalogEditUndo, status = "applied") =>
-      db.insert(schema.catalogEdits).values({ catalogItemId, oldWeightMg, newWeightMg, status, undo });
-    const was = (sourceUrl: string) => ({ verified: true, verifiedBy: null, sourceUrl });
-    // stamped once, graduated, stamped again; an undone stamp; then a re-verification of the
-    // row while it was already in the app, whose snapshot isn't the research's
-    await edit(duplex.id, 500_000, 504_000, was("https://zpacks.com/products/duplex"));
-    await edit(duplex.id, 504_000, 520_000, was("https://zpacks.com/products/duplex-tent"));
-    await edit(duplex.id, 520_000, 530_000, was("https://zpacks.com/products/duplex-tent"), "reverted");
-    await edit(duplex.id, 520_000, 524_000, { verified: true, verifiedBy: 7, sourceUrl: "https://zpacks.com/products/duplex-tent" });
-    await edit(pot.id, 103_000, 103_000, { status: "removed" });
+    // a research row corrected in the app: its own weight and link are the admin's, the pair the seed's
+    const duplex = await seedCatalogRow(db, { brand: "Zpacks", name: "Duplex", weightMg: 524_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/products/duplex-tent-2026", verified: true, verifiedBy: 7, seedWeightMg: 504_000, seedSourceUrl: "https://zpacks.com/products/duplex-tent" });
+    await seedCatalogRow(db, { brand: "Toaks", name: "Titanium 750 Pot", weightMg: 103_000, weightSource: "measured", verified: true, verifiedBy: 7 });
 
     const inApp = await inAppVerified(db as never);
-    expect([...(await researchWhenVerified(db as never, inApp))]).toEqual([
+    expect([...researchWhenVerified(inApp)]).toEqual([
       [researchIdentity(duplex), { weightMg: 504_000, sourceUrl: "https://zpacks.com/products/duplex-tent" }],
     ]);
     // the reseed's question: which in-app rows the research doesn't have at all
     expect(notInResearch(inApp, [{ brand: "Zpacks", name: "Duplex", variant: null }]).map((r) => r.name)).toEqual(["Titanium 750 Pot"]);
+  });
+
+  it("reads the research's weight and link, not a visitor's correction the verification replaced", async () => {
+    const db = await createTestDb(CATALOG_DDL);
+    const research = { brand: "Zpacks", name: "Duplex", commonName: "Tent", variant: null, attributes: {}, attributesUnpublished: [], categoryHint: "shelter", weightMg: 539_000, kcal: null, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/products/duplex-tent", searchTerms: "tent shelter" };
+    await upsertSeedRows(db, [research]);
+    const [row] = await db.select().from(schema.catalogItems);
+    // a visitor's cited correction, kept by the next reseed, then an admin's verification
+    expect((await proposeCorrection(db, { catalogItemId: row!.id, newWeightMg: 545_000, sourceUrl: "https://zpacks.com/products/duplex-tent?spec" })).status).toBe("applied");
+    expect((await upsertSeedRows(db, [research])).kept).toHaveLength(1);
+    const verified = await verifyCatalogItem(db, 7, { catalog_id: row!.id, weight_g: 524, source_url: "https://zpacks.com/products/duplex-tent-2026", quote: "18.5 oz / 524 g" });
+    expect(verified).toMatchObject({ row: { weightMg: 524_000, verifiedBy: 7 } });
+    expect([...researchWhenVerified(await inAppVerified(db))]).toEqual([
+      [researchIdentity(row!), { weightMg: 539_000, sourceUrl: "https://zpacks.com/products/duplex-tent" }],
+    ]);
   });
 });

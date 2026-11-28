@@ -1,40 +1,15 @@
 // The seeder's upsert: every CSV row inserted, updated or left alone. Lives beside the
 // seeder rather than in it so a test can run it on PGlite; seed-catalog.ts calls it
 // after the renames and before the retire.
-import { eq, sql } from "drizzle-orm";
-import { catalogEdits, catalogItems } from "../server/db/schema";
+import { eq } from "drizzle-orm";
+import { catalogItems } from "../server/db/schema";
 import type { Db } from "../server/utils/db";
 import { seedManaged } from "../shared/catalogQuality";
 import { identity, type CatalogCsvRow } from "./catalogCsv";
 import { serializeAttributes } from "./catalogAttributes";
 
-/** Rows per INSERT: eleven columns each, well under the driver's parameter ceiling. */
+/** Rows per INSERT: sixteen columns each, well under the driver's parameter ceiling. */
 const INSERT_BATCH = 500;
-
-/** One applied weight change on a row, as catalog_edits holds it. `correction` is a
- *  visitor's fix (no undo); the rest are an admin's in-app verifications. */
-export interface AppliedEdit {
-  oldWeightMg: number;
-  newWeightMg: number;
-  correction: boolean;
-}
-
-/**
- * The weight a row held before the visitors' corrections that brought it to `liveMg`, or
- * null when its weight didn't come from one. `applied` is the row's applied edits, oldest
- * first. Walked newest first, each must be a correction that set the weight the walk is
- * holding; the first that isn't marks another writer in between (a reseed whose research
- * had moved, an admin's verification), so the walk stops there.
- */
-export function weightBeforeCorrections(liveMg: number, applied: readonly AppliedEdit[]): number | null {
-  let weight = liveMg;
-  let walked = false;
-  for (let i = applied.length - 1; i >= 0 && applied[i]!.correction && applied[i]!.newWeightMg === weight; i--) {
-    weight = applied[i]!.oldWeightMg;
-    walked = true;
-  }
-  return walked ? weight : null;
-}
 
 /** A visitor's correction the upsert left standing over the research's weight. */
 export interface KeptCorrection {
@@ -63,13 +38,20 @@ export interface KeptCorrection {
  *
  * A visitor's correction is kept too, more narrowly. A research row takes one live when it
  * cites a trusted source (proposeCorrection), and nothing writes it back to the research,
- * so while the research still says what the row said before it, the corrected weight stays
- * with the citation that backs it, the row's other fields still follow the CSV, and it
- * comes back in `kept` for an admin to verify or undo. Writing the CSV over it used to undo
- * the fix with no trace in the edit history. When the research has moved, it wins. A
- * community row the CSV claims takes the research's weight whatever was done to it.
+ * so while the research still says what the seed last wrote from it (seed_weight_mg), the
+ * corrected weight stays with the citation that backs it, the row's other fields still
+ * follow the CSV, and it comes back in `kept` for an admin to verify or undo. Writing the
+ * CSV over it used to undo the fix with no trace in the edit history. When the research
+ * has moved, it wins. A community row the CSV claims takes the research's weight whatever
+ * was done to it: the seed has never written it.
  *
- * The tables are read ONCE and matched in memory. Matching each CSV row with its own
+ * seed_weight_mg and seed_source_url are the research's own weight and link, written here
+ * and nowhere else, on every insert and update, a kept correction's row included: they
+ * record what the research said, not what the row holds. A held row is not written at
+ * all, so its pair still says what the research said before the verification, which is
+ * how catalog:graduate tells a research edit made since (researchWhenVerified).
+ *
+ * The table is read ONCE and matched in memory. Matching each CSV row with its own
  * SELECT was some four thousand round trips to Neon per reseed, minutes of a run that
  * usually changes a handful of rows.
  */
@@ -77,24 +59,13 @@ export async function upsertSeedRows(
   db: Db,
   rows: readonly CatalogCsvRow[],
 ): Promise<{ inserted: number; updated: number; unchanged: number; held: number; kept: KeptCorrection[] }> {
-  const byIdentity = new Map(
-    (await db.select().from(catalogItems)).map((r) => [identity(r.brand, r.name, r.variant), r]),
-  );
-  const applied = new Map<number, AppliedEdit[]>();
-  const edits = await db
-    .select({
-      itemId: catalogEdits.catalogItemId,
-      oldWeightMg: catalogEdits.oldWeightMg,
-      newWeightMg: catalogEdits.newWeightMg,
-      correction: sql<boolean>`${catalogEdits.undo} is null`,
-    })
-    .from(catalogEdits)
-    .where(eq(catalogEdits.status, "applied"))
-    .orderBy(catalogEdits.id);
-  for (const { itemId, oldWeightMg, newWeightMg, correction } of edits) {
-    const edit = { oldWeightMg: Number(oldWeightMg), newWeightMg: Number(newWeightMg), correction: Boolean(correction) };
-    (applied.get(itemId) ?? applied.set(itemId, []).get(itemId)!).push(edit);
+  const current = await db.select().from(catalogItems);
+  // Without the pair every seed row would read as one the research had moved, and a kept
+  // correction would be written over. Goes with backfillSeedColumns when the columns fold.
+  if (current.some((r) => seedManaged(r) && r.seedWeightMg == null)) {
+    throw new Error("catalog_items has seed rows without seed_weight_mg: run backfillSeedColumns (scripts/seedBackfill.ts) before the upsert.");
   }
+  const byIdentity = new Map(current.map((r) => [identity(r.brand, r.name, r.variant), r]));
   const seeded = (row: CatalogCsvRow) => ({
     weightMg: row.weightMg,
     kcal: row.kcal,
@@ -108,6 +79,8 @@ export async function upsertSeedRows(
     verified: true,
     verifiedBy: null,
     sourceQuote: null,
+    seedWeightMg: row.weightMg,
+    seedSourceUrl: row.sourceUrl,
   });
 
   const fresh: (typeof catalogItems.$inferInsert)[] = [];
@@ -134,7 +107,8 @@ export async function upsertSeedRows(
     }
     const want = seeded(row);
     const liveMg = Number(cur.weightMg);
-    if (cur.verified && liveMg !== row.weightMg && weightBeforeCorrections(liveMg, applied.get(cur.id) ?? []) === row.weightMg) {
+    const seedMg = cur.seedWeightMg == null ? null : Number(cur.seedWeightMg);
+    if (liveMg !== row.weightMg && seedMg === row.weightMg) {
       // the citation goes with the weight it cites
       want.weightMg = liveMg;
       want.sourceUrl = cur.sourceUrl;
@@ -145,6 +119,11 @@ export async function upsertSeedRows(
       (cur.kcal ?? null) !== want.kcal ||
       cur.weightSource !== want.weightSource ||
       cur.sourceUrl !== want.sourceUrl ||
+      // the research moving is a change even to a row that already holds what it now says
+      // (it adopted a correction): unrecorded, the next correction would read as one the
+      // research had moved past
+      seedMg !== want.seedWeightMg ||
+      cur.seedSourceUrl !== want.seedSourceUrl ||
       cur.categoryHint !== want.categoryHint ||
       cur.searchTerms !== want.searchTerms ||
       cur.commonName !== want.commonName ||

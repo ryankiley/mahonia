@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import { claimedEditHash } from "../server/utils/claimRepo";
 import { SCHEMA_DDL, type Db } from "../server/utils/db";
-import { runDdl } from "../server/utils/ddl";
+import { alteringLast, runDdl } from "../server/utils/ddl";
 import { hydrateCatalogNames, listSnapshotsByEditHash, purgeDeletedLists } from "../server/utils/listRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import type { ListSnapshot } from "../shared/types";
@@ -127,12 +127,16 @@ describe("useDb() on Neon", () => {
 
 describe("runDdl", () => {
   // Every cold instance runs the whole schema against a database that already has it,
-  // beside live traffic. A lock taken there is held until the block ends, on every table.
-  it("locks no table when everything is already there", async () => {
+  // beside live traffic, and a lock taken there is held until the block ends. Finding
+  // a table or an index already made must take none. (An ALTER always takes one, which
+  // is why a column is folded into its CREATE once it has deployed.)
+  it("locks no table to find its tables and indexes already there", async () => {
     const db = await createTestDb(SCHEMA_DDL);
+    const creates = SCHEMA_DDL.filter((stmt) => /^\s*CREATE /.test(stmt));
+    expect(creates.length).toBeGreaterThan(40);
 
     const held = await db.transaction(async (tx) => {
-      await runDdl(tx, SCHEMA_DDL);
+      await runDdl(tx, creates);
       const { rows } = await tx.execute<{ relname: string; mode: string }>(
         sql`select c.relname, l.mode from pg_locks l
             join pg_class c on c.oid = l.relation
@@ -153,5 +157,18 @@ describe("runDdl", () => {
 
     await runDdl(db, SCHEMA_DDL);
     expect(await indexesOf(db)).toEqual(all);
+  });
+});
+
+describe("alteringLast", () => {
+  // An ALTER's lock is held from where it runs to the end of the block, so nothing of
+  // another group's should come after it.
+  it("puts the groups that carry an ALTER after the ones that don't, each kept whole and in order", () => {
+    const lists = ["CREATE TABLE IF NOT EXISTS a (id int)", "CREATE INDEX IF NOT EXISTS a_id ON a(id)"];
+    const catalog = ["CREATE TABLE IF NOT EXISTS b (id int)", "ALTER TABLE b ADD COLUMN IF NOT EXISTS c int", "CREATE INDEX IF NOT EXISTS b_c ON b(c)"];
+    const vault = ["CREATE TABLE IF NOT EXISTS d (id int)"];
+
+    expect(alteringLast([lists, catalog, vault])).toEqual([...lists, ...vault, ...catalog]);
+    expect(alteringLast([lists, vault])).toEqual([...lists, ...vault]);
   });
 });

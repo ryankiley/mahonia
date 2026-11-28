@@ -1,4 +1,4 @@
-import { CLAIMED_KEY_PREFIX, copyReadableBy, isClaimedKey, type LocalListRecord } from "~~/shared/localList";
+import { CLAIMED_KEY_PREFIX, accountSlot, copyReadableBy, isClaimedKey, type LocalListRecord } from "~~/shared/localList";
 import { idbRequest } from "~~/shared/idb";
 import { sessionAccount } from "../utils/sessionOwner";
 
@@ -21,15 +21,21 @@ const tx = <T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
 // copy is, and it used to be the one per-account thing that outlived a sign-out:
 // the next person at this browser opened the same address and was shown it.
 //
-// So a copy is stamped with the ACCOUNT it was written for and read back only by
-// that account's sessions. The account, not the session: a session is new with
-// every sign-in, and edits typed offline have to be there when their person comes
-// back, whichever session that is. For the same reason leaving an account
+// So a copy is kept in a slot of its ACCOUNT's (accountSlot), which only that
+// account's sessions read or write. The account, not the session: a session is new
+// with every sign-in, and edits typed offline have to be there when their person
+// comes back, whichever session that is. For the same reason leaving an account
 // (delClaimed) drops only the copies with nothing unsent in them; one still
 // holding edits waits, unreadable to anyone else, for its account to return.
 //
-// A copy from before the stamp existed has nothing to compare and is still read,
-// so nothing typed offline is lost to the upgrade.
+// A slot each, rather than one record per list that the wrong account is refused:
+// two accounts can hold the same list, and with one record between them the second
+// to open it here would write its copy over the first's unsent edits.
+//
+// A copy from before the slots sits under the list's own key, stamped with its
+// account or, older still, with nothing. It is read by the account it is stamped
+// for (by anyone, with no stamp to compare) and moves to the reader's slot as it
+// is read, so nothing typed offline is lost to the upgrade.
 
 // ONE READ HELD FOR THE LOAD THAT ASKED FOR IT. The editor page reads the list it is
 // opening before the editor mounts (readAhead, useGearList), and the load that follows
@@ -59,12 +65,37 @@ export function _dropHeldRead(): void {
 export function useLocalListStore() {
   const enabled = import.meta.client && typeof indexedDB !== "undefined";
 
+  const read = (slot: string) => tx<LocalListRecord | undefined>("readonly", (s) => s.get(slot));
+
+  /** Where `key`'s record is kept for whoever is signed in: under the key itself,
+   *  or for a claimed open in the account's slot. Null for a claimed open with no
+   *  account to file it under (signed out with the list still on screen, or the
+   *  session not yet answered): nothing is read and nothing written, rather than
+   *  a copy anyone could read or one nobody could. */
+  function slotFor(key: string): { slot: string; account?: string } | null {
+    if (!isClaimedKey(key)) return { slot: key };
+    const account = sessionAccount();
+    return account ? { slot: accountSlot(key, account), account } : null;
+  }
+
   async function get(key: string): Promise<LocalListRecord | undefined> {
     if (!enabled) return undefined;
     try {
-      const record = await tx<LocalListRecord | undefined>("readonly", (s) => s.get(key));
-      // not this account's: left where it is, for the account it belongs to
-      return record && copyReadableBy(key, record, sessionAccount()) ? record : undefined;
+      const at = slotFor(key);
+      if (!at) return undefined;
+      const record = await read(at.slot);
+      if (record || !at.account) return record;
+      // A copy from before the slots. Another account's is left where it is, for
+      // the account it belongs to.
+      const old = await read(key);
+      if (!old || !copyReadableBy(key, old, at.account)) return undefined;
+      const moved: LocalListRecord = { ...old, account: at.account };
+      // Best-effort, and written before the old one is dropped: a move cut short
+      // leaves the old copy to be read again, never neither.
+      await tx("readwrite", (s) => s.put(moved, at.slot))
+        .then(() => tx("readwrite", (s) => s.delete(key)))
+        .catch(() => {});
+      return moved;
     } catch {
       return undefined;
     }
@@ -74,37 +105,35 @@ export function useLocalListStore() {
     if (held?.key === key) held = undefined;
     if (!enabled) return;
     try {
-      let stamped = record;
-      if (isClaimedKey(key)) {
-        // No account to file it under (signed out with the list still on screen,
-        // or the session not yet answered): write nothing, rather than a copy
-        // anyone could read or one nobody could.
-        const account = sessionAccount();
-        if (!account) return;
-        stamped = { ...record, account };
-      }
+      const at = slotFor(key);
+      if (!at) return;
+      const stamped = at.account ? { ...record, account: at.account } : record;
       // The snapshot is a Vue reactive proxy, which IndexedDB's structured clone
       // rejects (DataCloneError). A JSON round-trip yields the plain, serialisable
       // data we actually want to persist — the record is JSON-safe by construction.
       const plain: LocalListRecord = JSON.parse(JSON.stringify(stamped));
-      await tx("readwrite", (s) => s.put(plain, key));
+      await tx("readwrite", (s) => s.put(plain, at.slot));
     } catch {
       /* best-effort */
     }
   }
 
+  /** Drop `key`'s record. For a claimed open that is the signed-in account's copy
+   *  and no other: another account's may hold edits it has yet to send. */
   async function del(key: string): Promise<void> {
     if (held?.key === key) held = undefined;
     if (!enabled) return;
     try {
-      await tx("readwrite", (s) => s.delete(key));
+      const at = slotFor(key);
+      if (at) await tx("readwrite", (s) => s.delete(at.slot));
     } catch {
       /* best-effort */
     }
   }
 
   /** The account these were kept for has left: drop the claimed opens' copies,
-   *  except any still holding edits that never reached the server. */
+   *  whichever account's, except any still holding edits that never reached the
+   *  server. So a copy outlives its account's session only while it holds some. */
   async function delClaimed(): Promise<void> {
     if (held && isClaimedKey(held.key)) held = undefined;
     if (!enabled) return;

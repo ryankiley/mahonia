@@ -20,21 +20,25 @@ const product = (brand: string | null, name: string, weightMg: number, sourceUrl
  * a CSV row the database does not hold yet, with the same brand, name, weight and
  * source, ONE of each, are the same product under a new variant: the row takes the new
  * variant, id kept, and My Gear's rows under the old text move with it (they are keyed
- * on it, vaultNormKey). Two orphans or two newcomers for one product are not a rename —
- * a size split, a size dropped — and are left to the upsert and the retire. Idempotent:
- * a renamed row is neither orphan nor newcomer the next time.
+ * on it, vaultNormKey). The row's weight and source here are the research's as the seed
+ * last wrote them (seed_weight_mg, seed_source_url), not the row's own: a row holding a
+ * visitor's correction is still the product the research describes, and matched on its
+ * corrected weight it would be retired and added again without the correction. Two
+ * orphans or two newcomers for one product are not a rename — a size split, a size
+ * dropped — and are left to the upsert and the retire. Idempotent: a renamed row is
+ * neither orphan nor newcomer the next time.
  */
 export async function renameMovedVariants(db: Db, rows: readonly CatalogCsvRow[]): Promise<{ catalog: number; vault: number }> {
   const held = await db
-    .select({ id: catalogItems.id, brand: catalogItems.brand, name: catalogItems.name, variant: catalogItems.variant, weightMg: catalogItems.weightMg, sourceUrl: catalogItems.sourceUrl, verified: catalogItems.verified, verifiedBy: catalogItems.verifiedBy })
+    .select({ id: catalogItems.id, brand: catalogItems.brand, name: catalogItems.name, variant: catalogItems.variant, seedWeightMg: catalogItems.seedWeightMg, seedSourceUrl: catalogItems.seedSourceUrl, verified: catalogItems.verified, verifiedBy: catalogItems.verifiedBy })
     .from(catalogItems);
   const heldIdentities = new Set(held.map((r) => identity(r.brand, r.name, r.variant)));
   const wanted = new Set(rows.map((r) => identity(r.brand, r.name, r.variant)));
 
   const orphans = new Map<string, typeof held>();
   for (const r of held) {
-    if (!seedManaged(r) || wanted.has(identity(r.brand, r.name, r.variant))) continue;
-    const key = product(r.brand, r.name, Number(r.weightMg), r.sourceUrl);
+    if (!seedManaged(r) || r.seedWeightMg == null || wanted.has(identity(r.brand, r.name, r.variant))) continue;
+    const key = product(r.brand, r.name, Number(r.seedWeightMg), r.seedSourceUrl);
     orphans.getOrInsertComputed(key, () => []).push(r);
   }
   const newcomers = new Map<string, CatalogCsvRow[]>();

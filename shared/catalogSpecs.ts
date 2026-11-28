@@ -9,7 +9,9 @@
 // ("20F, 950FP, Regular", "Arc Haul Ultra 40L") is left out too, so nothing reads twice
 // on the row.
 
+import type { AttributeKey } from "./catalogAxes";
 import type { Unit } from "./types";
+import { formatVolume } from "./water";
 import { unitSystem } from "./weights";
 
 /** The axes a spec line shows, in the order it shows them. */
@@ -26,6 +28,9 @@ const SPEC_KEYS = [
   "fuel",
 ] as const;
 type SpecKey = (typeof SPEC_KEYS)[number];
+// Every axis but the five that pick a size is a spec, so one added to shared/catalogAxes.ts
+// and not here fails the typecheck instead of never showing on My Gear.
+true satisfies [Exclude<AttributeKey, "fit" | "size" | "torso" | "length" | "width" | SpecKey>] extends [never] ? true : never;
 
 /** "length=Regular; temp_f=20" as a map. Lenient: the cell is written by the build, which
  *  holds it to one form, so a part that doesn't parse is skipped rather than an error. */
@@ -86,8 +91,8 @@ function format(key: SpecKey, value: string, unit: Unit): string | null {
     case "persons":
       return Number.isFinite(n) ? `${n}P` : null;
     case "volume_l":
-      if (!Number.isFinite(n) || n <= 0) return null;
-      return n < 1 ? `${Math.round(n * 1000)} ml` : `${n} L`;
+      // the water row's own spelling ("220 mL", "1.5 L"), so a volume reads one way
+      return Number.isFinite(n) && n > 0 ? formatVolume(n * 1000) : null;
     case "capacity_mah":
       return Number.isFinite(n) ? `${n.toLocaleString("en-US")} mAh` : null;
     case "lumens":

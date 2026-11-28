@@ -47,7 +47,7 @@ const pageUrl = () => (typeof location !== "undefined" ? location.href : "");
 const { warmExporters, exportItems } = useListExports(() => props.snapshot, flash, pageUrl);
 
 const { copying, copyList } = useCopyList();
-const { showLinkFallback } = useDialogs();
+const { copyLink } = useDialogs();
 
 // Feedback used to be a link in the site footer. It moved to where you are when you
 // have something to say — which for a reader is this menu. Distinct from "Report
@@ -79,12 +79,8 @@ async function copyThis() {
   const ok = await copyList(props.snapshot);
   if (!ok) flash("Couldn’t duplicate. Try again.");
 }
-async function copyLink() {
-  const url = pageUrl();
-  if (await copyText(url)) return flash("Link copied");
-  // blocked clipboard → show the link selectable instead of dead-ending
-  showLinkFallback(url, "Copy this link");
-}
+// a blocked clipboard shows the link to copy by hand instead of dead-ending (copyLink)
+const copyPageLink = () => copyLink(pageUrl(), { flash, done: "Link copied", title: "Copy this link" });
 
 // The plain rows, table-driven as the editor's kebab has them (MENU_ACTIONS in
 // EditorMenu) — a row is one entry here, not a hand-written <li> plus a case in a
@@ -103,7 +99,7 @@ const MENU_ACTIONS = [
   { label: "Duplicate this list", icon: IconSquareDottedBehindSquare, run: copyThis, busy: copying },
   // …and THIS one is the clipboard, so it wears the app's clipboard mark — the same
   // Copy01 pair of sheets ListHead puts on the button that copies this very link.
-  { label: "Copy link", icon: IconSquareBehindSquare1, run: copyLink },
+  { label: "Copy link", icon: IconSquareBehindSquare1, run: copyPageLink },
   { label: "Send feedback…", icon: IconBug, run: () => feedback.open() },
 ];
 </script>

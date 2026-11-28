@@ -1,8 +1,9 @@
 // A read-only link to someone's My Gear: /g/{code}. What the person who holds the link
 // sees, decided here once, as a pure function of the owner's own read.
 //
-// Decided with Ryan, 2026-11-27: the Gear and Kits tabs, never Food (consumables change
-// trip to trip and say little about the kit); never a price; the owner's account name
+// Decided with Ryan, 2026-11-27: the Gear and Kits tabs, never the Food tab (consumables
+// change trip to trip and say little about the kit), though a kit shows what it holds, a
+// bar in the snack kit included, and the copy says so; never a price; the owner's account name
 // when they have set one, and nothing about them otherwise; and the link stops working
 // the moment it is turned off (the read is never cached: server/api/g/[code].get.ts).
 //
@@ -16,18 +17,40 @@ import type { VaultEntry, VaultKitPart } from "./vault";
 import { vaultTabOf } from "./vaultView";
 import { counted } from "./tidyText";
 
+/** One piece or kit as a shared page receives it: the fields allowed out, named here so
+ *  the type says what may leave, and enough for My Gear's own rows to draw it
+ *  (VaultRowView) and its sections to file it. */
+export type SharedPiece = Pick<
+  VaultEntry,
+  | "id"
+  | "brand"
+  | "name"
+  | "variant"
+  | "commonName"
+  | "icon"
+  | "entryUnit"
+  | "owned"
+  | "classification"
+  | "specs"
+  | "weightMg"
+  | "kind"
+  | "ownWeightMg"
+  | "parts"
+  | "inKits"
+>;
+
 /** What a shared page receives: the owner's chosen name, when they have one, and the
- *  pieces and kits, each shaped as a VaultEntry so the page draws them with My Gear's own
- *  rows. The fields a VaultEntry requires but a viewer has no business with (normKey,
- *  timesSeen, the dates) are present and empty. */
+ *  pieces and kits. */
 export interface SharedGear {
   owner?: string;
-  items: VaultEntry[];
+  items: SharedPiece[];
 }
 
+/** `owner` is the name the account chose, already trimmed, or undefined when it set none
+ *  (server/utils/vaultShare.ts reads it by listRepo's chosenNames rule). */
 export function sharedGear(
   entries: readonly VaultEntry[],
-  owner: string | null | undefined,
+  owner: string | undefined,
 ): SharedGear {
   const shown = entries.filter((e) => vaultTabOf(e) !== "food");
   const renumber = new Map<number, number>();
@@ -39,15 +62,11 @@ export function sharedGear(
   const partId = (id: number) =>
     renumber.get(id) ?? (renumber.set(id, ++next), next);
 
-  const items = shown.map((e): VaultEntry => {
-    const out: VaultEntry = {
+  const items = shown.map((e): SharedPiece => {
+    const out: SharedPiece = {
       id: renumber.get(e.id)!,
-      normKey: "",
       name: e.name,
       weightMg: e.weightMg,
-      timesSeen: 0,
-      lastUsedAt: "",
-      createdAt: "",
     };
     if (e.brand) out.brand = e.brand;
     if (e.variant) out.variant = e.variant;
@@ -60,18 +79,22 @@ export function sharedGear(
     if (e.kind === "kit") {
       out.kind = "kit";
       out.ownWeightMg = e.ownWeightMg ?? 0;
-      out.parts = (e.parts ?? []).map((p): VaultKitPart => {
-        const part: VaultKitPart = {
-          id: partId(p.id),
-          qty: p.qty,
-          name: p.name,
-          weightMg: p.weightMg,
-        };
-        if (p.brand) part.brand = p.brand;
-        if (p.variant) part.variant = p.variant;
-        if (p.removed) part.removed = true;
-        return part;
-      });
+      // a part the owner put away is gone from their gear and from the kit's weight; the
+      // owner's page still lists it, marked, so it can come out of the kit, which is
+      // nothing a reader can do
+      out.parts = (e.parts ?? [])
+        .filter((p) => !p.removed)
+        .map((p): VaultKitPart => {
+          const part: VaultKitPart = {
+            id: partId(p.id),
+            qty: p.qty,
+            name: p.name,
+            weightMg: p.weightMg,
+          };
+          if (p.brand) part.brand = p.brand;
+          if (p.variant) part.variant = p.variant;
+          return part;
+        });
     }
     const kits = (e.inKits ?? []).flatMap((k) =>
       renumber.has(k) ? [renumber.get(k)!] : [],
@@ -79,8 +102,7 @@ export function sharedGear(
     if (kits.length) out.inKits = kits;
     return out;
   });
-  const name = owner?.trim();
-  return name ? { owner: name, items } : { items };
+  return owner ? { owner, items } : { items };
 }
 
 /** What a shared page is called: "Sam’s gear" when the owner set a name, else "Shared

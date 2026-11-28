@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "Catalog specs on My Gear write a small volume as mL, the way a water row does."
+  ],
+  "fixed": [
+    "A shared gear link no longer shows the pieces you put away inside a kit.",
+    "A shared gear link no longer remembers which sections you folded, as a shared list never has.",
+    "Suggesting a catalog fix with a weight that can't be read now says so in the dialog, before anything is sent.",
+    "Typing “250 kcal” in a calories field keeps 250 instead of clearing it.",
+    "In My Gear's add dialog, choosing a size the catalog doesn't list no longer keeps the weight of the size picked before it.",
+    "An imported or pasted product with a rating below zero, such as a -15F bag, links to its own catalog entry.",
+    "When a link can't be copied for you, the box showing it has it selected the first time too.",
+    "The privacy policy, help and the gear Sharing panel say a shared gear link shows food packed in a kit, instead of promising none.",
+    "A calorie figure typed or imported as “2.700” reads as 2,700, as a price does, instead of 3.",
+    "An edit typed while a list is being restored now lands on top of it instead of going missing.",
+    "In a kit, the add field's suggestions no longer take the lit item on the Enter that confirms Japanese or Chinese input."
+  ]
+}

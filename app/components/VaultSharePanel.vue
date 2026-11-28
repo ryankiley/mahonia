@@ -42,7 +42,7 @@ function act(run: () => void) {
         <ShareRow
           :icon="IconEyeOpen"
           label="Copy read-only link"
-          hint="Anyone with it can see your gear and kits, never prices or food"
+          hint="Anyone with it can see your gear and kits, never prices"
           @click="act(() => emit('copy'))"
         />
       </li>

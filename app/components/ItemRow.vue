@@ -58,7 +58,7 @@ import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_QTY, MAX_VARIANT_LEN } from "
 import { effectivePersonId, personColor } from "~~/shared/people";
 import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { pickFromCatalog } from "~~/shared/catalogMatch";
+import { keptGearType, pickFromCatalog } from "~~/shared/catalogMatch";
 import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseKcal, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel } from "~~/shared/water";
 import { useItemRowFields } from "~/composables/useItemRowFields";
@@ -502,8 +502,9 @@ function onNameCommit(p: NameCommit) {
     // drops a baseline whose link has moved (shared/ops, updateItem).
   } else if (p.catalogItemId != null) {
     // a catalog pick: every value is the product's (pickFromCatalog, the rule an import,
-    // a paste and the connector share), except a gear type the person typed, which is
-    // theirs and outlives the pick
+    // a paste and the connector share), except a gear type the person typed or emptied,
+    // which is theirs and outlives the pick (keptGearType). The class is left to the
+    // classification line below, which reads the one the pick arrived with.
     const product = {
       id: p.catalogItemId,
       name: p.name,
@@ -512,9 +513,9 @@ function onNameCommit(p: NameCommit) {
       weightMg: p.weightMg ?? 0,
       commonName: p.commonName ?? null,
       kcal: p.kcal ?? null,
-      categoryHint: p.classification === "consumable" ? "consumable" : null,
+      categoryHint: null,
     };
-    const own = props.item.commonNameOverridden ? { commonName: props.item.commonName ?? "" } : {};
+    const own = { commonName: keptGearType(props.item) };
     Object.assign(patch, pickFromCatalog(product, own, { folderId: props.item.folderId, folders: props.list.folders }));
   } else {
     // free text / water / trailing weight → a user-owned custom name: drop the
@@ -550,7 +551,7 @@ function onNameCommit(p: NameCommit) {
       }
     }
   }
-  // water arrives as a consumable. Through storedClassification, not a bare
+  // water and catalog food arrive as consumable. Through storedClassification, not a bare
   // `=== "base" ? null`: null means "follow the folder", so an explicit base pick
   // landing in a worn/consumable folder has to be pinned or it silently inherits.
   if (p.classification !== undefined)
@@ -667,7 +668,7 @@ const {
   fitNote,
 });
 
-const { activeSplit, classAria, classTitle, isConsumable, isWorn, pickClass, rowClass, setWornCount, splitOffered, wornCount } =
+const { activeSplit, classAria, classTitle, isConsumable, pickClass, rowClass, setWornCount, splitOffered, wornCount } =
   useItemRowClassification({
     item: toRef(props, "item"),
     list: toRef(props, "list"),
@@ -1634,10 +1635,9 @@ function dismissFix() {
           />
           <!-- The unit is SELECTABLE, not just typed. Entry units already worked by
                typing "3.8 oz", but that only helps if you know to try it — the label
-               looked like a caption, so the feature was invisible. Same transparent-
-               native-select idiom the total's unit uses (TotalsBar): the visible text
-               stays exactly as it was, and the real control sits over it keeping the
-               native picker and full keyboard behaviour.
+               looked like a caption, so the feature was invisible. The same option
+               menu the total's unit opens (Headline): the visible text stays exactly
+               as it was, and the trigger around it carries the menu and the keyboard.
                A GROUP row carries the very same picker — identical trigger, identical
                chevron — even though its figure is a sum rather than something typed:
                the choice is which unit that total READS in, and a stuff sack's 0.59 lb
@@ -1723,7 +1723,7 @@ function dismissFix() {
                   ref="classPopRef"
                   class="popover item__pop"
                   :class="{ 'is-above': classAbove }"
-                  :style="classShift ? { '--pop-shift': classShift + 'px' } : undefined"
+                  :style="classShift ? { '--menu-shift': classShift + 'px' } : undefined"
                   role="dialog"
                   aria-label="Counts as"
                   @click="keepPopInView"
@@ -2484,11 +2484,11 @@ function dismissFix() {
 
   position: absolute;
   top: calc(100% + var(--space-1));
-  /* under the middle of the ring, slid by --pop-shift when that would leave the window
-     (placeClass). `translate`, so it composes with the enter's transform; it grows from
-     the middle of the edge that faces the ring. */
+  /* under the middle of the ring, slid by --menu-shift (the name .menu__list--center
+     reads) when that would leave the window (placeClass). `translate`, so it composes
+     with the enter's transform; it grows from the middle of the edge that faces the ring. */
   left: 50%;
-  translate: calc(-50% + var(--pop-shift, 0px)) 0;
+  translate: calc(-50% + var(--menu-shift, 0px)) 0;
   transform-origin: top center;
   z-index: var(--z-menu);
   display: grid;

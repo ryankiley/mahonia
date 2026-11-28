@@ -3,7 +3,7 @@ import { IconChevronDownMedium, IconFashion, IconPencil2, IconSquarePlaceholderD
 import { SvgIcon } from "~/utils/icon";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
-import type { VaultEntry } from "~~/shared/vault";
+import type { VaultRowView } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
 import { brandOf, formatKcal, formatWeight, itemDisplayName, nameAfterBrand } from "~~/shared/weights";
@@ -21,7 +21,7 @@ import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 // it holds, and taking the piece out of the kit.
 const props = withDefaults(
   defineProps<{
-    entry: VaultEntry;
+    entry: VaultRowView;
     unit: Unit;
     /** the row's own remove is in flight */
     busy?: boolean;
@@ -99,7 +99,7 @@ const meta = computed(() => {
 </script>
 
 <template>
-  <li class="vault__row" :class="{ 'is-readonly': readonly || bare, 'is-bare': bare }">
+  <li class="vault__row" :class="{ 'is-readonly': readonly || bare }">
     <!-- the kind of gear, before its name: a fixed column whether or not this row has
          one, so every name starts at the same x. The gear type says the same thing in
          words on the line below.

@@ -32,6 +32,17 @@ export default defineEventHandler(async (event) => {
   if (!isCatalogId(catalogItemId))
     throw createError({ statusCode: 400, statusMessage: "Bad request" });
 
+  // Checked BEFORE the per-item throttle below, so a typo is refused without spending
+  // one of the product's few shared edits an hour. The dialog sends milligrams, read in
+  // the unit it shows; the text form is for a tab still running the build before that,
+  // and goes one deploy after it.
+  let weightMg = typeof body?.weightMg === "number" ? body.weightMg : Number.NaN;
+  if (!Number.isFinite(weightMg) && typeof body?.weight === "string") {
+    weightMg = parseWeightInput(body.weight) ?? Number.NaN;
+  }
+  if (!Number.isFinite(weightMg) || weightMg <= 0)
+    throw createError({ statusCode: 400, statusMessage: "Bad weight" });
+
   // per-item throttle (shared KV, IP-independent) — bounds flood-vandalism of one row
   const overItem = await consumeRateLimit(
     useKv(),
@@ -42,14 +53,6 @@ export default defineEventHandler(async (event) => {
   );
   if (overItem)
     throw createError({ statusCode: 429, statusMessage: "Too many edits for this item" });
-
-  // accept either a parsed mg value or a human weight string ("540 g", "1.2 kg")
-  let weightMg = typeof body?.weightMg === "number" ? body.weightMg : Number.NaN;
-  if (!Number.isFinite(weightMg) && typeof body?.weight === "string") {
-    weightMg = parseWeightInput(body.weight) ?? Number.NaN;
-  }
-  if (!Number.isFinite(weightMg) || weightMg <= 0)
-    throw createError({ statusCode: 400, statusMessage: "Bad weight" });
 
   const sourceUrl =
     typeof body?.sourceUrl === "string" && body.sourceUrl.trim()

@@ -22,6 +22,17 @@ export function ddlBlock(ddl: readonly string[]): string {
   return `DO $ddl$ BEGIN\n${body.join("\n")}\nEND $ddl$`;
 }
 
+/**
+ * DDL groups as one list, the groups that carry an ALTER last. An ALTER locks its
+ * table against every read and write whether or not it has anything to change, and
+ * holds that until the block ends: run last, it is held only for what is left of its
+ * own group. No group depends on another, so their order is free.
+ */
+export function alteringLast(groups: readonly (readonly string[])[]): string[] {
+  const alters = (group: readonly string[]) => group.some((stmt) => /^\s*ALTER /.test(stmt));
+  return [...groups.filter((group) => !alters(group)), ...groups.filter(alters)].flat();
+}
+
 /** Run a DDL list as its one block (ddlBlock). */
 export async function runDdl(db: Db, ddl: readonly string[]): Promise<void> {
   if (ddl.length === 0) return;

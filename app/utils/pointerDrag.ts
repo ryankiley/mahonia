@@ -129,10 +129,6 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     if (surface) {
       const b = surface.getBoundingClientRect();
       outside = ev.clientY < b.top || ev.clientY > b.bottom;
-    } else {
-      // the surface isn't on this page at all — nothing to escape from, so a
-      // release always commits rather than always cancelling
-      outside = false;
     }
     hooks.track(ev, el, dragId.value);
   }

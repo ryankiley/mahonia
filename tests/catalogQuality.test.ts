@@ -216,6 +216,9 @@ describe("weightsInQuote — the figures verify_catalog_item holds a quote to", 
     ["a model number glued to a weight", "Sawyer SP129/85 g", [85]],
     ["a model number and a weight after a comma", "Exos 58, 2.91 lbs", [1320]],
     ["two figures that fall rather than rise", "Weight 2024-12 g", [12]],
+    ["a size and a weight across a hyphen", "Weight: UK size 8.5-264g", [264]],
+    ["a model number and a weight across a hyphen", "Model 2-480 g", [480]],
+    ["a fraction", "1/2 oz", []],
     ["a decimal comma", "Gewicht: 1,2 kg", []],
   ])("does not read %s as a list", (_, quote, grams) => {
     expect(read(quote)).toEqual(grams);

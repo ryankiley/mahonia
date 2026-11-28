@@ -10,7 +10,7 @@ import { CATALOG_DDL, CATALOG_NEON_DDL } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
 import { VAULT_DDL } from "./vaultSchema";
 import { ACCOUNT_DDL } from "./accountSchema";
-import { runDdl } from "./ddl";
+import { alteringLast, runDdl } from "./ddl";
 import { memoized } from "./memoize";
 
 /**
@@ -214,18 +214,18 @@ export const TRAIL_FAVICONS_DDL: string[] = [
  * fails every request that reads the database, a share page as much as the sign-in
  * the statement belongs to.
  */
-export const SCHEMA_DDL: string[] = [
-  ...LISTS_DDL,
-  ...CATALOG_DDL,
-  ...CANDIDATES_DDL,
-  ...SNAPSHOTS_DDL,
-  ...TRAIL_FAVICONS_DDL,
-  ...VAULT_DDL,
-  ...ACCOUNT_DDL,
-];
+export const SCHEMA_DDL: string[] = alteringLast([
+  LISTS_DDL,
+  CATALOG_DDL,
+  CANDIDATES_DDL,
+  SNAPSHOTS_DDL,
+  TRAIL_FAVICONS_DDL,
+  VAULT_DDL,
+  ACCOUNT_DDL,
+]);
 
-/** What useDb() runs on Neon: the whole schema, then the extensions only Neon ships. */
-export const NEON_DDL: string[] = [...SCHEMA_DDL, ...CATALOG_NEON_DDL];
+/** What useDb() runs on Neon: the extensions only Neon ships, then the whole schema. */
+export const NEON_DDL: string[] = [...CATALOG_NEON_DDL, ...SCHEMA_DDL];
 
 // Once per instance, however many requests arrive on it cold, and again on the next
 // request if it failed (memoized).

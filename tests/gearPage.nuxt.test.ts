@@ -529,6 +529,28 @@ describe("a kit on /gear", () => {
     expect(kitParts[0]).toEqual([1, 2, second]);
   });
 
+  // An input method's Enter confirms the word being composed (in Japanese, say), and is
+  // no pick: a list's add row leaves it to the input method (ItemInput), and so does a
+  // kit's.
+  it("leaves an Enter that confirms a composition to the input method", async () => {
+    const lamp = entry(5, "Lamp");
+    listRows = [stove, pot, kit, lamp];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+
+    const add = w.get<HTMLInputElement>('[data-kit-add="3"]');
+    add.element.focus();
+    await add.setValue("La");
+    await vi.waitFor(() => expect(w.findAll('.kitsec__menu [role="option"]')).toHaveLength(1));
+    await add.trigger("keydown", { key: "Enter", isComposing: true });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(kitParts).toEqual([]);
+    // the choice is still there to take once the word is in
+    await add.trigger("keydown", { key: "Enter" });
+    await vi.waitFor(() => expect(kitParts).toEqual([[1, 2, lamp.id]]));
+  });
+
   // Spaces alone are no search: the kits all still list, so the way to make another
   // stays at their foot. It went, where every other gate on the page trims the query.
   it("keeps New kit under the kits when the search holds only spaces", async () => {
@@ -575,6 +597,18 @@ describe("the /gear page's words and names", () => {
     expect(w.get(".vault__view [role='menu']").attributes("aria-label")).toBe("Sort your gear");
     await w.findAll(".menu__item").find((b) => b.text().includes("Heaviest"))!.trigger("click");
     expect(sort.attributes("aria-label")).toBe("Heaviest, change how your gear is sorted");
+  });
+
+  it("offers Sharing only when there is gear to share", async () => {
+    listRows = [entry(1, "Tent")];
+    const w = await openPage();
+    expect(w.find("[aria-label='Sharing']").exists()).toBe(true);
+    w.unmount();
+
+    listRows = [];
+    const empty = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(empty.find(".page__mark").exists()).toBe(true));
+    expect(empty.find("[aria-label='Sharing']").exists()).toBe(false);
   });
 
   it("opens the feedback box from the ⋯ menu", async () => {

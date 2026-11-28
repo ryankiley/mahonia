@@ -4,14 +4,18 @@
 
 import { eq } from "drizzle-orm";
 import * as schema from "../../server/db/schema";
+import { seedManaged } from "../../shared/catalogQuality";
 import type { TestDb } from "./db";
 
 /** Insert one catalog row — an unverified community stake unless `over` says
- *  otherwise — and return it. */
+ *  otherwise — and return it. A seed row (verified, no verifier) is written as the seed
+ *  writes one: with the research's weight and link beside its own. */
 export async function seedCatalogRow(db: TestDb, over: Partial<typeof schema.catalogItems.$inferInsert> = {}) {
+  const values = { name: "Generic stake", weightMg: 12_000, weightSource: "community", verified: false, ...over };
+  const seed = seedManaged({ verified: values.verified, verifiedBy: values.verifiedBy ?? null }) ? { seedWeightMg: values.weightMg, seedSourceUrl: values.sourceUrl ?? null } : {};
   const [row] = await db
     .insert(schema.catalogItems)
-    .values({ name: "Generic stake", weightMg: 12_000, weightSource: "community", verified: false, ...over })
+    .values({ ...seed, ...values })
     .returning();
   return row!;
 }

@@ -274,6 +274,29 @@ describe("CSV round-trip — nothing changes weight", () => {
   });
 });
 
+// A count is a typed number like any other in the file: the rule in shared/typedNumber.
+describe("CSV import: a quantity is read by the one number rule", () => {
+  const qtyOf = (cell: string) =>
+    csvToListData(`Category,Item Name,Qty,Weight,Unit\nFood,Matches,${cell},1,g`).items[0]!.qty;
+
+  it("reads a comma before three digits as thousands, and before one or two as a decimal", () => {
+    expect(qtyOf('"1,000"')).toBe(1000);
+    expect(qtyOf('"1,5"')).toBe(2); // one and a half, rounded as a count
+    expect(qtyOf("12")).toBe(12);
+  });
+
+  it("keeps a written 0, and takes an empty or unreadable cell as one", () => {
+    expect(qtyOf("0")).toBe(0);
+    expect(qtyOf("")).toBe(1);
+    expect(qtyOf("a few")).toBe(1);
+  });
+
+  it("reads the worn count the same way", () => {
+    const [socks] = csvToListData('Category,Item Name,Qty,Worn Qty,Weight,Unit\nClothes,Socks,"1,000","1,000",1,g').items;
+    expect(socks!.wornQty).toBe(1000);
+  });
+});
+
 describe("CSV import limits", () => {
   it("matches the persisted list caps before catalog matching or create", () => {
     const csv = [

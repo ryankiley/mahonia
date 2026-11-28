@@ -14,9 +14,8 @@
 import { ASCENT_THRESHOLD_M, SMOOTH_WINDOW, climbScale, gradeSeries, smooth } from "./profile";
 import type { DayRange } from "./tripPlan";
 
-/** A sustained climb: where it starts along the route, how far it runs, what it gains. */
+/** A sustained climb: how far it runs and what it gains. */
 export interface Climb {
-  startM: number;
   lengthM: number;
   gainM: number;
 }
@@ -24,9 +23,8 @@ export interface Climb {
 export interface DayFacts {
   /** the elevation at the day's end, where you sleep (or where the walk ends) */
   campM: number;
-  /** the day's high and low points */
+  /** the day's high point */
   highM: number;
-  lowM: number;
   /** the camp's height over the trailhead, signed */
   aboveTrailheadM: number;
   /** the longest sustained climb by gain, when the day has one worth naming */
@@ -102,17 +100,11 @@ export function dayFacts(
 
   const campM = elevationAt(profile, routeM, toM);
   let highM = Math.max(elevationAt(profile, routeM, fromM), campM);
-  let lowM = Math.min(elevationAt(profile, routeM, fromM), campM);
-  for (let i = first; i <= last; i++) {
-    const e = profile[i]!;
-    if (e > highM) highM = e;
-    if (e < lowM) lowM = e;
-  }
+  for (let i = first; i <= last; i++) highM = Math.max(highM, profile[i]!);
 
   const out: DayFacts = {
     campM,
     highM,
-    lowM,
     aboveTrailheadM: campM - profile[0]!,
   };
 
@@ -144,7 +136,7 @@ export function dayFacts(
       for (let j = foot; j <= highAt; j++) {
         if (eased[j]! >= runHigh - ASCENT_THRESHOLD_M) { top = j; break; }
       }
-      best = { startM: foot * stepM, lengthM: (top - foot) * stepM, gainM: Math.round(gain) };
+      best = { lengthM: (top - foot) * stepM, gainM: Math.round(gain) };
     };
     for (let i = first + 1; i <= last; i++) {
       const e = eased[i]!;
