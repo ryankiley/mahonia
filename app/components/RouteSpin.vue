@@ -11,13 +11,13 @@
 // The stage fills the ROOM the page gives it (the page's stage, between its bars) and turns
 // the route about the middle of the SCREEN, which that room needn't be centred on: as big a
 // turn as fits round the screen's middle without reaching the room's nearer edge, so it is
-// centred on the screen and still clear of the bars above and below it. It draws in the colours the video will have, with the same function. The
-// video's SHAPE is not shown here: vertical, wide or square is a choice about the file Save
-// makes, and the preview is the route, not a mock-up of a frame. Its TIME is: the stage plays
-// the video's length over and over, so a line that draws itself on draws again each time
-// round, as the saved file will when a player repeats it.
+// centred on the screen and still clear of the bars above and below it. It draws in the
+// colours the video will have, with the same function. The video's SHAPE is not shown here:
+// vertical, wide or square is a choice about the file Save makes, and the preview is the
+// route, not a mock-up of a frame. Its TIME is: the stage plays the video's length over and
+// over, so a line that draws itself on draws again each time round, as the saved file will
+// when a player repeats it.
 import {
-  DRAW_ON_MS,
   drawnAt,
   drawSpin,
   SPIN_START_ANGLE,
@@ -38,9 +38,6 @@ const props = defineProps<{
   /** the video's: how the line appears, and how many turns long it is */
   reveal: SpinReveal;
   turns: VideoTurns;
-  /** play the video's start once and go on turning, rather than the video over and over: a
-   *  line that draws on draws once, then stays whole (the page's example) */
-  once?: boolean;
 }>();
 
 /** A drag the stage's full width turns it half way round, the near side following the
@@ -64,8 +61,7 @@ const FIT_DOWN = 0.95;
 const roomRef = useTemplateRef<HTMLDivElement>("roomRef");
 const canvasRef = useTemplateRef<HTMLCanvasElement>("canvasRef");
 let angle = SPIN_START_ANGLE;
-/** how far into the video the stage is, in ms: it starts again from 0 each time round, or
- *  stops counting once there's nothing more to draw (once) */
+/** how far into the video the stage is, in ms: it starts again from 0 each time round */
 let clock = 0;
 const loopMs = () => videoSeconds(props.turns) * 1000;
 let raf = 0;
@@ -120,7 +116,7 @@ function tick(now: number) {
   raf = 0;
   if (last) {
     angle += spinAngle(now - last);
-    clock = props.once ? Math.min(clock + now - last, DRAW_ON_MS) : (clock + now - last) % loopMs();
+    clock = (clock + now - last) % loopMs();
   }
   last = now;
   paint();

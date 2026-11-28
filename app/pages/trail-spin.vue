@@ -68,8 +68,8 @@ const stageRef = useTemplateRef<InstanceType<typeof RouteSpin>>("stageRef");
 // page opens on the Timberline Trail (app/data/spinExample.ts) until a route of the visitor's
 // own takes its place. It isn't labelled as an example: the bar under it offers one thing,
 // Upload a route, until there is one, which says enough. Whatever was picked last time, it
-// draws itself on, once, and then turns whole (Ryan, 2026-11-28): the first thing a visitor
-// sees is what the tool does, and it doesn't go on doing it at them. Built on mount, not on the server: the stage
+// plays a 20-second video drawn on (Ryan, 2026-11-28): the first thing a visitor sees is what
+// the tool does, and then the whole route turning for a while before it draws again. Built on mount, not on the server: the stage
 // is a canvas, and a prerendered page has nothing to draw it with.
 onMounted(() => (example.value = spinModel(spinExampleTrack())));
 
@@ -177,10 +177,11 @@ const REVEAL_KEY = "gear.spin.reveal.v1";
 // Vertical first: most of these are made to post from a phone, where it fills the screen. Once
 // picked, a shape is remembered (below), so the default only decides a first save.
 const format = ref<SpinFormat>("vertical");
-const formatLabel = computed(() => FORMATS.find((f) => f.key === format.value)?.label ?? "");
 const turns = ref<VideoTurns>(1);
 const reveal = ref<SpinReveal>("draw");
-const revealLabel = computed(() => REVEALS.find((r) => r.key === reveal.value)?.label ?? "");
+/** the word for a menu's current choice, for its trigger's spoken name */
+const labelOf = (options: readonly { key: string; label: string }[], key: string) =>
+  options.find((o) => o.key === key)?.label ?? "";
 const ink = ref("#ffffff");
 const ground = ref("#000000");
 onMounted(() => {
@@ -345,17 +346,19 @@ const saveLabel = computed(() =>
       <!-- the map opens your route's details: the route is what the page shows, not a setting
            of the video, so it sits up here with the (i) and leaves the dock to the video -->
       <div v-if="spun" ref="infoRef" class="menu">
-        <button
-          type="button"
-          class="btn btn--icon btn--ghost spin-round"
-          aria-label="Route info"
-          aria-haspopup="dialog"
-          :aria-expanded="infoOpen"
-          @click="infoOpen = !infoOpen"
-        >
-          <!-- the map, as the Trip tab marks a route -->
-          <SvgIcon :icon="IconMap" />
-        </button>
+        <Tooltip text="Route info" preferred-placement="bottom" :disabled="infoOpen">
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost spin-round"
+            aria-label="Route info"
+            aria-haspopup="dialog"
+            :aria-expanded="infoOpen"
+            @click="infoOpen = !infoOpen"
+          >
+            <!-- the map, as the Trip tab marks a route -->
+            <SvgIcon :icon="IconMap" />
+          </button>
+        </Tooltip>
         <!-- the app's popover (MenuList, drawn as a card): a dialog, since it holds the
              route's details rather than a list of choices -->
         <Transition name="menu">
@@ -369,16 +372,18 @@ const saveLabel = computed(() =>
         </Transition>
       </div>
       <div ref="aboutRef" class="menu spin-screen__about">
-        <button
-          type="button"
-          class="btn btn--icon btn--ghost spin-round"
-          aria-label="About this page"
-          aria-haspopup="dialog"
-          :aria-expanded="aboutOpen"
-          @click="aboutOpen = !aboutOpen"
-        >
-          <SvgIcon :icon="IconCircleInfo" />
-        </button>
+        <Tooltip text="About this page" preferred-placement="bottom" :disabled="aboutOpen">
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost spin-round"
+            aria-label="About this page"
+            aria-haspopup="dialog"
+            :aria-expanded="aboutOpen"
+            @click="aboutOpen = !aboutOpen"
+          >
+            <SvgIcon :icon="IconCircleInfo" />
+          </button>
+        </Tooltip>
         <Transition name="menu">
           <MenuList v-if="aboutOpen" tag="div" role="dialog" aria-label="About this page" class="spin-info">
             <p>Turn a hike into a spinning 3D video.</p>
@@ -410,8 +415,7 @@ const saveLabel = computed(() =>
           :ink="ink"
           :ground="ground"
           :reveal="spun ? reveal : 'draw'"
-          :turns="turns"
-          :once="!spun"
+          :turns="spun ? turns : 2"
         />
         <p v-if="dropping" class="t-label spin-screen__drop">Drop to use this route</p>
       </div>
@@ -429,7 +433,8 @@ const saveLabel = computed(() =>
             :options="FORMATS"
             :current="format"
             label="Video shape"
-            :trigger-label="`Video shape: ${formatLabel}`"
+            :trigger-label="`Video shape: ${labelOf(FORMATS, format)}`"
+            tooltip="Video shape"
             trigger-class="spin-menu"
             @pick="pickFormat"
           >
@@ -443,6 +448,7 @@ const saveLabel = computed(() =>
             :current="String(turns)"
             label="Video length"
             :trigger-label="`Video length: ${videoSeconds(turns)} seconds`"
+            tooltip="Video length"
             trigger-class="spin-menu"
             @pick="pickLength"
           >
@@ -455,7 +461,8 @@ const saveLabel = computed(() =>
             :options="REVEALS"
             :current="reveal"
             label="How the line appears"
-            :trigger-label="`How the line appears: ${revealLabel}`"
+            :trigger-label="`How the line appears: ${labelOf(REVEALS, reveal)}`"
+            tooltip="How the line appears"
             trigger-class="spin-menu"
             @pick="pickReveal"
           >
@@ -545,7 +552,7 @@ const saveLabel = computed(() =>
    on the page's gutter: as far from the right edge as the bar's padding and that same inset
    put it from the top. The menu wrapper stays on the gutter, so its card's edge lines up
    with the glyph's. */
-.spin-screen__about > .spin-round {
+.spin-screen__about .spin-round {
   margin-inline-end: calc((var(--icon) - var(--dock-control)) / 2);
 }
 .spin-screen__main {
@@ -691,7 +698,8 @@ const saveLabel = computed(() =>
   padding-inline: var(--space-3);
 }
 /* The round buttons: the page's (i) and the route's map up top, and Save. Each the dock's
-   control size; .btn makes them pills. */
+   control size; .btn makes them pills. Every icon-only control on the page carries the app's
+   Tooltip (a mouse or a keyboard, never a touch), as the menus do through OptionMenu's own. */
 .spin-round,
 .spin-dock__save {
   flex: none;

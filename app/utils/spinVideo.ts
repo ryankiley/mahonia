@@ -18,7 +18,16 @@
 // answered: a save sat at 0% until a watchdog gave up on it (2026-11-27). The stage holds
 // still while it saves anyway.
 import { mp4Blob, mp4Colour, type Mp4Colour, type Mp4Sample } from "~~/shared/mp4";
-import { drawnAt, drawSpin, SPIN_FORMATS, videoSeconds, type SpinFormat, type SpinModel, type SpinReveal, type VideoTurns } from "~~/shared/routeSpin";
+import {
+  drawnAt,
+  drawSpin,
+  SPIN_FORMATS,
+  videoSeconds,
+  type SpinFormat,
+  type SpinModel,
+  type SpinReveal,
+  type VideoTurns,
+} from "~~/shared/routeSpin";
 
 const VIDEO_FPS = 60;
 /** Line art on a flat ground compresses well; this is generous for 1080p at 60. */
