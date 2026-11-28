@@ -412,6 +412,23 @@ describe("CSV round trip: what a flat file used to lose", () => {
     expect(data.items.filter((i) => i.parentId).map((i) => i.sortOrder)).toEqual([0, 0, 1]);
   });
 
+  // A row with a weight and no name yet is a normal state in the editor. A top-level
+  // row's Nested Under is blank, and blank once matched the nameless row, so every
+  // top-level row after it went inside it, into its folder.
+  it("nests nothing under a row with no name", () => {
+    const s = snap();
+    s.items.push(
+      { id: "n", folderId: "f1", name: "", unitWeightMg: 50_000, qty: 1, classification: null, sortOrder: 1 },
+      { id: "t", folderId: "f1", name: "Tarp", unitWeightMg: 200_000, qty: 1, classification: null, sortOrder: 2 },
+      { id: "u", folderId: null, name: "Loose", unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0 },
+    );
+    const data = csvToListData(listToCsv(s));
+    const row = (name: string) => data.items.find((i) => i.name === name)!;
+    const folderOf = (name: string) => data.folders.find((f) => f.id === row(name).folderId)?.name ?? null;
+    expect(data.items.filter((i) => i.parentId)).toEqual([]);
+    expect([folderOf("Tarp"), folderOf("Rain jacket"), folderOf("Loose")]).toEqual(["Shelter", "On Body", null]);
+  });
+
   it("brings a row in no folder back in no folder", () => {
     const s = snap();
     s.items.push({ id: "u", folderId: null, name: "Loose", unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0 });

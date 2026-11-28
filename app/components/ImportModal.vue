@@ -182,19 +182,21 @@ async function importFromText() {
     error.value = takeoutNote(raw) ?? `That looks like JSON, but not a list backup. ${BACKUP_FROM}`;
     return;
   }
-  // A Mahonia link, alone or in text around it (our plain-text copy ends with one):
-  // the list it names, whole, as a copy would make it. The text in front of a link is
-  // a summary of that list, names without weights, and reading it instead was the
-  // worse half of the same list.
+  // a table, a CSV or a typed list (csvToListData tells them apart) — parsed client-side
+  const read = csvToListData(raw);
+  // A Mahonia link, alone or in typed text around it (our plain-text copy ends with
+  // one): the list it names, whole, as a copy would make it. The text in front of a
+  // link is a summary of that list, names without weights, and reading it instead was
+  // the worse half of the same list. A table or a CSV is read as pasted, link or not:
+  // our Markdown copy ends with its link too, and a CSV can carry one in a cell.
   const code = shareCodeInText(raw);
-  if (code) return importShared(code);
-  // otherwise a table, a CSV or a typed list (csvToListData tells them apart) — parsed client-side
-  void fromCsv(csvToListData(raw));
+  if (code && (read.typed || !read.items.length)) return importShared(code);
+  void fromCsv(read);
 }
 
 // A CSV's rows and, apart from them, the unit most of them were written in, which is
 // the list's: without it a pounds list arrived as a gram list.
-function fromCsv({ displayUnit, ...data }: CsvListData) {
+function fromCsv({ displayUnit, typed: _typed, ...data }: CsvListData) {
   return createFrom({ displayUnit, data });
 }
 
