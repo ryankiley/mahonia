@@ -508,9 +508,12 @@ input[type="search"]::-webkit-search-decoration {
 // menus and the dialogs cannot drift. .dlg takes it by selector and not by wearing
 // .popover, because rows and folder bodies lift their clips for any .popover inside
 // them (atoms/item.scss, atoms/folder.scss) and a popover inside a dialog steps its
-// tone up (below).
+// tone up (below). A map pin's popup card takes it by selector too: the card is
+// Leaflet's own element, which no class of ours reaches, and two classes deep the rule
+// outranks the corner, ground and shadow leaflet.css gives it (one class, loaded later).
 .popover,
-.dlg {
+.dlg,
+.routemap .leaflet-popup-content-wrapper {
   outline: 1px solid transparent;
   border-radius: var(--radius-4);
   background: var(--surface-1);
@@ -731,7 +734,7 @@ input[type="search"]::-webkit-search-decoration {
 
 // Shaped like a row's hover (the item radius), since it sits where a row would.
 // Its ground is AN AMOUNT OF FOREGROUND, the well's (.well, in this file, has the
-// measurements: 1.17:1 on the light popover, 1.23 on the dark), because a menu is a
+// measurements: 1.20:1 on the light popover, 1.27 on the dark), because a menu is a
 // floating surface; a page tone (--background-secondary) sat at 1.10:1 on the card in
 // either theme, a box you had to look for. Not a .menu__item: nothing here is pressed, so
 // it takes no hover. SharePanel carried this alone as .share__nudge; lifted on the
@@ -1100,10 +1103,10 @@ input[type="search"]::-webkit-search-decoration {
 // moment it became the thing you were using. That is the Worn/Consumable switch's bug (#216)
 // exactly, in the atom the switch's fix was written next to.
 // Mixed from foreground, the fill composites over whatever it lands on and cannot match its
-// surface. (It is the hover tint's light amount, 8%, since 2026-11-27, one number for the menus'
-// row tint and this; the figures here were measured a point lower.) At 7% it reads 1.169
-// light and 1.226 dark on a popover, 1.120 dark on the page — all clear of the 1.10 that
-// vanished — and focus lifts to 10%: 1.254 / 1.352 / 1.200. It was 10% and 15% until
+// surface. It is the hover tint's light amount, 8% (one number for the menus' row tint and
+// this since 2026-11-27, when it moved up from 7%). At 8% it reads 1.196 light and 1.266
+// dark on a popover, 1.144 dark on the page — all clear of the 1.10 that vanished — and
+// focus lifts to 10%: 1.254 / 1.352 / 1.200. It was 10% and 15% until
 // 2026-11-07, which read as a dark grey slab on a white popover (the lists menu's search
 // is focused the moment it opens, so that was the only state anyone saw); 6% would put
 // the dark page under 1.10. ONE percentage, not a light-dark() pair:
@@ -1128,6 +1131,32 @@ input[type="search"]::-webkit-search-decoration {
 .well:focus {
   outline: none;
   background: var(--background-field-focus);
+}
+// THE COMPACT WELL and its LABEL: a field in a small floating card with a small label
+// over it, the list header's link panel (ListHead) and a map pin's popup (RouteMap). Each
+// card sets only the field's corner, concentric with its own. After .well, so its padding
+// wins over the well's.
+// Twice its type tall: 2em is the proportion a compact field wants, where --field-h (36px)
+// read visibly taller at the 16px this field has to keep. The leading is tightened so the
+// 2em governs; the inherited 1.5 plus the padding already passed it, and the field came out
+// 34px. 1.25 stays a number: no --leading-* step holds it, and this is its one use.
+// 16px (--text-input) while the label drops to 12: anything under 16px makes iOS Safari
+// zoom the page on focus (.field above).
+.well--compact {
+  min-height: 2em;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-input);
+  line-height: 1.25;
+}
+// The label: the smaller chrome step in the quiet foreground, on a tight line so it reads
+// as attached to the field under it, and its words start where the field's text does (the
+// compact well's inline padding).
+.well-label {
+  padding-inline: var(--space-2);
+  color: var(--foreground-tertiary);
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
 }
 
 // Disclosure slide — a grid whose single row animates 1fr↔0fr.

@@ -106,21 +106,21 @@ describe("opened from a sign-in link that has expired", () => {
 
 // A bad address shakes the card as one object. The field alone, swinging inside a card
 // that stayed still, read as a twitch.
-// One field and Continue: under a pointer that can hover the field has the caret as the
-// card opens. On touch it does not, because focus there raises the keyboard over the card.
+// One field and Continue: with a mouse or a keyboard the field has the caret as the card
+// opens. On touch it does not, because focus there raises the keyboard over the card.
 describe("where the sign-in card opens", () => {
-  const pointer = (fine: boolean) =>
-    vi.stubGlobal("matchMedia", (q: string) => ({ matches: fine && q === "(hover: hover) and (pointer: fine)", media: q }) as MediaQueryList);
+  const touch = (coarse: boolean) =>
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: coarse && q === "(pointer: coarse)", media: q }) as MediaQueryList);
   afterEach(() => vi.unstubAllGlobals());
 
   it("puts the caret in the address field for a mouse", async () => {
-    pointer(true);
+    touch(false);
     const w = await open();
     expect(document.activeElement).toBe(w.get('input[type="email"]').element);
   });
 
   it("leaves the field alone on touch, with focus on the card", async () => {
-    pointer(false);
+    touch(true);
     const w = await open();
     expect(document.activeElement).toBe(w.get('[role="dialog"]').element);
   });
