@@ -22,14 +22,16 @@ import { seedManaged } from "../shared/catalogQuality";
  * pointer (hydrateCatalogNames, the vault capture), search and pickers never see a
  * retired row, and a row the research names again is revived by the upsert. Run every
  * seed, so a pointer whose target later retires is re-aimed at the live row, and
- * idempotent: an unchanged answer writes nothing. Community rows are never touched, and
+ * idempotent: an unchanged answer writes nothing, and is counted as `unchanged`, not
+ * as a retirement (the reseed's log printed every retired row as retired again, on
+ * every run, 157 of them by 2026-11-27). Community rows are never touched, and
  * neither is a row an admin verified in the app (verified_by set): the database holds
  * those, not the research, so the CSV not naming one says nothing about it.
  */
 export async function retireOrphans(
   db: Db,
   rows: readonly CatalogCsvRow[],
-): Promise<{ merged: number; removed: number }> {
+): Promise<{ merged: number; removed: number; unchanged: number }> {
   const wanted = new Set(rows.map((r) => identity(r.brand, r.name, r.variant)));
   const held = await db
     .select({
@@ -51,18 +53,22 @@ export async function retireOrphans(
 
   let merged = 0;
   let removed = 0;
+  let unchanged = 0;
   for (const r of held) {
     if (!seedManaged(r) || named(r)) continue;
     const next = matchSuccessor({ ...r, weightMg: Number(r.weightMg) }, live);
     const status = next ? "merged" : "removed";
     const mergedIntoId = next?.row.id ?? null;
+    if (r.status === status && (r.mergedIntoId ?? null) === mergedIntoId) {
+      unchanged++;
+      continue;
+    }
     if (status === "merged") merged++;
     else removed++;
-    if (r.status === status && (r.mergedIntoId ?? null) === mergedIntoId) continue;
     await db
       .update(catalogItems)
       .set({ status, mergedIntoId, updatedAt: new Date() })
       .where(eq(catalogItems.id, r.id));
   }
-  return { merged, removed };
+  return { merged, removed, unchanged };
 }

@@ -58,7 +58,7 @@ export async function seedCatalog(db: Db): Promise<void> {
   // lists and My Gear hold these ids (seedRetire.ts). Community contributions
   // (verified=false) are never touched. Guarded so a failed/empty CSV can't retire
   // the catalog.
-  let retired = { merged: 0, removed: 0 };
+  let retired = { merged: 0, removed: 0, unchanged: 0 };
   if (rows.length > 50) {
     retired = await retireOrphans(db, rows);
   } else {
@@ -69,7 +69,7 @@ export async function seedCatalog(db: Db): Promise<void> {
   const active = await db.select({ id: catalogItems.id }).from(catalogItems).where(eq(catalogItems.status, "active"));
   console.log(
     `Catalog seeded: ${inserted} inserted, ${updated} updated, ${unchanged} unchanged; ` +
-      `${retired.merged} retired into a successor, ${retired.removed} retired with none.`,
+      `${retired.merged} retired into a successor, ${retired.removed} retired with none, ${retired.unchanged} already retired.`,
   );
   console.log(`catalog_items holds ${active.length} active rows.`);
 }
