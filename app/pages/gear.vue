@@ -669,11 +669,10 @@ async function exportGear(kind: string) {
     </SiteTopbar>
 
     <main id="main-content" tabindex="-1" class="wrap page vault__page">
-      <!-- The page's name is in the top bar, and a tagline under it was saying a
-           second time what the gear underneath says by being there. The heading
-           survives for the document outline — exactly one h1, matching the bar. -->
-      <h1 class="visually-hidden">My Gear</h1>
-
+      <!-- Exactly one h1 in every state, and only the gear's is seen: it is the page's
+           title in the spot a list's name holds (below). Signed out and still loading,
+           the page is one centred message, and a title over it would pull the eye to
+           a corner, so there the heading is only for the outline. -->
       <ClientOnly>
 
         <!-- Signed out. One question, so the column centres and narrows, and the
@@ -686,6 +685,7 @@ async function exportGear(kind: string) {
              how a product starts sounding like two products. Change one, change
              both. -->
         <div v-if="!hasGear" class="vault__auth vault__mid">
+          <h1 class="visually-hidden">My Gear</h1>
           <SvgIcon :icon="IconSafeSimple" size="xl" class="page__mark" aria-hidden="true" />
           <p class="vault__sentline">{{ VAULT_ASK }}</p>
           <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
@@ -693,16 +693,30 @@ async function exportGear(kind: string) {
 
         <!-- the gear -->
         <div v-else class="vault__body">
-          <!-- the tabs, and opposite them on Gear and Food the way to add a piece: the
-               dialog it opens files the piece under its own kind, so food added from
-               Gear still lands on Food, and the toast says so. A kit is made at the foot
-               of the Kits tab instead, as a list's folder is ("New kit", below). -->
+          <!-- The list's own order, top to bottom: the tabs, the page's name at the
+               page-title step with a quiet line of facts under it, then what you do
+               with the page. A list's head carries a display-size total below that; this
+               page has no such figure (see the count), so the name and the count are the
+               head and the tools come straight after. -->
           <div class="vault__tabbar">
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
-            <button v-if="tab !== 'kits' && !offline" type="button" class="btn btn--quiet foreground-quiet vault__tabadd" @click="openAdd">
-              <SvgIcon :icon="IconPlusMedium" aria-hidden="true" />
-              {{ addLabel }}
-            </button>
+          </div>
+          <div class="vault__head">
+            <h1 class="vault__title">My Gear</h1>
+            <p v-if="onTab.length" class="t-muted vault__count">
+              <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(onTab.length) }}</template>
+              <template v-else>{{ formatCount(onTab.length) }}</template>
+              {{ pluralNoun(onTab.length, countNoun) }}
+              <!-- No weight total: it added up everything you own, which nobody carries
+                   at once, so it answered no question (it went 2026-11-08, with the unit
+                   picker it doubled as; each row has its own, and the page opens in your
+                   most recent list's unit). What it cost stays: that
+                   one is a real question about a closet, and the reason a price is worth
+                   recording at all. -->
+              <template v-if="totalPrice">
+                · <span class="t-num" :title="priceTitle">{{ formatPrice(totalPrice.cents, totalPrice.currency) }}</span>
+              </template>
+            </p>
           </div>
           <!-- Nothing to search or order until there IS gear — controls over
                "Nothing here yet" are furniture for a room with no floor. The same goes
@@ -710,15 +724,21 @@ async function exportGear(kind: string) {
                yet" were two controls and a count for an empty room, and they pushed
                its centred sentence down the page. A query keeps the field up, since
                the query is the whole page's and this is where it is cleared. -->
+          <!-- ONE ROW OF TOOLS, one shape: the search, the order and the add are the same
+               height, corner and ground, side by side, so they read as one toolbar
+               rather than a field, a caption and a link scattered over two rows. The
+               search takes the slack, so the other two sit on the trailing edge over
+               the rows' own trailing controls. -->
           <div v-if="items.length && (onTab.length || query.trim())" class="vault__bar">
             <!-- the field and its own clear — SearchField, the same control the gear
                  pane draws; only the sizing is this page's -->
-            <!-- the tab's own name for what it holds: gear, food, kits -->
+            <!-- Just "Search": the title over it already says whose gear this is, and
+                 "Search your gear…" under "My Gear" said it twice. -->
             <SearchField
               ref="searchEl"
               v-model="query"
               class="vault__searchwrap"
-              :label="`Search your ${tab}`"
+              label="Search"
             />
 
             <!-- The question a gear of two hundred rows raises, what order, as the
@@ -738,10 +758,20 @@ async function exportGear(kind: string) {
             >
               <template #trigger="{ open }">
                 <SvgIcon :icon="viewOption.icon" class="vault__viewmark" aria-hidden="true" />
-                {{ viewOption.label }}
+                <span class="vault__viewword">{{ viewOption.label }}</span>
                 <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
               </template>
             </OptionMenu>
+
+            <!-- The way to add a piece, last in the row. The dialog it opens files the
+                 piece under its own kind, so food added from Gear still lands on Food,
+                 and the toast says so. Not on Kits: a kit is made at the foot of that
+                 tab, as a list's folder is ("New kit", below). On a phone it is its
+                 glyph alone, so the label is its name at every width. -->
+            <button v-if="tab !== 'kits' && !offline" type="button" class="btn vault__add" :aria-label="addLabel" @click="openAdd">
+              <SvgIcon :icon="IconPlusMedium" aria-hidden="true" />
+              <span class="vault__addword">{{ addLabel }}</span>
+            </button>
           </div>
 
           <!-- offline, how old the gear on screen is (or that there is none to show),
@@ -758,21 +788,6 @@ async function exportGear(kind: string) {
           <p v-if="loading && !items.length && !offline" class="t-muted vault__mid">Loading your gear…</p>
 
           <template v-else-if="items.length">
-            <p v-if="onTab.length" class="t-muted vault__count">
-              <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(onTab.length) }}</template>
-              <template v-else>{{ formatCount(onTab.length) }}</template>
-              {{ pluralNoun(onTab.length, countNoun) }}
-              <!-- No weight total: it added up everything you own, which nobody carries
-                   at once, so it answered no question (it went 2026-11-08, with the unit
-                   picker it doubled as; each row has its own, and the page opens in your
-                   most recent list's unit). What it cost stays: that
-                   one is a real question about a closet, and the reason a price is worth
-                   recording at all. -->
-              <template v-if="totalPrice">
-                · <span class="t-num" :title="priceTitle">{{ formatPrice(totalPrice.cents, totalPrice.currency) }}</span>
-              </template>
-            </p>
-
             <!-- KITS: each kit a section, the way a kind is on the Gear tab — its name for
                  the heading, its items as rows of gear (VaultKitSection) -->
             <template v-if="tab === 'kits'">
@@ -873,6 +888,7 @@ async function exportGear(kind: string) {
              never answers. Only a browser with no hint draws the sign-in prompt, and
              that answer is settled before the first render. #fallback covers SSR. -->
         <template #fallback>
+          <h1 class="visually-hidden">My Gear</h1>
           <p class="t-muted vault__mid">Loading…</p>
         </template>
       </ClientOnly>
@@ -972,34 +988,71 @@ async function exportGear(kind: string) {
   color: var(--foreground-primary);
 }
 
-/* --- the bar --- */
+/* --- the head: the list's title block, measure for measure ---
+   ListHead's column: the name at the page-title step, the line under it --space-1 below.
+   The tabs' own margin (below) puts the name where a list's sits under its tabs. */
+.vault__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-5);
+}
+/* the list name's type (ListHead's .head__title), on a heading rather than a textarea;
+   the field's own block padding too, so the words land on the list name's line */
+.vault__title {
+  padding-block: var(--space-1);
+  font-size: var(--text-page-title);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+/* --- the bar: one toolbar --- */
+/* No wrap: the search is the part that gives way, down to a floor where its
+   placeholder still reads, and on a phone the add drops its word (below). */
 .vault__bar {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  /* wraps at EVERY width, not only below $bp-stack: a narrowed desktop window drops
-     the picker to its own line rather than crush the field beside it */
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
+  align-items: stretch;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
 }
 /* the search is SearchField (the field, its clear, the touch target); this page only
-   sizes it — it takes the slack up to a cap, so it never becomes a bar */
+   sizes it: it takes the row's slack, so the order and the add close the row on the
+   trailing edge instead of floating off on their own past a gap */
 .vault__searchwrap {
-  flex: 1 1 20ch;
-  max-width: 32ch;
+  flex: 1 1 auto;
+  min-width: 8rem;
 }
-/* mark + value + chevron, on the trailing edge over the rows' own trailing controls;
-   the value says which question it answers, so no "View" word. The class is on an
-   OptionMenu's root, which is already a centred inline-flex box (.optmenu), and the
-   three parts are spaced inside its trigger; only where it sits and its foreground are set
-   here. */
-.vault__view {
-  margin-left: auto;
+/* THE ONE BOX the order and the add both wear, and the field beside them already
+   does: the field's height, the search's --radius-2 corner (SearchField says why it is
+   the tabs' corner, not the well's), and the well's ground, deepening on the pointer
+   and while open the way the field deepens on focus. The order's trigger is
+   OptionMenu's own button, bare by design, so its box is reached through the root. */
+.vault__view :deep(.optmenu__btn),
+.vault__add {
+  min-height: var(--field-h);
+  height: 100%;
+  padding-inline: var(--space-3);
+  gap: var(--space-2);
+  border-radius: var(--radius-2);
+  background: var(--background-field);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: normal;
   white-space: nowrap;
+  transition: background var(--spring-fade-dur) var(--spring-fade), color var(--spring-fade-dur) var(--spring-fade);
+}
+.vault__view :deep(.optmenu__btn[aria-expanded="true"]) {
+  background: var(--background-field-focus);
+}
+/* mark + value + chevron; the value says which question it answers, so no "View"
+   word. A step quieter than the add, which is the row's one act. */
+.vault__view {
   color: var(--foreground-secondary);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .vault__view:focus-within {
+  color: var(--foreground-primary);
+}
+.vault__add {
   color: var(--foreground-primary);
 }
 /* a step quieter than the value beside it, as the word it replaced was */
@@ -1020,11 +1073,10 @@ async function exportGear(kind: string) {
   .vault__view:hover .chev {
     color: var(--foreground-primary);
   }
-}
-/* a clear break before the first heading, on both tabs: the count closes the controls
-   above it, and the gear starts below */
-.vault__count {
-  margin-bottom: var(--space-5);
+  .vault__view :deep(.optmenu__btn:hover),
+  .vault__add:hover {
+    background: var(--background-field-focus);
+  }
 }
 
 .vault__emptyacts {
@@ -1056,12 +1108,16 @@ async function exportGear(kind: string) {
   text-align: center;
   text-wrap: balance;
 }
-/* Under the tabs, the tabs' own height again as air below the message: it then sits
-   where the signed-out prompt does, which has no tabs over it, and doesn't step down
-   the page when you sign in. Every one of these lands a little above the middle of the
-   window, where a lone block reads as centred. */
+/* Under the tabs and the title, what stands over the message again as air below it,
+   less the signed-out page's own top padding: it then sits where the signed-out prompt
+   does, which has nothing over it, and doesn't step down the page when you sign in.
+   Every one of these lands a little above the middle of the window, where a lone block
+   reads as centred. The sum, term by term: the tabs (--control-compact and ModeBar's
+   two --space-1), their margin (--space-1 + --space-5), the title (its two --space-1 and
+   one line of page-title type) and its margin (--space-5), the page's --space-1 top
+   padding, less the signed-out page's --space-5. */
 .vault__body > .vault__mid {
-  padding-bottom: calc(var(--control-compact) + var(--space-1));
+  padding-bottom: calc(var(--control-compact) + 6 * var(--space-1) + var(--space-5) + var(--text-page-title) * var(--leading-tight));
 }
 /* the kit's name is typed where its button was, so it is centred as the button was */
 .vault__mid :deep(.addfolder__input) {
@@ -1095,35 +1151,30 @@ async function exportGear(kind: string) {
 .vault__page:has(.vault__tabbar) {
   padding-top: var(--space-1);
 }
+/* The editor's two seams under its tabs, added: ModeBar's own margin there
+   (.editor__modes, --space-1) and its body's column gap (--body-gap, --space-5). The
+   tabs have this row to themselves, so they keep their icons as long as the list's do. */
 .vault__tabbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-/* The tabs share this row with the add button, so they give up their icons sooner than
-   a bar with a row to itself does (modebar.scss): at a 375px phone the three tabs, their
-   icons and "Add gear" do not all fit. */
-@media (max-width: 380px) {
-  .vault__tabbar :deep(.modebar__opt svg) {
-    display: none;
-  }
-}
-.vault__tabadd {
-  flex: none;
-  gap: var(--space-1);
+  margin-bottom: calc(var(--space-1) + var(--space-5));
 }
 
 @media (max-width: $bp-stack) {
-  /* the search drops its cap, so it ends on the picker's edge rather than short of it */
-  .vault__searchwrap {
-    max-width: none;
+  /* Glyphs only: at 375px the field, "By kind" and "Add gear" left the search too
+     narrow for its placeholder, and "Recently used" or
+     "Calorie dense" narrower still. The add is a square of the row's height; the order
+     keeps its mark, which is each order's own, and its chevron, which says it opens.
+     Both keep their words as their names (triggerLabel, aria-label), and the open menu
+     names every order. */
+  .vault__add {
+    width: var(--field-h);
+    padding-inline: 0;
   }
-  /* The picker keeps its word ("By kind") beside the search: it hid it when a second
-     picker shared the line, and one fits. */
-  .vault__bar {
-    flex-wrap: nowrap;
+  .vault__addword,
+  .vault__viewword {
+    display: none;
+  }
+  .vault__view :deep(.optmenu__btn) {
+    gap: var(--space-1);
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */
