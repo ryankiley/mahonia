@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBackpack, IconFootsteps, IconMap, IconMapPin, IconGlobe2 } from "~/icons/central";
+import { IconBackpack, IconFootsteps, IconMap, IconMapPin, IconGlobe2, IconSquareChecklist } from "~/icons/central";
 import { datesIcon } from "~/utils/datesIcon";
 import { StairsGlyph } from "~/icons/mahonia";
 import { SvgIcon } from "~/utils/icon";
@@ -315,6 +315,8 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
        at the top of the page while the 404 beside it sat in the middle. -->
   <main v-else id="main-content" tabindex="-1" class="wrap page page--alone">
     <div class="prose">
+      <!-- the list's own mark, the one "Create a list" wears in My Gear's menu -->
+      <SvgIcon :icon="IconSquareChecklist" size="xl" class="page__mark" aria-hidden="true" />
       <p>This list doesn’t exist, or was deleted.</p>
       <p><NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink></p>
     </div>
