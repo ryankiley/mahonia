@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { FunctionalComponent } from "vue";
+import Tooltip from "~/components/Tooltip.vue";
 import { IconCheckmark1Medium } from "~/icons/central";
 import { SvgIcon, type IconNode } from "~/utils/icon";
 
@@ -49,8 +51,18 @@ const props = defineProps<{
    * baseline. Anything that must actually restyle this button belongs here.
    */
   align?: "center" | "baseline";
+  /**
+   * A visible name for a trigger that draws only a glyph or a figure: the app's Tooltip
+   * round the BUTTON (hover where there is hover, and keyboard focus; never touch), not
+   * round the whole menu, so it doesn't sit over the open list, and hidden while the list
+   * is open. The accessible name is still triggerLabel or label.
+   */
+  tooltip?: string;
 }>();
 const emit = defineEmits<{ pick: [key: string] }>();
+
+/** the trigger as it is, with nothing round it: a menu with no tooltip renders as before */
+const Bare: FunctionalComponent = (_, { slots }) => slots.default?.();
 
 const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
@@ -75,20 +87,22 @@ function pick(key: string) {
 
 <template>
   <div ref="rootRef" class="menu optmenu">
-    <button
-      type="button"
-      class="optmenu__btn"
-      :class="[triggerClass, { 'optmenu__btn--baseline': align === 'baseline' }]"
-      :title="title"
-      :aria-label="triggerLabel ?? label"
-      aria-haspopup="menu"
-      :aria-expanded="open"
-      @click="open = !open"
-    >
-      <!-- the caller draws its own trigger; `active` is the option it should show and
-           `open` lets it turn a chevron over -->
-      <slot name="trigger" :active="active" :open="open" />
-    </button>
+    <component :is="tooltip ? Tooltip : Bare" :text="tooltip" :disabled="open">
+      <button
+        type="button"
+        class="optmenu__btn"
+        :class="[triggerClass, { 'optmenu__btn--baseline': align === 'baseline' }]"
+        :title="title"
+        :aria-label="triggerLabel ?? label"
+        aria-haspopup="menu"
+        :aria-expanded="open"
+        @click="open = !open"
+      >
+        <!-- the caller draws its own trigger; `active` is the option it should show and
+             `open` lets it turn a chevron over -->
+        <slot name="trigger" :active="active" :open="open" />
+      </button>
+    </component>
     <Transition name="menu">
       <MenuList v-if="open" within class="optmenu__list" :aria-label="label">
         <li v-for="o in options" :key="o.key" role="none">

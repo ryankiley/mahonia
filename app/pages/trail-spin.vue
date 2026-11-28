@@ -345,17 +345,19 @@ const saveLabel = computed(() =>
       <!-- the map opens your route's details: the route is what the page shows, not a setting
            of the video, so it sits up here with the (i) and leaves the dock to the video -->
       <div v-if="spun" ref="infoRef" class="menu">
-        <button
-          type="button"
-          class="btn btn--icon btn--ghost spin-round"
-          aria-label="Route info"
-          aria-haspopup="dialog"
-          :aria-expanded="infoOpen"
-          @click="infoOpen = !infoOpen"
-        >
-          <!-- the map, as the Trip tab marks a route -->
-          <SvgIcon :icon="IconMap" />
-        </button>
+        <Tooltip text="Route info" preferred-placement="bottom" :disabled="infoOpen">
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost spin-round"
+            aria-label="Route info"
+            aria-haspopup="dialog"
+            :aria-expanded="infoOpen"
+            @click="infoOpen = !infoOpen"
+          >
+            <!-- the map, as the Trip tab marks a route -->
+            <SvgIcon :icon="IconMap" />
+          </button>
+        </Tooltip>
         <!-- the app's popover (MenuList, drawn as a card): a dialog, since it holds the
              route's details rather than a list of choices -->
         <Transition name="menu">
@@ -369,16 +371,18 @@ const saveLabel = computed(() =>
         </Transition>
       </div>
       <div ref="aboutRef" class="menu spin-screen__about">
-        <button
-          type="button"
-          class="btn btn--icon btn--ghost spin-round"
-          aria-label="About this page"
-          aria-haspopup="dialog"
-          :aria-expanded="aboutOpen"
-          @click="aboutOpen = !aboutOpen"
-        >
-          <SvgIcon :icon="IconCircleInfo" />
-        </button>
+        <Tooltip text="About this page" preferred-placement="bottom" :disabled="aboutOpen">
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost spin-round"
+            aria-label="About this page"
+            aria-haspopup="dialog"
+            :aria-expanded="aboutOpen"
+            @click="aboutOpen = !aboutOpen"
+          >
+            <SvgIcon :icon="IconCircleInfo" />
+          </button>
+        </Tooltip>
         <Transition name="menu">
           <MenuList v-if="aboutOpen" tag="div" role="dialog" aria-label="About this page" class="spin-info">
             <p>Turn a hike into a spinning 3D video.</p>
@@ -430,6 +434,7 @@ const saveLabel = computed(() =>
             :current="format"
             label="Video shape"
             :trigger-label="`Video shape: ${formatLabel}`"
+            tooltip="Video shape"
             trigger-class="spin-menu"
             @pick="pickFormat"
           >
@@ -443,6 +448,7 @@ const saveLabel = computed(() =>
             :current="String(turns)"
             label="Video length"
             :trigger-label="`Video length: ${videoSeconds(turns)} seconds`"
+            tooltip="Video length"
             trigger-class="spin-menu"
             @pick="pickLength"
           >
@@ -456,6 +462,7 @@ const saveLabel = computed(() =>
             :current="reveal"
             label="How the line appears"
             :trigger-label="`How the line appears: ${revealLabel}`"
+            tooltip="How the line appears"
             trigger-class="spin-menu"
             @pick="pickReveal"
           >
@@ -545,7 +552,7 @@ const saveLabel = computed(() =>
    on the page's gutter: as far from the right edge as the bar's padding and that same inset
    put it from the top. The menu wrapper stays on the gutter, so its card's edge lines up
    with the glyph's. */
-.spin-screen__about > .spin-round {
+.spin-screen__about .spin-round {
   margin-inline-end: calc((var(--icon) - var(--dock-control)) / 2);
 }
 .spin-screen__main {
@@ -691,7 +698,8 @@ const saveLabel = computed(() =>
   padding-inline: var(--space-3);
 }
 /* The round buttons: the page's (i) and the route's map up top, and Save. Each the dock's
-   control size; .btn makes them pills. */
+   control size; .btn makes them pills. Every icon-only control on the page carries the app's
+   Tooltip (a mouse or a keyboard, never a touch), as the menus do through OptionMenu's own. */
 .spin-round,
 .spin-dock__save {
   flex: none;
