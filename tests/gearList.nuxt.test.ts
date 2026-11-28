@@ -309,6 +309,13 @@ beforeEach(() => {
   amongCalls = 0;
   amongFails = false;
   hasVault.value = true;
+  // ...and the session behind that vault is a sign-in made on this browser, the kind
+  // that brings the gear of the lists the browser holds (captureRespectsSweep has the
+  // other kind)
+  useState("session").value = {
+    state: "signedIn",
+    user: { owner: "1", email: "a@example.com", displayName: null, sweep: true, account: "aaaa" },
+  };
 });
 afterEach(() => {
   // the controller is a module singleton: hand it back clean, and stop its poll

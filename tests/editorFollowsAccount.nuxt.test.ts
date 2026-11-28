@@ -69,7 +69,8 @@ function allow(event: H3Event) {
   throw createError({ statusCode: 401, statusMessage: "Missing edit capability" });
 }
 registerEndpoint("/api/auth/me", () => ({
-  user: signedInAs && { ...signedInAs, email: `${signedInAs.account}@example.com`, displayName: null, sweep: false },
+  // each signed in on this browser, so the gear of the lists it holds is theirs to bank
+  user: signedInAs && { ...signedInAs, email: `${signedInAs.account}@example.com`, displayName: null, sweep: true },
 }));
 registerEndpoint("/api/auth/signout", { method: "POST", handler: () => ((signedInAs = null), {}) });
 registerEndpoint("/api/lists/claimed", () => ({ lists: [] }));

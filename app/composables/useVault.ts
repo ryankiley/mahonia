@@ -158,8 +158,10 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // retry after a failed send. Held as built rows (not raw items) so the page-hide
 // flush can beacon them synchronously — it has no chance to await anything.
 // `owner` is the session they were built under (its owner marker): they are sent to
-// that session's My Gear or not at all (stillTheirs).
-let pending: { items: VaultCapture[]; fingerprint: string; owner: string | null } | null = null;
+// that session's My Gear or not at all (stillTheirs). `ofAccount` is whether their list
+// was opened through the account, which decides whether they need the session's leave
+// to go (useVaultCapture's mayGo).
+let pending: { items: VaultCapture[]; fingerprint: string; owner: string | null; ofAccount: boolean } | null = null;
 /** Whether the rows waiting are still for the session the cookie names. A sign-in in
  *  another tab changes the cookie under this one, and rows sent after it would add one
  *  account's gear to the next account's My Gear, for good. Dropped when they aren't:
@@ -205,8 +207,39 @@ export function useVaultCapture() {
   // hasVault as well as the fetch: capture does nothing for someone who has no vault
   // (see sync below), and the two come from the same place.
   const { hasVault, vaultKnown, vaultFetch } = useVaultAccess();
+  const { user } = useSession();
   // the newest sync() of this tick, waiting for its one run (see sync)
   let queued: Parameters<typeof sync> | null = null;
+
+  /**
+   * Whether this session brought the lists this device holds, and so their gear: yes,
+   * no, or null while it hasn't answered.
+   *
+   * A sign-in link asked for elsewhere and only confirmed on this browser doesn't bring
+   * the browser's lists until its person says so (`sweep` on the session, which the
+   * claim sweep goes by). Their gear waits on that same yes. Capture happens with nobody
+   * asking, and without this, opening someone's sign-in link on your own computer put
+   * your gear in their My Gear at your next edit, for good.
+   *
+   * Only the lists the DEVICE holds, a draft or an edit link. A list opened through
+   * the account is the account's however the session got here, and a press on a row's
+   * own Save is its person's to make in any session (captureOne).
+   */
+  const broughtDeviceGear = (): boolean | null => (vaultKnown.value ? !!user.value?.sweep : null);
+  /** Signed in, by a sign-in that didn't: the rows are told, so a list the automatic
+   *  path would have covered keeps its Save buttons. */
+  const deviceGearWaits = computed(() => !!user.value && !user.value.sweep);
+
+  /** Whether rows built and waiting may be sent now: to the session they were built
+   *  under, and for a list the device holds, only once that session has said it brought
+   *  the device's lists. Dropped when it says it didn't; held while it hasn't answered. */
+  function mayGo(waiting: NonNullable<typeof pending>): boolean {
+    if (!stillTheirs(waiting)) return false;
+    if (waiting.ofAccount) return true;
+    const brought = broughtDeviceGear();
+    if (brought === false && pending === waiting) pending = null;
+    return brought === true;
+  }
 
   /**
    * Note a change to the list.
@@ -224,6 +257,9 @@ export function useVaultCapture() {
    * ever, so a signed-in visitor's first edits are never dropped; and a sign-in
    * without leaving the list captures from the controller's own session watcher.
    *
+   * Nor for a list the device holds, in a session known not to have brought the
+   * device's lists (broughtDeviceGear): nothing is built, and nothing is asked.
+   *
    * One run per tick, on the last call's arguments. Every mutation calls this, and a
    * drag, a paste or an undo is one mutation per row it moves: each used to rebuild
    * the capture set over the whole list, ops × items for a batch whose only
@@ -235,6 +271,8 @@ export function useVaultCapture() {
     opts: {
       /** which list, and whether it has a question to ask (see VaultList) */
       list: VaultList;
+      /** The list was opened through the account, with no edit link on this device. */
+      ofAccount?: boolean;
       onAsk?: () => void;
       /** What the vault holds of this list's gear, or null while unanswered —
        *  the open list's own answer, handed in by the controller. */
@@ -243,6 +281,7 @@ export function useVaultCapture() {
   ): void {
     if (!import.meta.client) return;
     if (vaultKnown.value && !hasVault.value) return;
+    if (!opts.ofAccount && broughtDeviceGear() === false) return;
     const first = queued === null;
     queued = [items, folders, opts];
     if (!first) return;
@@ -298,14 +337,17 @@ export function useVaultCapture() {
     const fingerprint = captureFingerprint(caps);
     // already stored, or already queued for exactly this state
     if (fingerprint === lastFingerprint || fingerprint === pending?.fingerprint) return;
-    pending = { items: caps, fingerprint, owner: sessionCacheOwner() };
+    pending = { items: caps, fingerprint, owner: sessionCacheOwner(), ofAccount: !!opts.ofAccount };
     clearTimeout(timer);
     timer = setTimeout(send, captureDebounceMs);
   }
 
   async function send(): Promise<void> {
     const sending = pending;
-    if (!sending || !stillTheirs(sending)) return;
+    if (!sending) return;
+    // a session still being asked about answers first: mayGo goes by what it says
+    if (!sending.ofAccount) await sessionSettled();
+    if (pending !== sending || !mayGo(sending)) return;
     try {
       await vaultFetch("/api/vault/capture", {
         method: "POST",
@@ -342,7 +384,7 @@ export function useVaultCapture() {
    * just the items.
    */
   function flush(): void {
-    if (!import.meta.client || !pending || !navigator.sendBeacon || !stillTheirs(pending)) return;
+    if (!import.meta.client || !pending || !navigator.sendBeacon || !mayGo(pending)) return;
     const blob = new Blob([JSON.stringify({ items: pending.items })], {
       type: "application/json",
     });
@@ -525,7 +567,7 @@ export function useVaultCapture() {
     return { result: "saved", landed };
   }
 
-  return { sync, buildCaptures, captureNewList, captureOne, bindFlushOnLeave };
+  return { sync, buildCaptures, captureNewList, captureOne, bindFlushOnLeave, deviceGearWaits };
 }
 
 /** Reset the capture memo — called when a device switches vaults, so
