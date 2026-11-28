@@ -32,8 +32,35 @@ import type { Op } from "~~/shared/ops";
 import { _setFlushBackoff, _setFlushDebounce } from "~/composables/useGearList";
 
 // ---- boundary stubs (same shape as gearList.nuxt.test.ts) ---------------------
-const records = new Map<string, LocalListRecord>();
-mockNuxtImport("useLocalListStore", () => () => memoryListStore(records));
+// What is on the device. Most cases here reach it through the memory store; the ones
+// about WHOSE copy it is ("two accounts at one browser") turn `real` on and run the
+// real store over the same Map, with only IndexedDB's one request stubbed, because
+// the filing by account is the store's and a double of it would be testing itself.
+const device = vi.hoisted(() => ({ real: false, records: new Map<string, LocalListRecord>() }));
+const records = device.records;
+vi.mock("~~/shared/idb", () => ({
+  idbRequest: async (_n: string, _v: number, _s: string, _m: string, run: (s: unknown) => { result: unknown }) =>
+    run({
+      get: (k: string) => ({ result: structuredClone(device.records.get(k)) }),
+      put: (v: LocalListRecord, k: string) => (device.records.set(k, structuredClone(v)), { result: k }),
+      delete: (k: string) => (device.records.delete(k), { result: undefined }),
+      getAllKeys: (range: { lower: string; upper: string }) => ({
+        result: [...device.records.keys()].filter((k) => k >= range.lower && k <= range.upper),
+      }),
+    }).result,
+}));
+mockNuxtImport<typeof useLocalListStore>("useLocalListStore", (original) => () => {
+  // chosen at each call, not once: the controller keeps the store it was made with
+  const now = () => (device.real ? original() : memoryListStore(records));
+  return {
+    get: (key) => now().get(key),
+    set: (key, record) => now().set(key, record),
+    del: (key) => now().del(key),
+    delClaimed: () => now().delClaimed(),
+    prefetch: (key) => now().prefetch(key),
+    take: (key) => now().take(key),
+  };
+});
 // the vault is not this file's subject: no vault, and the session answered, so
 // capture stays quiet and its reads settle instead of waiting
 mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
@@ -69,6 +96,8 @@ let failOpens = false;
 let openHeld: Promise<void> | null = null;
 let mutateHeld: Promise<void> | null = null;
 let refuseMutates = false;
+// When set, an edit never reaches the server: a device with no network.
+let failMutates = false;
 registerEndpoint("/api/edit/list", async (event) => {
   listAuth.push(authOf(event));
   if (openHeld) await openHeld;
@@ -76,6 +105,14 @@ registerEndpoint("/api/edit/list", async (event) => {
   if (failOpens) throw createError({ statusCode: 503, statusMessage: "Unreachable" });
   return { snapshot: serverList };
 });
+
+// Who the server says is signed in, for the cases that sign accounts in and out for
+// real ("two accounts at one browser"); nobody, until one of them says otherwise.
+let signedInAs: { owner: string; account: string } | null = null;
+registerEndpoint("/api/auth/me", () => ({
+  user: signedInAs && { ...signedInAs, email: "someone@example.com", displayName: null, sweep: false },
+}));
+registerEndpoint("/api/auth/signout", { method: "POST", handler: () => ((signedInAs = null), {}) });
 
 // The session, as the controller reads it for the 401 verdict below. The real
 // composable runs here (nothing mocks it), so its state is set the way /api/auth/me
@@ -95,15 +132,19 @@ registerEndpoint("/api/edit/mutate", {
   handler: async (event) => {
     const seen: SeenAuth & { ops?: Op[] } = authOf(event);
     mutateAuth.push(seen);
+    if (failMutates) throw createError({ statusCode: 503, statusMessage: "Unreachable" });
     const body = await readBody<{ ops?: Op[] }>(event);
     seen.ops = body?.ops;
     if (mutateHeld) await mutateHeld;
     if (refuseMutates) throw createError({ statusCode: 401, statusMessage: "Missing edit capability" });
     // echo the ops onto the snapshot the way the reducer would for the one op
-    // these tests send (setMeta title), so the controller adopts a truthful merge
-    const rename = body?.ops?.findLast((o) => o.t === "setMeta");
-    if (rename && "patch" in rename && typeof rename.patch.title === "string")
-      serverList = { ...serverList, title: rename.patch.title };
+    // these tests send (setMeta: a title, a description), so the controller adopts
+    // a truthful merge
+    for (const op of body?.ops ?? []) {
+      if (op.t !== "setMeta") continue;
+      const { title = serverList.title, description = serverList.description } = op.patch;
+      serverList = { ...serverList, title, description };
+    }
     serverList = { ...serverList, version: serverList.version + 1 };
     return { snapshot: serverList };
   },
@@ -497,6 +538,126 @@ describe("useGearList — a claimed open (share code + session, no token held)",
       bearer: `Bearer ${ROTATED_TOKEN}`,
       listCode: undefined,
       ops: [{ t: "setMeta", patch: { title: "After rotate" } }],
+    });
+  });
+
+  // A list two accounts both hold, opened through each of them at one browser. The
+  // real store and the real session run here: which copy is whose is theirs to decide.
+  describe("two accounts at one browser", () => {
+    beforeEach(() => {
+      device.real = true;
+      // the store stands down where there is no IndexedDB at all, and this environment has none
+      vi.stubGlobal("indexedDB", {});
+      vi.stubGlobal("IDBKeyRange", { bound: (lower: string, upper: string) => ({ lower, upper }) });
+      signedInAs = null;
+      failMutates = false;
+    });
+    afterEach(() => {
+      device.real = false;
+      vi.stubGlobal("indexedDB", undefined);
+      failMutates = false;
+      signedInAs = null;
+    });
+
+    // A sign-in as the server leaves it: the two readable cookies, and its answer
+    // to the session check that follows.
+    async function signIn(owner: string, account: string) {
+      signedInAs = { owner, account };
+      document.cookie = "mh_signed_in=1; path=/";
+      document.cookie = `mh_session_owner=${owner}; path=/`;
+      await useSession().refresh(true);
+      expect(useSession().user.value?.account).toBe(account);
+    }
+    // Leaving the way the menu does, with the list still on screen; then the page goes.
+    async function signOut(c: ReturnType<typeof useGearList>) {
+      await useSession().signOut();
+      c.dispose();
+    }
+    async function open() {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      return c;
+    }
+    /** The signed-in account's copy of the list, as the store hands it over. */
+    const onDevice = () => useLocalListStore().get(claimedLocalKey(CODE));
+    /** Everything sent, acknowledged, and written down as sent. */
+    async function settled(c: ReturnType<typeof useGearList>) {
+      await vi.waitFor(() => expect(c.status.value).toBe("synced"));
+      await vi.waitFor(async () => expect((await onDevice())?.pending).toEqual([]));
+    }
+    /** The edits the server was sent, in order. */
+    const sent = () => mutateAuth.flatMap((m) => m.ops ?? []).map((op) => (op.t === "setMeta" ? op.patch : op));
+    const RENAME = { title: "Renamed by A, offline" };
+    const NOTE = { description: "Noted by B" };
+
+    it("keeps one account's unsent edits through another account opening the same list", async () => {
+      // A opens the list, loses the network, renames it, and signs out with the
+      // rename still unsent
+      await signIn("1", "aaaa");
+      let c = await open();
+      window.dispatchEvent(new Event("offline"));
+      failMutates = true;
+      c.setMeta(RENAME);
+      await vi.waitFor(async () => expect((await onDevice())?.pending).toHaveLength(1));
+      await signOut(c); // the page's parting send finds no network either
+      await vi.waitFor(() => expect(mutateAuth).toHaveLength(1));
+
+      // B, who holds the list too, signs in here and opens it with the network back
+      window.dispatchEvent(new Event("online"));
+      failMutates = false;
+      mutateAuth = [];
+      await signIn("2", "bbbb");
+      c = await open();
+      // B is shown the server's list, never what A typed and didn't send
+      expect(c.snapshot.value?.title).toBe("Alpine Loop");
+      c.setMeta(NOTE);
+      await vi.waitFor(() => expect(sent()).toEqual([NOTE]));
+      // ...and has a copy of its own on the device, the way any open does
+      await settled(c);
+      expect((await onDevice())?.snapshot.description).toBe(NOTE.description);
+      await signOut(c);
+
+      // A comes back, in a new session: the rename is still here, and is sent
+      mutateAuth = [];
+      await signIn("3", "aaaa");
+      const waiting = records.size; // what B's leaving left on the device
+      c = await open();
+      await vi.waitFor(() => expect(sent()).toEqual([RENAME]));
+      await settled(c);
+      expect(c.snapshot.value).toMatchObject({ ...RENAME, ...NOTE }); // beside B's change
+      // B's copy went when B left, with nothing unsent in it; A's was the one waiting,
+      // and goes the same way now that it has been sent
+      expect(waiting).toBe(1);
+      await signOut(c);
+      await vi.waitFor(() => expect(records.size).toBe(0));
+    });
+
+    it("finds a copy kept before each account had its own, for its account and no other", async () => {
+      // as the device held it then: under the list's own key, stamped for A, a rename unsent
+      records.set(claimedLocalKey(CODE), {
+        snapshot: snapshotFor(RENAME.title),
+        pending: [{ t: "setMeta", patch: RENAME }],
+        updatedAt: 1,
+        account: "aaaa",
+      });
+
+      await signIn("2", "bbbb");
+      let c = await open();
+      expect(c.snapshot.value?.title).toBe("Alpine Loop");
+      c.setMeta(NOTE);
+      await vi.waitFor(() => expect(sent()).toEqual([NOTE]));
+      await settled(c);
+      await signOut(c);
+
+      mutateAuth = [];
+      await signIn("3", "aaaa");
+      c = await open();
+      await vi.waitFor(() => expect(sent()).toEqual([RENAME]));
+      await settled(c);
+      expect(c.snapshot.value).toMatchObject({ ...RENAME, ...NOTE });
+      // moved to A's own, not copied: nothing is left to be sent a second time
+      await signOut(c);
+      await vi.waitFor(() => expect(records.size).toBe(0));
     });
   });
 });
