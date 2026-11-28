@@ -95,6 +95,9 @@ export const CATALOG_DDL: string[] = [
   // verified_by + source_quote — an in-app verification (verify_catalog_item): the
   // admin account behind it, and the maker's words for the weight. Null on every
   // seeded and community row; see schema.ts for what verified_by means to the seed.
+  //
+  // attributes — the row's typed axes as the CSV writes them, what My Gear shows as a
+  // piece's specs (schema.ts).
   `CREATE TABLE IF NOT EXISTS catalog_items (
     id serial PRIMARY KEY,
     brand text,
@@ -115,11 +118,9 @@ export const CATALOG_DDL: string[] = [
     common_name text,
     kcal integer,
     verified_by integer,
-    source_quote text
+    source_quote text,
+    attributes text
   )`,
-  // attributes: the row's typed axes as the CSV writes them (schema.ts). New 2026-11-27;
-  // folds into the CREATE once it has deployed (CLAUDE.md).
-  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS attributes text`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
