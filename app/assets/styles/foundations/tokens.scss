@@ -284,17 +284,23 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* ---- category palette — LOUD + UNEXPECTED: the only colour on the site is the
      data viz, so it's pushed to electric, non-natural hues (volt green / hot pink /
      hyper orange anchor it). light-mode lightness stays low enough to read on white
-     (>~3:1 fills); dark-mode goes full neon on black. "other" = neutral grey. ---- */
+     (>~3:1 fills); dark-mode goes full neon on black. "other" = neutral grey.
+     Any two can sit side by side in the bar, so no pair may land much nearer than the
+     anchors' own closest (orange and red, red and pink: about 0.15 apart in OKLab, after
+     the display's gamut). The cool half was crowded, five hues in pink-to-blue with a
+     wide empty gap at teal-to-blue, and pink and magenta came to 0.10 in dark mode. So
+     those five sit spaced into the gap, and where hue can't part two (blue and violet in
+     dark) lightness does. Moving one means measuring every pair again, both themes. ---- */
   --category-shelter: light-dark(oklch(0.74 0.21 132), oklch(0.88 0.24 130)); /* volt green */
   --category-sleep: light-dark(oklch(0.62 0.27 350), oklch(0.72 0.28 350)); /* hot pink */
   --category-pack: light-dark(oklch(0.67 0.2 50), oklch(0.78 0.21 55)); /* hyper orange */
-  --category-kitchen: light-dark(oklch(0.57 0.27 328), oklch(0.7 0.26 330)); /* magenta */
-  --category-water: light-dark(oklch(0.58 0.21 232), oklch(0.74 0.18 235)); /* electric blue */
-  --category-clothing: light-dark(oklch(0.55 0.28 300), oklch(0.7 0.26 302)); /* violet */
-  --category-electronics: light-dark(oklch(0.54 0.22 266), oklch(0.7 0.2 268)); /* indigo */
+  --category-kitchen: light-dark(oklch(0.59 0.28 318), oklch(0.69 0.28 320)); /* magenta */
+  --category-water: light-dark(oklch(0.6 0.15 225), oklch(0.77 0.17 228)); /* electric blue */
+  --category-clothing: light-dark(oklch(0.53 0.28 291), oklch(0.69 0.2 293)); /* violet */
+  --category-electronics: light-dark(oklch(0.54 0.24 257), oklch(0.61 0.23 259)); /* indigo */
   --category-firstaid: light-dark(oklch(0.58 0.25 22), oklch(0.68 0.25 25)); /* red */
-  --category-worn: light-dark(oklch(0.66 0.18 95), oklch(0.85 0.2 100)); /* acid yellow */
-  --category-consumable: light-dark(oklch(0.64 0.17 175), oklch(0.8 0.16 178)); /* teal */
+  --category-worn: light-dark(oklch(0.66 0.18 95), oklch(0.79 0.19 100)); /* acid yellow */
+  --category-consumable: light-dark(oklch(0.64 0.18 167), oklch(0.8 0.22 170)); /* teal */
   --category-other: light-dark(oklch(0.6 0.02 250), oklch(0.68 0.02 250)); /* neutral grey */
 
   /* ---- route difficulty — a terrain band is not a category, even when hard ground
