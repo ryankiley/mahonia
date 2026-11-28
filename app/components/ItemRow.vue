@@ -2104,6 +2104,12 @@ function dismissFix() {
 </template>
 
 <style scoped lang="scss">
+/* THE ROW HAS TWO LAYOUTS: the grid, and at $bp-stack and under, the stacked line built by
+   the block at the foot of this sheet. What belongs to the grid alone is written in its
+   own rule, inside `@media not all and (max-width: $bp-stack)`, so that block never has
+   to take a grid rule back off. The query is the exact complement of the block's: every
+   width gets one layout or the other, where a `min-width` one pixel up would leave a
+   width between the two (one a zoomed window can have) with neither. */
 .item {
   /* the grid scaffold (display / columns / align / gap) is the shared .item-row base
      (atoms/item.scss); this row only feeds it the edit column token and lays its cells
@@ -2166,23 +2172,31 @@ function dismissFix() {
 .item__classcell {
   grid-area: class;
   display: flex;
+  align-items: center;
+  gap: var(--space-1);
   /* CENTRED in a box the height of the field track, pinned to the row's TOP — not
      align-self:center in the grid area. The area is as tall as the name cell, and the
      name cell grows when its sub-line (gear type / note) opens; centring in it sank
      every icon to the middle of a two- or three-line cell. A --field-h box at the top
-     centres the glyph on the name line whether or not anything is open under it. */
-  align-self: start;
-  height: var(--field-h);
-  align-items: center;
-  gap: var(--space-1);
+     centres the glyph on the name line whether or not anything is open under it.
+     The grid's alone, here and on the two cells that ride the same box (the trailing
+     cluster below, the quantity stepper): the stacked line has no area to escape and is
+     sized by its cells, so the height would hold a 36px box in a ~25px line and `start`
+     would park three cells of three heights against the top of it. */
+  @media not all and (max-width: $bp-stack) {
+    align-self: start;
+    height: var(--field-h);
+  }
 }
 /* same box for the trailing cluster — it carried the same 2px lift, and the same
    sink once the name cell could grow; fixing only the middle one would leave two
    icon groups at two heights */
 .item__actions {
   grid-area: actions;
-  align-self: start;
-  height: var(--field-h);
+  @media not all and (max-width: $bp-stack) {
+    align-self: start;
+    height: var(--field-h);
+  }
 }
 /* desktop: the wrapper is invisible to layout, so its children act as direct grid
    items in the shared columns. (on mobile it becomes a flex-wrap row — see below) */
@@ -2214,8 +2228,11 @@ function dismissFix() {
      packing never changes a row's height. The whole row is the tap target, so
      --field-h (+ padding) is already a comfortable hit area — it earlier used
      field-h + 2×space-3, which stood 24px taller than the edit row and made the
-     list jump on every toggle. */
-  min-height: var(--field-h);
+     list jump on every toggle. The one-line row's floor: stacked, both faces are two
+     text lines and those set the height. */
+  @media not all and (max-width: $bp-stack) {
+    min-height: var(--field-h);
+  }
 }
 /* ...and the row stops offering itself as a tap target when its box stands for no row
    (the disabled state above): the whole label is the control, so the pointer has to go
@@ -2254,10 +2271,13 @@ function dismissFix() {
    checkbox; the negative tuck pulls it snug beneath, like the read row's sub-line */
 .item__csub {
   grid-column: 2 / -1;
-  /* same caption tuck as the read/edit rows (shared token) so the common name sits the
-     same distance under the name in packing mode too */
-  margin-top: var(--caption-tuck);
   color: var(--foreground-secondary);
+  /* same caption tuck as the read/edit rows (shared token) so the common name sits the
+     same distance under the name in packing mode too. Stacked, the row-gap is the
+     spacing and there is nothing to tuck into. */
+  @media not all and (max-width: $bp-stack) {
+    margin-top: var(--caption-tuck);
+  }
 }
 /* the variant on that sub-line: the aside voice the edit face's variant field and the
    read row's .item__rovariant use, a size under the upright gear type it qualifies */
@@ -2323,11 +2343,13 @@ function dismissFix() {
    makes a column of them line up down the list while the numbers between them stay
    centred on their own. */
 .item__qty--step {
-  align-self: start;
-  height: var(--field-h);
   align-items: center;
   justify-content: space-between;
-  gap: 0;
+  @media not all and (max-width: $bp-stack) {
+    align-self: start;
+    height: var(--field-h);
+    gap: 0;
+  }
 }
 /* the number carries NO box of its own — bare and centred between the buttons, it
    reads as the stepper's value rather than as a third control sitting between two */
@@ -2339,7 +2361,9 @@ function dismissFix() {
    columns already separate the count from the weight, and a fourth part would have
    to come out of a track sized for three */
 .item__qty--step .item__unit {
-  display: none;
+  @media not all and (max-width: $bp-stack) {
+    display: none;
+  }
 }
 /* WATER keeps a plain field (litres, not a count) — but it has to keep the stepper's
    GEOMETRY, or its number sits out at the track's right edge while every other row's
@@ -2347,17 +2371,25 @@ function dismissFix() {
    track: a number belongs under the number above it.
    So every row in this column has the SAME three slots — a gutter one ± button wide,
    the number centred in what's left, a gutter on the right. A water row simply has
-   nothing in the first and its "L" in the last, where the + sits on the rows above. */
+   nothing in the first and its "L" in the last, where the + sits on the rows above.
+   The gutter, the zero gap (the stepper's too, above) and the sized unit slot are there
+   to hold a COLUMN together, so they are the grid's: the stacked line has no column, its
+   fields size to their own content, and all three would only spend width the tightest
+   line in the app hasn't got. */
 .item__qty:not(.item__qty--step) {
-  gap: 0;
-  padding-left: var(--qty-btn);
+  @media not all and (max-width: $bp-stack) {
+    gap: 0;
+    padding-left: var(--qty-btn);
+  }
 }
 .item__qty:not(.item__qty--step) .field {
   flex: 1 1 auto;
   text-align: center;
 }
 .item__qty:not(.item__qty--step) .item__unit {
-  width: var(--qty-btn);
+  @media not all and (max-width: $bp-stack) {
+    width: var(--qty-btn);
+  }
 }
 /* Narrower than --icon-btn (see --qty-btn, tokens.scss): the three parts have to read
    as ONE control. Colour + hover come from the row's shared quiet-icon rules below,
@@ -2978,7 +3010,9 @@ function dismissFix() {
 .item__catnote {
   flex: none;
   align-self: center;
-  margin-left: calc(-1 * var(--space-2));
+  @media not all and (max-width: $bp-stack) {
+    margin-left: calc(-1 * var(--space-2));
+  }
 }
 .item__catnote :deep(.item__catnote-btn) {
   position: relative;
@@ -3008,9 +3042,11 @@ function dismissFix() {
   overflow: visible;
 }
 
-/* the ⋯ overflow menu is mobile-only — desktop shows every action inline (below) */
+/* the ⋯ overflow menu is the stacked row's: the grid shows every action inline (below) */
 .item__more {
-  display: none;
+  @media not all and (max-width: $bp-stack) {
+    display: none;
+  }
 }
 
 /* ---- carried by ---- */
@@ -3025,7 +3061,8 @@ function dismissFix() {
    disc behind it was the redundant half, and the loud one in a dense list.
    The dot then rides the glyph column like everything else: half the difference
    between the glyph's footprint (--icon) and the swatch, taken off the right, puts its
-   centre at 24 instead of 3px past it. */
+   centre at 24 instead of 3px past it. On the grid, that is: the stacked cluster centres
+   its glyphs, the dot with them, and has no such column to meet. */
 /* (still reaches: the swatch is this component's slot content into ItemRowMenu, so
    it carries this scope id even though the button around it doesn't) */
 .item__person-btn .swatch {
@@ -3035,7 +3072,9 @@ function dismissFix() {
      small?"). The ring's own diameter, so empty ring and filled dot read as one size.
      Set as the atom's own variable, so the nudge below follows it. */
   --swatch: var(--icon-sm);
-  margin-right: calc((var(--icon) - var(--swatch)) / 2);
+  @media not all and (max-width: $bp-stack) {
+    margin-right: calc((var(--icon) - var(--swatch)) / 2);
+  }
 }
 /* picker entries: the chosen one wears the on-plate */
 .item__personpick.is-active {
@@ -3184,26 +3223,6 @@ function dismissFix() {
   .item__actions {
     flex: none;
   }
-  /* THE DESKTOP --field-h BOX, UNDONE — both halves of it, in one place, because it is
-     one idea. On the grid these three cells sit `align-self: start` inside a box exactly
-     --field-h tall: the grid AREA is as tall as the name cell and grows when its sub-line
-     (gear type / note) opens, so the box is what keeps each cell on the name LINE instead
-     of sinking to the middle of a three-line cell, and `start` is what pins the box to the
-     top of that area.
-     Down here there is no area to escape and no box to sit in — the flex line IS the box,
-     and it is sized by the cells themselves. Both halves have to come off together: the
-     height would hold a 36px box inside a ~25px line, and `start` would park three cells
-     of three slightly different heights against the top of a line whose height they don't
-     set, which is the wobble the centring above exists to remove.
-     They were three separate `height: auto` declarations until the align-self reset joined
-     them; keeping the two properties on one selector list is what stops a fourth cell being
-     added to one list and forgotten in the other. */
-  .item__qty--step,
-  .item__classcell,
-  .item__actions {
-    height: auto;
-    align-self: auto;
-  }
   /* the --touch-target tap targets keep their size but overflow the (shorter) text line via
      negative margins, so the icons don't inflate the row and push the two text
      lines apart.
@@ -3278,9 +3297,6 @@ function dismissFix() {
   .item__actions .tooltip-trigger:has(.item__del) {
     display: none;
   }
-  .item__more {
-    display: inline-flex;
-  }
   /* the classification cell used to hold a text label that had to ellipsize to keep
      qty/weight/controls on one line. Two icon toggles are a fixed 68px, so there is
      nothing left to shrink — it just holds its size beside the other controls.
@@ -3343,11 +3359,6 @@ function dismissFix() {
   .item__trail :deep(.item__person-btn),
   .item__trail :deep(.item__morebtn) {
     justify-content: center;
-  }
-  /* the carrier's dot centres with them: its nudge onto the desktop cluster's
-     right-aligned glyph column (.item__person-btn .swatch) has no column to meet here */
-  .item__trail .item__person-btn .swatch {
-    margin-right: 0;
   }
   /* THE GRIP'S BOX STARTS WHERE THE ⋯'S ENDS. To put the dots there it used to be a
      whole --touch-target box brought back by a negative margin of half a box and a pixel,
@@ -3418,11 +3429,12 @@ function dismissFix() {
   .item__qtybtn {
     display: none;
   }
-  .item__qty--step .item__unit {
-    display: block; /* the flex item it already was — restoring, not restyling */
-  }
   /* flush-left on the flowing mobile row — the global right-align is for the desktop
-     columns; here it would indent a short value (e.g. "1") from the viewport edge */
+     columns; here it would indent a short value (e.g. "1") from the viewport edge.
+     The .item-wrap prefix (the block's own idiom, see .item-wrap .item .field) is what
+     MATCHES the rules this answers: the number is centred by `.item__qty--step .field`
+     and `.item__qty:not(.item__qty--step) .field`, and a bare `.item__qty .field` is a
+     class short of those. */
   .item-wrap .item__qty .field,
   .item__weight .field {
     text-align: left;
@@ -3431,23 +3443,6 @@ function dismissFix() {
      at the cell's left edge down here, so the empty end is the other one */
   .item__weight .item__catnote {
     order: 3;
-    margin-left: 0;
-  }
-  /* and the cell gives back the stepper's geometry with it — both variants, since
-     both are a plain field down here. That reserved button gutter, the zero gap and
-     the sized unit slot exist to hold a COLUMN together; this line has none, and the
-     fields size to their own content, so all three would only spend width the
-     tightest line in the app hasn't got.
-     The .item-wrap prefix here and above (the block's own idiom — see .item-wrap
-     .item .field) is what MATCHES the water rules being undone: those are written
-     `.item__qty:not(.item__qty--step)`, and a bare `.item__qty` is a class short of
-     that, so it lost to them and left a water row still carrying its 24px gutter. */
-  .item-wrap .item__qty {
-    gap: var(--space-1);
-    padding-left: 0;
-  }
-  .item-wrap .item__qty .item__unit {
-    width: auto;
   }
   .item__qty .field {
     width: 2.5em;
@@ -3499,7 +3494,6 @@ function dismissFix() {
        that say nothing; `auto` above it still grows for a spelled-out split. */
     --row-cols: auto minmax(2.5ch, auto) 1fr;
     --row-gap: var(--space-1) var(--space-3); /* row-gap · column-gap */
-    min-height: 0; /* drop the desktop tall single-row min-height */
   }
   /* checkbox in the left column, aligned to the title line (not centred across the
      whole two-line cell) — it sits beside the name, centred to that first row.
@@ -3531,11 +3525,9 @@ function dismissFix() {
   }
   /* the gear type on the line directly under the name (it is the everyday word for
      that name — the edit and read faces put it there too), ×qty · weight below it;
-     aligned to the name column. The row-gap gives the spacing so drop the desktop
-     upward tuck. */
+     aligned to the name column. */
   .item__csub {
     grid-row: 2;
-    margin-top: 0;
   }
 }
 </style>
