@@ -51,11 +51,9 @@ const errorKeys = (rows: RuleRow[]) => new Set(errorsOf(runCatalogChecks(rows.ma
  * spelling per brand and variant token, one category per gear type). A finding the catalog
  * already had is not the new row's; only one the row brings counts, told apart by what each
  * finding is about (Finding.key), since a message can name counts the new row moves. Run
- * before and after, not once: the spelling rules name no row to pick out. `file` is where
- * the row graduates to: verified-in-app.json, or for a research row its own research file,
- * where the audit reads a quote's metric figures only (researchChecks).
+ * before and after, not once: the spelling rules name no row to pick out.
  */
-export function houseRuleProblems(row: RuleRow, siblings: RuleRow[], file: string = GRADUATED_FILE_NAME, was?: RuleRow): string[] {
+export function houseRuleProblems(row: RuleRow, siblings: RuleRow[], was?: RuleRow): string[] {
   const before = errorKeys(siblings);
   // `was` is the row as it stands, when the write changes one. A finding it already shared
   // with other rows (a variant token spelled two ways across the catalog) is the catalog's,
@@ -69,6 +67,6 @@ export function houseRuleProblems(row: RuleRow, siblings: RuleRow[], file: strin
   // the row as catalog:graduate would write it; one with no citation never graduates, so
   // only the CSV rules hold it. A research finding names its file apart from its message.
   const research = asResearchRow(row);
-  if (research) found.push(...errorsOf(runResearchChecks([{ file, rows: [research] }])).map((f) => f.message));
+  if (research) found.push(...errorsOf(runResearchChecks([{ file: GRADUATED_FILE_NAME, rows: [research] }])).map((f) => f.message));
   return [...new Set(found)];
 }

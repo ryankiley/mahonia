@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { IconBackpack, IconSafeSimple, IconToolbox } from "~/icons/central";
-import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import type { SharedGear } from "~~/shared/vaultShare";
@@ -137,19 +136,11 @@ useHead({
       </template>
     </main>
 
-    <!-- Nothing to show: the site's one-message page (.page--alone + .prose), centred
-         between the top bar and the footer like the 404 and a missing shared list, in that
-         list's words -->
-    <main v-else id="main-content" tabindex="-1" class="wrap page page--alone">
-      <div class="prose">
-        <!-- My Gear's own mark, the one its signed-out page wears -->
-        <SvgIcon :icon="IconSafeSimple" size="xl" class="page__mark" aria-hidden="true" />
-        <p>This gear link is off, or was mistyped.</p>
-        <p>
-          <NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink>
-        </p>
-      </div>
-    </main>
+    <!-- Nothing to show: the site's one-message page, in a missing list's words, with My
+         Gear's own mark (the one its signed-out page wears) -->
+    <MessagePage v-else :icon="IconSafeSimple">
+      <p>This gear link is off, or was mistyped.</p>
+    </MessagePage>
   </div>
 </template>
 

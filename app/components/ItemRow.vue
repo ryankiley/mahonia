@@ -1313,7 +1313,6 @@ function dismissFix() {
             :unit="rowUnit"
             :initial="editableName"
             :placeholder="isPendingBlank ? 'Add an item' : 'Name of item'"
-            :clear-on-commit="false"
             :suggest="!isParent"
             :autofocus="isPendingBlank"
             @commit="onNameCommit"

@@ -336,8 +336,7 @@ export async function verifyCatalogItem(
 
   // ---- the house style: what the build would refuse in this row ----
   const ruleRow: RuleRow = { ...identity, commonName: label, categoryHint: kind, weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote };
-  // a research row graduates back into its own research file, not verified-in-app.json
-  const problems = houseRuleProblems(ruleRow, compared, research ? "research" : undefined, current?.status === "active" ? current : undefined);
+  const problems = houseRuleProblems(ruleRow, compared, current?.status === "active" ? current : undefined);
   if (problems.length) {
     // category is named too: a row filed apart from its gear type's siblings is put right by it
     const fix = research

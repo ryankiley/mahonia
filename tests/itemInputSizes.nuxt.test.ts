@@ -56,7 +56,7 @@ const PAIR = [jacket(21, "Men's Medium", 249), jacket(22, "Women's", 240)];
 
 async function menuFor(hits: Record<string, unknown>[], typed = "alphalite", options = 1) {
   catalogHits = hits;
-  const w = mount(ItemInput, { props: { unit: "g", clearOnCommit: true }, attachTo: document.body });
+  const w = mount(ItemInput, { props: { unit: "g", mode: "row" }, attachTo: document.body });
   const input = w.find<HTMLInputElement>("input").element;
   typeInto(input, typed);
   await vi.waitFor(() => expect(w.findAll('[role="option"]').length).toBe(options), { timeout: 2_000 });
